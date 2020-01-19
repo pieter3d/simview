@@ -1,0 +1,8 @@
+---
+Language:        Cpp
+AlwaysBreakTemplateDeclarations: true
+AccessModifierOffset: -1
+AllowShortIfStatementsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: true
+...
