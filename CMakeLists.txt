@@ -32,11 +32,11 @@ endif()
 
 # Ninja builder doesn't enable color prints since it doesn't 
 # direct compiler output direct to stdout.
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-   add_compile_options (-fdiagnostics-color=always)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-   add_compile_options (-fcolor-diagnostics)
-endif ()
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  add_compile_options(-fdiagnostics-color=always)
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  add_compile_options(-fcolor-diagnostics)
+endif()
 
 # Helper macros are defined in a separate file.
 include(macros.cmake)
