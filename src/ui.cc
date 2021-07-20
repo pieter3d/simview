@@ -41,30 +41,30 @@ void UI::EventLoop() {
       continue;
     }
     switch (ch) {
-      case 0x221: // ctrl-left
-        if (src_pos_x_ > 5) {
-          src_pos_x_--;
-          DrawPanes();
-        }
-        break;
-      case 0x230: // ctrl-right
-        if (src_pos_x_ < term_w_ - 5) {
-          src_pos_x_++;
-          DrawPanes();
-        }
-        break;
-      case 0x236: // ctrl-up
-        if (wave_pos_y_ > 5) {
-          wave_pos_y_--;
-          DrawPanes();
-        }
-        break;
-      case 0x20d: // ctrl-down
-        if (wave_pos_y_ < term_h_ - 5) {
-          wave_pos_y_++;
-          DrawPanes();
-        }
-        break;
+    case 0x221: // ctrl-left
+      if (src_pos_x_ > 5) {
+        src_pos_x_--;
+        DrawPanes();
+      }
+      break;
+    case 0x230: // ctrl-right
+      if (src_pos_x_ < term_w_ - 5) {
+        src_pos_x_++;
+        DrawPanes();
+      }
+      break;
+    case 0x236: // ctrl-up
+      if (wave_pos_y_ > 5) {
+        wave_pos_y_--;
+        DrawPanes();
+      }
+      break;
+    case 0x20d: // ctrl-down
+      if (wave_pos_y_ < term_h_ - 5) {
+        wave_pos_y_++;
+        DrawPanes();
+      }
+      break;
     }
     // For now:
     if (ch == 'q') break;
