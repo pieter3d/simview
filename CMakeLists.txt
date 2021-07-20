@@ -44,6 +44,9 @@ include(macros.cmake)
 # Testing is good!
 enable_testing()
 
+# All include is relative to project root, or local dir.
+include_directories(${PROJECT_SOURCE_DIR})
+
 # Add all external projects
 add_subdirectory(external)
 
