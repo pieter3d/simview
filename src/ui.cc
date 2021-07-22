@@ -7,7 +7,7 @@ namespace sv {
 UI::UI() {
   // Init ncurses
   initscr();
-  raw();
+  cbreak();
   keypad(stdscr, true);
   noecho();
   curs_set(0); // Hide cursor
@@ -72,14 +72,11 @@ void UI::EventLoop() {
 }
 
 void UI::DrawPanes() {
-  clear();
-  for (int row = 0; row < wave_pos_y_; ++row) {
-    mvaddch(row, src_pos_x_, ACS_VLINE);
-  }
-  move(wave_pos_y_, 0);
-  for (int col = 0; col < term_w_; ++col) {
-    addch(col == src_pos_x_ ? ACS_BTEE : ACS_HLINE);
-  }
+  erase();
+  mvvline(0, src_pos_x_, ACS_VLINE, wave_pos_y_);
+  mvhline(wave_pos_y_, 0, ACS_HLINE, src_pos_x_);
+  mvaddch(wave_pos_y_, src_pos_x_, ACS_BTEE);
+  hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
   refresh();
 }
 

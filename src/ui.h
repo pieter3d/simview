@@ -18,5 +18,6 @@ class UI {
   int term_w_;
   int term_h_;
 };
+
 } // namespace sv
 #endif // _SRC_UI_H_
