@@ -27,6 +27,9 @@ find_library(KJ_LIBRARIES NAMES kj
 find_path(SURELOG_INCLUDE_DIR "surelog/surelog.h")
 
 add_executable(simview
+  hierarchy.cc
+  source.cc
+  waves.cc
   ui.cc
   main.cc
 )

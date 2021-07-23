@@ -10,6 +10,7 @@ class Panel {
   Panel(WINDOW *w) : w_(w) {}
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() const = 0;
+  virtual void UIChar(int ch) = 0;
   WINDOW *Window() const { return w_; }
 
  protected:
