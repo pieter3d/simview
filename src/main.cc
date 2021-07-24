@@ -25,6 +25,10 @@ int main(int argc, const char *argv[]) {
       std::cout << "Unable to parse the design!" << std::endl;
       return -1;
     }
+    if (design->getTopLevelModuleInstances().empty()) {
+      std::cout << "No top level design found!" << std::endl;
+      return -1;
+    }
   }
   delete clp;
   delete symbolTable;
