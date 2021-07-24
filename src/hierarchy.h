@@ -15,6 +15,7 @@ class Hierarchy : public Panel {
 
  private:
   SURELOG::Design *design_;
+  int tmp;
 };
 
 } // namespace sv

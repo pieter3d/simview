@@ -29,6 +29,7 @@ class UI {
   std::unique_ptr<Source> source_;
   std::unique_ptr<Waves> waves_;
   Panel *focused_panel_ = nullptr;
+  Panel *prev_focused_panel_ = nullptr;
 };
 
 } // namespace sv

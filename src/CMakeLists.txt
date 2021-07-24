@@ -8,8 +8,8 @@ set(CMAKE_CXX_FLAGS "-Werror \
                      -Wno-inconsistent-missing-override \
                      -Wno-unused-parameter")
 
-# NCurses for the TUI
 find_package(Curses REQUIRED)
+find_package(Threads REQUIRED)
 link_directories(/usr/local/lib/surelog)
 
 find_library(SURELOG_LIBRARIES NAMES surelog
@@ -26,6 +26,16 @@ find_library(KJ_LIBRARIES NAMES kj
   PATH_SUFFIXES uhdm) 
 find_path(SURELOG_INCLUDE_DIR "surelog/surelog.h")
 
+set(ALL_SURELOG_LIBS
+  ${SURELOG_LIBRARIES}
+  ${UHDM_LIBRARIES}
+  ${CAPNP_LIBRARIES}
+  ${KJ_LIBRARIES}
+  ${FLATBUFFERS_LIBRARIES}
+  ${ANTLR_LIBRARIES}
+  Threads::Threads
+)
+
 add_executable(simview
   hierarchy.cc
   source.cc
@@ -41,13 +51,7 @@ target_include_directories(simview PRIVATE
   ${SURELOG_INCLUDE_DIR}/uhdm/include
 )
 target_link_libraries(simview PUBLIC
-  absl::str_format
   ${CURSES_LIBRARIES}
-  ${SURELOG_LIBRARIES}
-  ${UHDM_LIBRARIES}
-  ${CAPNP_LIBRARIES}
-  ${KJ_LIBRARIES}
-  ${FLATBUFFERS_LIBRARIES}
-  ${ANTLR_LIBRARIES}
+  ${ALL_SURELOG_LIBS}
 )
 set_target_properties(simview PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

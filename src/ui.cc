@@ -7,16 +7,19 @@ namespace sv {
 namespace {
 
 constexpr int kBorderPair = 1;
+constexpr int kFocusBorderPair = 2;
 
 void setup_colors() {
   if (has_colors()) {
     start_color();
-    init_pair(kBorderPair, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(kBorderPair, 8, COLOR_BLACK); // gray
+    init_pair(kFocusBorderPair, 11, COLOR_BLACK); // yellow
   }
 }
 } // namespace
 
 UI::UI() {
+  setlocale(LC_ALL, "");
   // Init ncurses
   initscr();
   cbreak();
@@ -24,6 +27,7 @@ UI::UI() {
   noecho();
   curs_set(0); // Hide cursor
   setup_colors();
+  use_default_colors();
 
   // Default splits on startup.
   getmaxyx(stdscr, term_h_, term_w_);
@@ -38,6 +42,7 @@ UI::UI() {
   waves_ = std::make_unique<Waves>(
       newwin(term_h_ - wave_pos_y_ - 1, term_w_, wave_pos_y_ + 1, 0));
   focused_panel_ = hierarchy_.get();
+  prev_focused_panel_ = focused_panel_;
 
   // Initial render
   DrawPanes(false);
@@ -88,6 +93,35 @@ void UI::EventLoop() {
         resize = true;
       }
       break;
+    case 0x189: // shift-left
+      if (focused_panel_ == source_.get()) {
+        prev_focused_panel_ = focused_panel_;
+        focused_panel_ = hierarchy_.get();
+        redraw = true;
+      }
+      break;
+    case 0x192: // shift-right
+      if (focused_panel_ == hierarchy_.get()) {
+        prev_focused_panel_ = focused_panel_;
+        focused_panel_ = source_.get();
+        redraw = true;
+      }
+      break;
+    case 0x151: // shift-up
+      if (focused_panel_ == waves_.get()) {
+        focused_panel_ = prev_focused_panel_;
+        prev_focused_panel_ = waves_.get();
+        redraw = true;
+      }
+      break;
+    case 0x150: // shift-down
+      if (focused_panel_ != waves_.get()) {
+        prev_focused_panel_ = focused_panel_;
+        focused_panel_ = waves_.get();
+        redraw = true;
+      }
+      break;
+    default: focused_panel_->UIChar(ch); redraw = true;
     }
     // For now:
     if (ch == 'q') break;
@@ -106,9 +140,25 @@ void UI::DrawPanes(bool resize) {
     mvwin(waves_->Window(), wave_pos_y_ + 1, 0);
   }
   erase();
+  if (focused_panel_ != waves_.get()) {
+    attron(COLOR_PAIR(kFocusBorderPair));
+  } else {
+    attron(COLOR_PAIR(kBorderPair));
+  }
   mvvline(0, src_pos_x_, ACS_VLINE, wave_pos_y_);
+  if (focused_panel_ != source_.get()) {
+    attron(COLOR_PAIR(kFocusBorderPair));
+  } else {
+    attron(COLOR_PAIR(kBorderPair));
+  }
   mvhline(wave_pos_y_, 0, ACS_HLINE, src_pos_x_);
+  attron(COLOR_PAIR(kFocusBorderPair));
   mvaddch(wave_pos_y_, src_pos_x_, ACS_BTEE);
+  if (focused_panel_ != hierarchy_.get()) {
+    attron(COLOR_PAIR(kFocusBorderPair));
+  } else {
+    attron(COLOR_PAIR(kBorderPair));
+  }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
   wnoutrefresh(stdscr);
   hierarchy_->Draw();
