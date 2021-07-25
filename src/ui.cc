@@ -12,7 +12,7 @@ constexpr int kFocusBorderPair = 2;
 void setup_colors() {
   if (has_colors()) {
     start_color();
-    init_pair(kBorderPair, 8, COLOR_BLACK); // gray
+    init_pair(kBorderPair, 8, COLOR_BLACK);       // gray
     init_pair(kFocusBorderPair, 11, COLOR_BLACK); // yellow
   }
 }
@@ -59,6 +59,7 @@ void UI::EventLoop() {
     bool resize = false;
     bool redraw = false;
     ch = getch();
+    tmp_ch = ch; // TODO: remove
     if (ch == KEY_RESIZE) {
       float x = (float)src_pos_x_ / term_w_;
       float y = (float)wave_pos_y_ / term_h_;
@@ -121,7 +122,10 @@ void UI::EventLoop() {
         redraw = true;
       }
       break;
-    default: focused_panel_->UIChar(ch); redraw = true;
+    default:
+      focused_panel_->UIChar(ch);
+      redraw = true;
+      break;
     }
     // For now:
     if (ch == 'q') break;
@@ -133,7 +137,7 @@ void UI::EventLoop() {
 
 void UI::DrawPanes(bool resize) {
   if (resize) {
-    wresize(hierarchy_->Window(), wave_pos_y_ - 1, src_pos_x_ - 1);
+    wresize(hierarchy_->Window(), wave_pos_y_ - 1, src_pos_x_);
     wresize(source_->Window(), wave_pos_y_ - 1, term_w_ - src_pos_x_ - 1);
     mvwin(source_->Window(), 0, src_pos_x_ + 1);
     wresize(waves_->Window(), term_h_ - wave_pos_y_ - 1, term_w_);
@@ -160,6 +164,7 @@ void UI::DrawPanes(bool resize) {
     attron(COLOR_PAIR(kBorderPair));
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
+  mvprintw(wave_pos_y_, 0, "code: 0x%x", tmp_ch);
   wnoutrefresh(stdscr);
   hierarchy_->Draw();
   source_->Draw();
@@ -170,6 +175,9 @@ void UI::DrawPanes(bool resize) {
   doupdate();
 }
 
-void UI::SetDesign(SURELOG::Design *d) { hierarchy_->SetDesign(d); }
+void UI::SetDesign(SURELOG::Design *d) {
+  hierarchy_->SetDesign(d);
+  DrawPanes(false);
+}
 
 } // namespace sv

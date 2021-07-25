@@ -34,10 +34,12 @@ int main(int argc, const char *argv[]) {
   delete symbolTable;
   delete errors;
 
+  // TODO: remove print.
   printf("Design top: %s\n",
          design->getTopLevelModuleInstances()[0]->getModuleName().c_str());
 
   sv::UI ui;
+  ui.SetDesign(design);
   ui.EventLoop();
 
   delete design;

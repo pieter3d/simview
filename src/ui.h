@@ -5,7 +5,7 @@
 #include "source.h"
 #include "waves.h"
 #include <memory>
-#include <surelog/surelog.h>
+#include <surelog/Design/Design.h>
 
 namespace sv {
 
@@ -24,6 +24,7 @@ class UI {
   int src_pos_x_;
   int term_w_;
   int term_h_;
+  int tmp_ch; // TODO: remove
 
   std::unique_ptr<Hierarchy> hierarchy_;
   std::unique_ptr<Source> source_;

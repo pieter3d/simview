@@ -36,6 +36,13 @@ set(ALL_SURELOG_LIBS
   Threads::Threads
 )
 
+set(ALL_SURELOG_INCLUDES
+  ${SURELOG_INCLUDE_DIR}/surelog
+  ${SURELOG_INCLUDE_DIR}/uhdm
+  ${SURELOG_INCLUDE_DIR}/uhdm/headers
+  ${SURELOG_INCLUDE_DIR}/uhdm/include
+)
+
 add_executable(simview
   hierarchy.cc
   source.cc
@@ -44,13 +51,9 @@ add_executable(simview
   main.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
-target_include_directories(simview PRIVATE
-  ${SURELOG_INCLUDE_DIR}/surelog
-  ${SURELOG_INCLUDE_DIR}/uhdm
-  ${SURELOG_INCLUDE_DIR}/uhdm/headers
-  ${SURELOG_INCLUDE_DIR}/uhdm/include
-)
+target_include_directories(simview PRIVATE ${ALL_SURELOG_INCLUDES})
 target_link_libraries(simview PUBLIC
+  absl::str_format
   ${CURSES_LIBRARIES}
   ${ALL_SURELOG_LIBS}
 )
