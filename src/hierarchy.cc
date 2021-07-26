@@ -152,12 +152,15 @@ void Hierarchy::UIChar(int ch) {
   case 0xa:  // space
     ToggleExpand();
     break;
+  case 'h':
   case 0x104: // left
     if (ui_col_scroll_ > 0) ui_col_scroll_--;
     break;
+  case 'l':
   case 0x105: // right
     if (ui_col_scroll_ < ui_max_col_scroll_) ui_col_scroll_++;
     break;
+  case 'k':
   case 0x103: // up
     if (ui_line_index_ == 0 && ui_row_scroll_ != 0) {
       ui_row_scroll_--;
@@ -165,6 +168,7 @@ void Hierarchy::UIChar(int ch) {
       ui_line_index_--;
     }
     break;
+  case 'j':
   case 0x102: // down
     if (data_idx < instances_.size() - 1) {
       if (ui_line_index_ < win_h - 1) {
