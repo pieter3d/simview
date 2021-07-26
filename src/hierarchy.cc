@@ -58,7 +58,7 @@ void Hierarchy::Draw() {
       const int x = j - ui_col_scroll_;
       if (x < 0) continue;
       if (x >= win_w) break;
-      if (x == 0 && ui_col_scroll_ != 0) {
+      if (x == 0 && ui_col_scroll_ != 0 && j >= expand_pos) {
         // Show an overflow character on the left edge if the ui has been
         // scrolled horizontally.
         wcolor_set(w_, kOverflowTextPair, nullptr);
