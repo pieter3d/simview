@@ -8,7 +8,7 @@ namespace sv {
 class Source : public Panel {
  public:
   Source(WINDOW *w) : Panel(w) {}
-  void Draw() const override;
+  void Draw() override;
   void UIChar(int ch) override;
 
  private:

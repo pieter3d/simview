@@ -2,7 +2,7 @@
 
 namespace sv {
 
-void Waves::Draw() const {
+void Waves::Draw() {
   werase(w_);
   // test
   mvwprintw(w_, 0, 0, "Braap!");

@@ -4,6 +4,7 @@
 #include "hierarchy.h"
 #include "source.h"
 #include "waves.h"
+#include "absl/time/time.h"
 #include <memory>
 #include <surelog/Design/Design.h>
 
@@ -24,7 +25,8 @@ class UI {
   int src_pos_x_;
   int term_w_;
   int term_h_;
-  int tmp_ch; // TODO: remove
+  std::vector<int> tmp_ch; // TODO: remove
+  absl::Time last_ch;
 
   std::unique_ptr<Hierarchy> hierarchy_;
   std::unique_ptr<Source> source_;

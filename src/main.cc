@@ -19,8 +19,9 @@ int main(int argc, const char *argv[]) {
     SURELOG::scompiler *compiler = SURELOG::start_compiler(clp);
     design = SURELOG::get_design(compiler);
     SURELOG::shutdown_compiler(compiler);
+    errors->printStats(errors->getErrorStats());
     auto stats = errors->getErrorStats();
-    if (design == nullptr || stats.nbError > 0 || stats.nbFatal > 0 ||
+    if (design == nullptr || /* stats.nbError > 0 i ||*/ stats.nbFatal > 0 ||
         stats.nbSyntax > 0) {
       std::cout << "Unable to parse the design!" << std::endl;
       return -1;

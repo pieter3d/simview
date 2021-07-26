@@ -8,7 +8,7 @@ namespace sv {
 class Waves : public Panel {
  public:
   Waves(WINDOW *w) : Panel(w) {}
-  void Draw() const override;
+  void Draw() override;
   void UIChar(int ch) override;
 
  private:

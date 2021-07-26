@@ -11,7 +11,7 @@ class Hierarchy : public Panel {
  public:
   Hierarchy(WINDOW *w);
   void SetDesign(SURELOG::Design *d);
-  void Draw() const override;
+  void Draw() override;
   void UIChar(int ch) override;
 
  private:
@@ -20,14 +20,17 @@ class Hierarchy : public Panel {
     int depth;
     int index_in_parent;
     bool expanded = false;
+    bool expandable = false;
   };
-  void ToggleExpand(SURELOG::ModuleInstance *inst);
+  void ToggleExpand();
 
   SURELOG::Design *design_;
   SURELOG::ModuleInstance *current_instance_;
   std::vector<InstanceLine> instances_;
   int ui_line_index_ = 0;
-  int instance_index_ = 0;
+  int ui_row_scroll_ = 0;
+  int ui_col_scroll_ = 0;
+  int ui_max_col_scroll_ = 0;
 };
 
 } // namespace sv

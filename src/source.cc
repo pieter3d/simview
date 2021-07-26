@@ -2,7 +2,7 @@
 
 namespace sv {
 
-void Source::Draw() const {
+void Source::Draw() {
   werase(w_);
   // test
   mvwprintw(w_, 0, 0, "Beep!");

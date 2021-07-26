@@ -1,22 +1,13 @@
 #include "ui.h"
 
+#include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "color.h"
 #include <memory>
 #include <ncurses.h>
 
 namespace sv {
-namespace {
-
-constexpr int kBorderPair = 1;
-constexpr int kFocusBorderPair = 2;
-
-void setup_colors() {
-  if (has_colors()) {
-    start_color();
-    init_pair(kBorderPair, 8, COLOR_BLACK);       // gray
-    init_pair(kFocusBorderPair, 11, COLOR_BLACK); // yellow
-  }
-}
-} // namespace
 
 UI::UI() {
   setlocale(LC_ALL, "");
@@ -26,8 +17,7 @@ UI::UI() {
   keypad(stdscr, true);
   noecho();
   curs_set(0); // Hide cursor
-  setup_colors();
-  use_default_colors();
+  SetupColors();
 
   // Default splits on startup.
   getmaxyx(stdscr, term_h_, term_w_);
@@ -35,10 +25,10 @@ UI::UI() {
   wave_pos_y_ = term_h_ * 50 / 100;
 
   // Create windows and associated panels
-  hierarchy_ = std::make_unique<Hierarchy>(
-      newwin(wave_pos_y_ - 1, src_pos_x_ - 1, 0, 0));
+  hierarchy_ =
+      std::make_unique<Hierarchy>(newwin(wave_pos_y_, src_pos_x_ - 1, 0, 0));
   source_ = std::make_unique<Source>(
-      newwin(wave_pos_y_ - 1, term_w_ - src_pos_x_, 0, src_pos_x_ + 1));
+      newwin(wave_pos_y_, term_w_ - src_pos_x_, 0, src_pos_x_ + 1));
   waves_ = std::make_unique<Waves>(
       newwin(term_h_ - wave_pos_y_ - 1, term_w_, wave_pos_y_ + 1, 0));
   focused_panel_ = hierarchy_.get();
@@ -59,7 +49,15 @@ void UI::EventLoop() {
     bool resize = false;
     bool redraw = false;
     ch = getch();
-    tmp_ch = ch; // TODO: remove
+
+    // TODO: remove
+    auto now = absl::Now();
+    if (now - last_ch > absl::Milliseconds(50)) {
+      tmp_ch.clear();
+    }
+    tmp_ch.push_back(ch);
+    last_ch = now;
+
     if (ch == KEY_RESIZE) {
       float x = (float)src_pos_x_ / term_w_;
       float y = (float)wave_pos_y_ / term_h_;
@@ -137,8 +135,8 @@ void UI::EventLoop() {
 
 void UI::DrawPanes(bool resize) {
   if (resize) {
-    wresize(hierarchy_->Window(), wave_pos_y_ - 1, src_pos_x_);
-    wresize(source_->Window(), wave_pos_y_ - 1, term_w_ - src_pos_x_ - 1);
+    wresize(hierarchy_->Window(), wave_pos_y_, src_pos_x_);
+    wresize(source_->Window(), wave_pos_y_, term_w_ - src_pos_x_ - 1);
     mvwin(source_->Window(), 0, src_pos_x_ + 1);
     wresize(waves_->Window(), term_h_ - wave_pos_y_ - 1, term_w_);
     mvwin(waves_->Window(), wave_pos_y_ + 1, 0);
@@ -164,7 +162,10 @@ void UI::DrawPanes(bool resize) {
     attron(COLOR_PAIR(kBorderPair));
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
-  mvprintw(wave_pos_y_, 0, "code: 0x%x", tmp_ch);
+  std::string s;
+  for (int code : tmp_ch)
+    s.append(absl::StrFormat("0x%x ", code));
+  mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
   wnoutrefresh(stdscr);
   hierarchy_->Draw();
   source_->Draw();

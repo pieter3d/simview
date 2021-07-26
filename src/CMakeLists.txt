@@ -10,7 +10,6 @@ set(CMAKE_CXX_FLAGS "-Werror \
 
 find_package(Curses REQUIRED)
 find_package(Threads REQUIRED)
-link_directories(/usr/local/lib/surelog)
 
 find_library(SURELOG_LIBRARIES NAMES surelog
   PATH_SUFFIXES surelog) 
@@ -48,12 +47,14 @@ add_executable(simview
   source.cc
   waves.cc
   ui.cc
+  color.cc
   main.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
 target_include_directories(simview PRIVATE ${ALL_SURELOG_INCLUDES})
 target_link_libraries(simview PUBLIC
   absl::str_format
+  absl::time
   ${CURSES_LIBRARIES}
   ${ALL_SURELOG_LIBS}
 )
