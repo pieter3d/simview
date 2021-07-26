@@ -5,6 +5,10 @@
 
 namespace sv {
 namespace {
+
+// Limit number of instances dumped into the UI at once.
+constexpr int kMaxExpandInstances = 500;
+
 std::string strip_worklib(const std::string &s) {
   const int lib_delimieter_pos = s.find('@');
   if (lib_delimieter_pos == std::string::npos) return s;
@@ -41,42 +45,47 @@ void Hierarchy::Draw() {
     if (instance_idx >= instances_.size()) break;
     if (y == ui_line_index_) wattron(w_, A_REVERSE);
     auto line = instances_[instance_idx];
-    auto inst_name = strip_worklib(line.instance->getInstanceName());
-    auto mod_name = strip_worklib(line.instance->getModuleName());
-    char exp = line.expandable ? (line.expanded ? '-' : '+') : ' ';
     std::string indent(line.depth, ' ');
-    std::string s = indent + exp + inst_name + ' ' + mod_name + ' ' +
-                    // TODO: remove type debug
-                    absl::StrFormat("(type = %d)", line.instance->getType());
-    max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
-    // printf("DBG:%d - %s\n\r", instance_idx, s.c_str());
-    // mvwprintw(w_, y, 0, "%d - %s", instance_idx, s.c_str());
-    int expand_pos = indent.size();
-    int inst_pos = expand_pos + 1;
-    int mod_pos = inst_pos + inst_name.size() + 1;
-    for (int j = 0; j < s.size(); ++j) {
-      const int x = j - ui_col_scroll_;
-      if (x < 0) continue;
-      if (x >= win_w) break;
-      if (x == 0 && ui_col_scroll_ != 0 && j >= expand_pos) {
-        // Show an overflow character on the left edge if the ui has been
-        // scrolled horizontally.
-        wcolor_set(w_, kOverflowTextPair, nullptr);
-        mvwaddch(w_, y, x, '<');
-      } else if (x == win_w - 1 && j < s.size() - 1) {
-        // Replace the last character with an overflow indicator if the line
-        // extends beyond the window width.
-        wcolor_set(w_, kOverflowTextPair, nullptr);
-        mvwaddch(w_, y, x, '>');
-      } else {
-        if (j >= mod_pos) {
-          wcolor_set(w_, kHierModulePair, nullptr);
-        } else if (j >= inst_pos) {
-          wcolor_set(w_, kHierInstancePair, nullptr);
-        } else if (j == expand_pos && line.expandable) {
-          wcolor_set(w_, kHierExpandPair, nullptr);
+    if (line.more_idx != 0) {
+      wcolor_set(w_, kHierShowMore, nullptr);
+      mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
+    } else {
+      auto inst_name = strip_worklib(line.instance->getInstanceName());
+      auto mod_name = strip_worklib(line.instance->getModuleName());
+      char exp = line.expandable ? (line.expanded ? '-' : '+') : ' ';
+      std::string s = indent + exp + inst_name + ' ' + mod_name + ' ' +
+                      // TODO: remove type debug
+                      absl::StrFormat("(type = %d)", line.instance->getType());
+      max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
+      // printf("DBG:%d - %s\n\r", instance_idx, s.c_str());
+      // mvwprintw(w_, y, 0, "%d - %s", instance_idx, s.c_str());
+      int expand_pos = indent.size();
+      int inst_pos = expand_pos + 1;
+      int mod_pos = inst_pos + inst_name.size() + 1;
+      for (int j = 0; j < s.size(); ++j) {
+        const int x = j - ui_col_scroll_;
+        if (x < 0) continue;
+        if (x >= win_w) break;
+        if (x == 0 && ui_col_scroll_ != 0 && j >= expand_pos) {
+          // Show an overflow character on the left edge if the ui has been
+          // scrolled horizontally.
+          wcolor_set(w_, kOverflowTextPair, nullptr);
+          mvwaddch(w_, y, x, '<');
+        } else if (x == win_w - 1 && j < s.size() - 1) {
+          // Replace the last character with an overflow indicator if the line
+          // extends beyond the window width.
+          wcolor_set(w_, kOverflowTextPair, nullptr);
+          mvwaddch(w_, y, x, '>');
+        } else {
+          if (j >= mod_pos) {
+            wcolor_set(w_, kHierModulePair, nullptr);
+          } else if (j >= inst_pos) {
+            wcolor_set(w_, kHierInstancePair, nullptr);
+          } else if (j == expand_pos && line.expandable) {
+            wcolor_set(w_, kHierExpandPair, nullptr);
+          }
+          mvwaddch(w_, y, x, s[j]);
         }
-        mvwaddch(w_, y, x, s[j]);
       }
     }
     wattrset(w_, A_NORMAL);
@@ -88,8 +97,26 @@ void Hierarchy::ToggleExpand() {
   const int idx = ui_line_index_ + ui_row_scroll_;
   auto inst = instances_[idx];
   auto first = instances_.cbegin() + idx;
-  if (!inst.expandable) return;
-  if (inst.expanded) {
+  if (inst.more_idx != 0) {
+    instances_[idx].more_idx = 0;
+    std::vector<InstanceLine> new_lines;
+    auto parent_subs = inst.instance->getParent()->getAllSubInstances();
+    for (int i = inst.more_idx + 1; i < parent_subs.size(); ++i) {
+      // Skip anything that isn't a module.
+      // TODO: uncomment
+      // if (sub->getType() != slModule_instantiation) continue;
+      int more_idx = (i - inst.more_idx) > kMaxExpandInstances ? i : 0;
+      new_lines.push_back({.instance = parent_subs[i],
+                           .depth = inst.depth,
+                           .expandable = has_sub_instances(parent_subs[i]),
+                           .more_idx = more_idx});
+      if (more_idx != 0) break;
+    }
+    instances_.insert(first + 1, new_lines.cbegin(), new_lines.cend());
+    return;
+  } else if (!inst.expandable) {
+    return;
+  } else if (inst.expanded) {
     // Delete everything under the current index that has greater depth.
     auto last = first + 1;
     while (last != instances_.cend() && last->depth > inst.depth) {
@@ -97,16 +124,20 @@ void Hierarchy::ToggleExpand() {
     }
     instances_.erase(first + 1, last);
   } else {
-    int idx = 0;
+    int sub_idx = 0;
     std::vector<InstanceLine> new_lines;
     for (auto &sub : inst.instance->getAllSubInstances()) {
       // Skip anything that isn't a module.
       // TODO: uncomment
       // if (sub->getType() != slModule_instantiation) continue;
+
+      int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
       new_lines.push_back({.instance = sub,
                            .depth = inst.depth + 1,
-                           .index_in_parent = idx++,
-                           .expandable = has_sub_instances(sub)});
+                           .expandable = has_sub_instances(sub),
+                           .more_idx = more_idx});
+      sub_idx++;
+      if (more_idx != 0) break;
     }
     instances_.insert(first + 1, new_lines.cbegin(), new_lines.cend());
   }
@@ -154,7 +185,11 @@ void Hierarchy::UIChar(int ch) {
         std::min(static_cast<int>(instances_.size()) - (ui_row_scroll_ + win_h),
                  win_h - 2);
     ui_row_scroll_ += step;
-    ui_line_index_ = std::max(2, ui_line_index_ - step);
+    if (step == 0) {
+      ui_line_index_ = win_h - 1;
+    } else {
+      ui_line_index_ = std::max(2, ui_line_index_ - step);
+    }
     break;
   }
   case 'g':   // vim style
@@ -176,12 +211,9 @@ void Hierarchy::UIChar(int ch) {
 
 void Hierarchy::SetDesign(SURELOG::Design *d) {
   design_ = d;
-  int idx = 0;
   for (auto &top : d->getTopLevelModuleInstances()) {
-    instances_.push_back({.instance = top,
-                          .depth = 0,
-                          .index_in_parent = idx++,
-                          .expandable = has_sub_instances(top)});
+    instances_.push_back(
+        {.instance = top, .depth = 0, .expandable = has_sub_instances(top)});
   }
   ui_line_index_ = 0;
   ui_row_scroll_ = 0;

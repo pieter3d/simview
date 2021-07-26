@@ -18,9 +18,9 @@ class Hierarchy : public Panel {
   struct InstanceLine {
     SURELOG::ModuleInstance *instance;
     int depth;
-    int index_in_parent;
     bool expanded = false;
     bool expandable = false;
+    int more_idx = 0;
   };
   void ToggleExpand();
 
