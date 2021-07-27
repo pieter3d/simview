@@ -4,6 +4,7 @@
 #include "panel.h"
 #include <Design/Design.h>
 #include <Design/ModuleInstance.h>
+#include <unordered_set>
 
 namespace sv {
 

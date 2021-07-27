@@ -1,4 +1,5 @@
 #include "hierarchy.h"
+#include "Design/ModuleInstance.h"
 #include "SourceCompile/VObjectTypes.h"
 #include "absl/strings/str_format.h"
 #include "color.h"
@@ -9,6 +10,13 @@ namespace {
 // Limit number of instances dumped into the UI at once.
 constexpr int kMaxExpandInstances = 500;
 
+bool is_interesting(SURELOG::ModuleInstance *inst) {
+  // No need to clutter the hierarchy with entries for:
+  // - sequential blocks
+  // These things can be inspected in the source code viewer.
+  return inst->getType() != slSeq_block;
+}
+
 std::string strip_worklib(const std::string &s) {
   const int lib_delimieter_pos = s.find('@');
   if (lib_delimieter_pos == std::string::npos) return s;
@@ -16,11 +24,9 @@ std::string strip_worklib(const std::string &s) {
 }
 
 bool has_sub_instances(SURELOG::ModuleInstance *inst) {
-  // TODO: Remove once the list of expandable types is figured out.
-  return inst->getNbChildren() != 0;
   bool ret = false;
   for (auto &sub : inst->getAllSubInstances()) {
-    if (sub->getType() == slModule_instantiation) return true;
+    if (is_interesting(sub)) return true;
   }
   return ret;
 }
@@ -50,18 +56,29 @@ void Hierarchy::Draw() {
       wcolor_set(w_, kHierShowMore, nullptr);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
+      std::string type_name;
+      bool type_is_generate = false;
+      if (line.instance->getType() == slGenerate_block ||
+          line.instance->getType() == slConditional_generate_construct) {
+        type_is_generate = true;
+        type_name = "[generate]";
+      } else if (line.instance->getType() == slModule_instantiation) {
+        type_name = strip_worklib(line.instance->getModuleName());
+      } else {
+        // For unknown stuff, just print the module name and the Surelog TypeID.
+        // TODO: Remove once all supported things are handled.
+        type_name = strip_worklib(line.instance->getModuleName()) + ' ' +
+                    absl::StrFormat("(type = %d)", line.instance->getType());
+      }
       auto inst_name = strip_worklib(line.instance->getInstanceName());
-      auto mod_name = strip_worklib(line.instance->getModuleName());
       char exp = line.expandable ? (line.expanded ? '-' : '+') : ' ';
-      std::string s = indent + exp + inst_name + ' ' + mod_name + ' ' +
-                      // TODO: remove type debug
-                      absl::StrFormat("(type = %d)", line.instance->getType());
+      std::string s = indent + exp + inst_name + ' ' + type_name;
       max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
       // printf("DBG:%d - %s\n\r", instance_idx, s.c_str());
       // mvwprintw(w_, y, 0, "%d - %s", instance_idx, s.c_str());
       int expand_pos = indent.size();
       int inst_pos = expand_pos + 1;
-      int mod_pos = inst_pos + inst_name.size() + 1;
+      int type_pos = inst_pos + inst_name.size() + 1;
       for (int j = 0; j < s.size(); ++j) {
         const int x = j - ui_col_scroll_;
         if (x < 0) continue;
@@ -77,8 +94,9 @@ void Hierarchy::Draw() {
           wcolor_set(w_, kOverflowTextPair, nullptr);
           mvwaddch(w_, y, x, '>');
         } else {
-          if (j >= mod_pos) {
-            wcolor_set(w_, kHierModulePair, nullptr);
+          if (j >= type_pos) {
+            wcolor_set(w_, type_is_generate ? kHierGenerate : kHierModulePair,
+                       nullptr);
           } else if (j >= inst_pos) {
             wcolor_set(w_, kHierInstancePair, nullptr);
           } else if (j == expand_pos && line.expandable) {
@@ -95,16 +113,14 @@ void Hierarchy::Draw() {
 
 void Hierarchy::ToggleExpand() {
   const int idx = ui_line_index_ + ui_row_scroll_;
-  auto inst = instances_[idx];
+  auto inst = instances_[idx]; // local copy
   auto first = instances_.cbegin() + idx;
   if (inst.more_idx != 0) {
     instances_[idx].more_idx = 0;
     std::vector<InstanceLine> new_lines;
     auto parent_subs = inst.instance->getParent()->getAllSubInstances();
     for (int i = inst.more_idx + 1; i < parent_subs.size(); ++i) {
-      // Skip anything that isn't a module.
-      // TODO: uncomment
-      // if (sub->getType() != slModule_instantiation) continue;
+      if (!is_interesting(parent_subs[i])) continue;
       int more_idx = (i - inst.more_idx) > kMaxExpandInstances ? i : 0;
       new_lines.push_back({.instance = parent_subs[i],
                            .depth = inst.depth,
@@ -127,10 +143,7 @@ void Hierarchy::ToggleExpand() {
     int sub_idx = 0;
     std::vector<InstanceLine> new_lines;
     for (auto &sub : inst.instance->getAllSubInstances()) {
-      // Skip anything that isn't a module.
-      // TODO: uncomment
-      // if (sub->getType() != slModule_instantiation) continue;
-
+      if (!is_interesting(sub)) continue;
       int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
       new_lines.push_back({.instance = sub,
                            .depth = inst.depth + 1,
@@ -148,8 +161,8 @@ void Hierarchy::UIChar(int ch) {
   const int data_idx = ui_line_index_ + ui_row_scroll_;
   int win_h = getmaxy(w_);
   switch (ch) {
-  case 0x20: // enter
-  case 0xa:  // space
+  case 0x20: // space
+  case 0xd:  // enter
     ToggleExpand();
     break;
   case 'h':

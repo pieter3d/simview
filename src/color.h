@@ -9,6 +9,7 @@ constexpr int kHierExpandPair = 4;
 constexpr int kHierInstancePair = 5;
 constexpr int kHierModulePair = 6;
 constexpr int kHierShowMore = 7;
+constexpr int kHierGenerate = 8;
 
 void SetupColors();
 
