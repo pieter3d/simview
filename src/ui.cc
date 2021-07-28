@@ -134,6 +134,11 @@ void UI::EventLoop() {
       redraw = true;
       break;
     }
+    if (focused_panel_->TransferPending()) {
+      if (focused_panel_ == hierarchy_.get()) {
+        source_->SetInstance(hierarchy_->InstanceForSource());
+      }
+    }
     // For now:
     if (ch == 'q') break;
     if (redraw || resize) {
@@ -171,9 +176,11 @@ void UI::DrawPanes(bool resize) {
     attron(COLOR_PAIR(kBorderPair));
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
+  // TODO: remove
   std::string s;
   for (int code : tmp_ch)
     s.append(absl::StrFormat("0x%x ", code));
+
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
   wnoutrefresh(stdscr);
   hierarchy_->Draw();

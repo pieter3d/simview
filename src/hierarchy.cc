@@ -188,6 +188,7 @@ void Hierarchy::UIChar(int ch) {
   const int data_idx = ui_line_index_ + ui_row_scroll_;
   int win_h = getmaxy(w_);
   switch (ch) {
+  case 's': load_source_ = true; break;
   case 0x20: // space
   case 0xd:  // enter
     ToggleExpand();
