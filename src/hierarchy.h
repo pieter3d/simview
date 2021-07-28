@@ -14,6 +14,8 @@ class Hierarchy : public Panel {
   void SetDesign(SURELOG::Design *d);
   void Draw() override;
   void UIChar(int ch) override;
+  bool TransferPending() override;
+  SURELOG::ModuleInstance *InstanceForSource();
 
  private:
   struct InstanceLine {
@@ -21,17 +23,19 @@ class Hierarchy : public Panel {
     int depth;
     bool expanded = false;
     bool expandable = false;
-    int more_idx = 0;
+    int max_subs = 0;
   };
   void ToggleExpand();
+  void ExpandAt(int idx);
 
   SURELOG::Design *design_;
-  SURELOG::ModuleInstance *current_instance_;
   std::vector<InstanceLine> instances_;
+  std::unordered_set<SURELOG::ModuleInstance *> expanded_instances_;
   int ui_line_index_ = 0;
   int ui_row_scroll_ = 0;
   int ui_col_scroll_ = 0;
   int ui_max_col_scroll_ = 0;
+  bool load_source_ = false;
 };
 
 } // namespace sv

@@ -56,19 +56,22 @@ void Hierarchy::Draw() {
       wcolor_set(w_, kHierShowMore, nullptr);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
+      auto type = line.instance->getType();
       std::string type_name;
-      bool type_is_generate = false;
-      if (line.instance->getType() == slGenerate_block ||
-          line.instance->getType() == slConditional_generate_construct) {
-        type_is_generate = true;
+      const bool type_is_generate =
+          type == slGenerate_block || type == slConditional_generate_construct;
+      if (type_is_generate) {
         type_name = "[generate]";
-      } else if (line.instance->getType() == slModule_instantiation) {
+      } else if (type == slModule_instantiation ||
+                 type == slModule_declaration) {
+        // Module declarations in the hierarchy show up as root nodes, i.e.
+        // individual tops.
         type_name = strip_worklib(line.instance->getModuleName());
       } else {
         // For unknown stuff, just print the module name and the Surelog TypeID.
         // TODO: Remove once all supported things are handled.
         type_name = strip_worklib(line.instance->getModuleName()) + ' ' +
-                    absl::StrFormat("(type = %d)", line.instance->getType());
+                    absl::StrFormat("(type = %d)", type);
       }
       auto inst_name = strip_worklib(line.instance->getInstanceName());
       char exp = line.expandable ? (line.expanded ? '-' : '+') : ' ';
@@ -111,48 +114,60 @@ void Hierarchy::Draw() {
   ui_max_col_scroll_ = max_string_len - win_w;
 }
 
+void Hierarchy::ExpandAt(int idx) {
+  auto inst_it = instances_.cbegin() + idx;
+  int sub_idx = 0;
+  std::vector<InstanceLine> new_lines;
+  for (auto &sub : inst_it->instance->getAllSubInstances()) {
+    if (!is_interesting(sub)) continue;
+    int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
+    new_lines.push_back({.instance = sub,
+                         .depth = inst_it->depth + 1,
+                         .expandable = has_sub_instances(sub),
+                         .more_idx = more_idx});
+    sub_idx++;
+    if (more_idx != 0) break;
+  }
+  instances_.insert(inst_it + 1, new_lines.cbegin(), new_lines.cend());
+  // Move the selection up a ways if the new lines are all hidden.
+  const int win_h = getmaxy(w_);
+  if (ui_line_index_ == win_h - 1) {
+    const int lines_below = instances_.size() - ui_row_scroll_ - win_h;
+    const int scroll_amt = std::min(lines_below, win_h / 3);
+    ui_row_scroll_ += scroll_amt;
+    ui_line_index_ -= scroll_amt;
+  }
+}
+
 void Hierarchy::ToggleExpand() {
   const int idx = ui_line_index_ + ui_row_scroll_;
-  auto inst = instances_[idx]; // local copy
-  auto first = instances_.cbegin() + idx;
-  if (inst.more_idx != 0) {
+  const auto inst_it = instances_.cbegin() + idx;
+  if (inst_it->more_idx != 0) {
     instances_[idx].more_idx = 0;
     std::vector<InstanceLine> new_lines;
-    auto parent_subs = inst.instance->getParent()->getAllSubInstances();
-    for (int i = inst.more_idx + 1; i < parent_subs.size(); ++i) {
+    auto parent_subs = inst_it->instance->getParent()->getAllSubInstances();
+    for (int i = inst_it->more_idx + 1; i < parent_subs.size(); ++i) {
       if (!is_interesting(parent_subs[i])) continue;
-      int more_idx = (i - inst.more_idx) > kMaxExpandInstances ? i : 0;
+      int more_idx = (i - inst_it->more_idx) > kMaxExpandInstances ? i : 0;
       new_lines.push_back({.instance = parent_subs[i],
-                           .depth = inst.depth,
+                           .depth = inst_it->depth,
                            .expandable = has_sub_instances(parent_subs[i]),
                            .more_idx = more_idx});
       if (more_idx != 0) break;
     }
-    instances_.insert(first + 1, new_lines.cbegin(), new_lines.cend());
+    instances_.insert(inst_it + 1, new_lines.cbegin(), new_lines.cend());
     return;
-  } else if (!inst.expandable) {
+  } else if (!inst_it->expandable) {
     return;
-  } else if (inst.expanded) {
+  } else if (inst_it->expanded) {
     // Delete everything under the current index that has greater depth.
-    auto last = first + 1;
-    while (last != instances_.cend() && last->depth > inst.depth) {
+    auto last = inst_it + 1;
+    while (last != instances_.cend() && last->depth > inst_it->depth) {
       last++;
     }
-    instances_.erase(first + 1, last);
+    instances_.erase(inst_it + 1, last);
   } else {
-    int sub_idx = 0;
-    std::vector<InstanceLine> new_lines;
-    for (auto &sub : inst.instance->getAllSubInstances()) {
-      if (!is_interesting(sub)) continue;
-      int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
-      new_lines.push_back({.instance = sub,
-                           .depth = inst.depth + 1,
-                           .expandable = has_sub_instances(sub),
-                           .more_idx = more_idx});
-      sub_idx++;
-      if (more_idx != 0) break;
-    }
-    instances_.insert(first + 1, new_lines.cbegin(), new_lines.cend());
+    ExpandAt(idx);
   }
   instances_[idx].expanded = !instances_[idx].expanded;
 }
@@ -224,6 +239,18 @@ void Hierarchy::UIChar(int ch) {
     }
     break;
   }
+}
+
+bool Hierarchy::TransferPending() {
+  if (load_source_) {
+    load_source_ = false;
+    return true;
+  }
+  return false;
+}
+
+SURELOG::ModuleInstance *Hierarchy::InstanceForSource() {
+  return instances_[ui_line_index_ + ui_row_scroll_].instance;
 }
 
 void Hierarchy::SetDesign(SURELOG::Design *d) {

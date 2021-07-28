@@ -10,6 +10,7 @@ class Waves : public Panel {
   Waves(WINDOW *w) : Panel(w) {}
   void Draw() override;
   void UIChar(int ch) override;
+  bool TransferPending() override;
 
  private:
 };

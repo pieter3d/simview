@@ -10,4 +10,6 @@ void Source::Draw() {
 
 void Source::UIChar(int ch) {}
 
+bool Source::TransferPending() { return false; }
+
 } // namespace sv

@@ -11,6 +11,7 @@ class Panel {
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() = 0;
   virtual void UIChar(int ch) = 0;
+  virtual bool TransferPending() = 0;
   WINDOW *Window() const { return w_; }
 
  protected:

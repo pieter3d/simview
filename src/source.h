@@ -10,6 +10,7 @@ class Source : public Panel {
   Source(WINDOW *w) : Panel(w) {}
   void Draw() override;
   void UIChar(int ch) override;
+  bool TransferPending() override;
 
  private:
 };
