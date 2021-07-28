@@ -4,7 +4,7 @@
 #include "panel.h"
 #include <Design/Design.h>
 #include <Design/ModuleInstance.h>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace sv {
 
@@ -18,19 +18,19 @@ class Hierarchy : public Panel {
   SURELOG::ModuleInstance *InstanceForSource();
 
  private:
-  struct InstanceLine {
-    SURELOG::ModuleInstance *instance;
-    int depth;
+  struct EntryInfo {
+    int depth = 0;
     bool expanded = false;
     bool expandable = false;
-    int max_subs = 0;
+    int more_idx = 0;
   };
   void ToggleExpand();
-  void ExpandAt(int idx);
+  void RecurseAddSubs(SURELOG::ModuleInstance *inst,
+                      std::vector<SURELOG::ModuleInstance *> &list);
 
   SURELOG::Design *design_;
-  std::vector<InstanceLine> instances_;
-  std::unordered_set<SURELOG::ModuleInstance *> expanded_instances_;
+  std::vector<SURELOG::ModuleInstance *> entries_;
+  std::unordered_map<SURELOG::ModuleInstance *, EntryInfo> entry_info_;
   int ui_line_index_ = 0;
   int ui_row_scroll_ = 0;
   int ui_col_scroll_ = 0;
