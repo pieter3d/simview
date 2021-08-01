@@ -11,6 +11,7 @@ constexpr int kHierModulePair = 6;
 constexpr int kHierShowMorePair = 7;
 constexpr int kHierGeneratePair = 8;
 constexpr int kTooltipPair = 9;
+constexpr int kTooltipKeyPair = 10;
 
 void SetupColors();
 

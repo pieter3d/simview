@@ -182,9 +182,11 @@ void UI::DrawPanes(bool resize) {
     s.append(absl::StrFormat("0x%x ", code));
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
 
-  auto tooltip = focused_panel_->Tooltip();
-  color_set(kTooltipPair, nullptr);
+  auto tooltip = "/:search " + focused_panel_->Tooltip();
   for (int x = 0; x < term_w_; ++x) {
+    // Look for a key (indicated by colon following).
+    const bool is_key = x < tooltip.size() - 1 ? tooltip[x + 1] == ':' : false;
+    color_set(is_key ? kTooltipKeyPair : kTooltipPair, nullptr);
     mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
   }
 

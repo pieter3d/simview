@@ -39,7 +39,6 @@ int main(int argc, const char *argv[]) {
       std::cout << msg << std::endl;
     }
   }
-  errors->printStats(errors->getErrorStats());
   auto stats = errors->getErrorStats();
   if (design == nullptr || /* stats.nbError > 0 i ||*/ stats.nbFatal > 0 ||
       stats.nbSyntax > 0) {
