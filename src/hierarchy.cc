@@ -1,8 +1,12 @@
 #include "hierarchy.h"
-#include "Design/ModuleInstance.h"
-#include "SourceCompile/VObjectTypes.h"
+#include "BaseClass.h"
 #include "absl/strings/str_format.h"
 #include "color.h"
+#include <algorithm>
+#include <iostream>
+#include <uhdm/headers/gen_scope.h>
+#include <uhdm/headers/gen_scope_array.h>
+#include <uhdm/headers/module.h>
 
 namespace sv {
 namespace {
@@ -10,25 +14,37 @@ namespace {
 // Limit number of instances dumped into the UI at once.
 constexpr int kMaxExpandInstances = 500;
 
-bool is_interesting(SURELOG::ModuleInstance *inst) {
-  // No need to clutter the hierarchy with entries for:
-  // - sequential blocks
-  // These things can be inspected in the source code viewer.
-  return inst->getType() != slSeq_block;
-}
-
 std::string strip_worklib(const std::string &s) {
   const int lib_delimieter_pos = s.find('@');
   if (lib_delimieter_pos == std::string::npos) return s;
   return s.substr(lib_delimieter_pos + 1);
 }
 
-bool has_sub_instances(SURELOG::ModuleInstance *inst) {
-  bool ret = false;
-  for (auto &sub : inst->getAllSubInstances()) {
-    if (is_interesting(sub)) return true;
+bool is_expandable(UHDM::BaseClass *item) {
+  if (item->VpiType() == vpiModule) {
+    auto m = reinterpret_cast<UHDM::module *>(item);
+    return m->Task_funcs() != nullptr || m->Modules() != nullptr ||
+           m->Gen_scope_arrays() != nullptr;
+  } else if (item->VpiType() == vpiGenScopeArray) {
+    auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
+    // TODO: How could this ever not be 1?
+    if (ga->Gen_scopes()->size() != 1) {
+      std::cout << ga->VpiName();
+      return true;
+    } else {
+      auto g = (*ga->Gen_scopes())[0];
+      return g->Modules() != nullptr || g->Gen_scope_arrays() != nullptr;
+    }
+    return ga->Gen_scopes()->size() > 1;
+  } else if (item->VpiType() == vpiGenScope) {
+    auto g = reinterpret_cast<UHDM::gen_scope *>(item);
+    return g->Modules() != nullptr || g->Gen_scope_arrays() != nullptr;
   }
-  return ret;
+  // if (scope->Scopes() == nullptr) return false;
+  // for (auto &sub : *scope->Scopes()) {
+  //  if (is_interesting(sub)) return true;
+  //}
+  return false;
 }
 } // namespace
 
@@ -54,32 +70,37 @@ void Hierarchy::Draw() {
     auto info = entry_info_[entry];
     std::string indent(info.depth, ' ');
     if (info.more_idx != 0) {
-      wcolor_set(w_, kHierShowMorePair, nullptr);
+      SetColor(w_, kHierShowMorePair);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
-      auto type = entry->getType();
-      std::string type_name;
-      const bool type_is_generate =
-          type == slGenerate_block || type == slConditional_generate_construct;
-      if (type_is_generate) {
-        type_name = "[generate]";
-      } else if (type == slModule_instantiation ||
-                 type == slModule_declaration) {
-        // Module declarations in the hierarchy show up as root nodes, i.e.
-        // individual tops.
-        type_name = strip_worklib(entry->getModuleName());
-      } else {
-        // For unknown stuff, just print the module name and the Surelog TypeID.
-        // TODO: Remove once all supported things are handled.
-        type_name = strip_worklib(entry->getModuleName()) + ' ' +
-                    absl::StrFormat("(type = %d)", type);
+      // auto type = entry->getType();
+      // const bool type_is_generate = entry->VpiType() == vpiGenScopeArray;
+      //    type == slGenerate_block || type ==
+      //    slConditional_generate_construct;
+      // if (type_is_generate) {
+      //  type_name = "[generate]";
+      //} else if (type == slModule_instantiation ||
+      //           type == slModule_declaration) {
+      //  // Module declarations in the hierarchy show up as root nodes, i.e.
+      //  // individual tops.
+      //  type_name = strip_worklib(entry->getModuleName());
+      //} else {
+      //  // For unknown stuff, just print the module name and the Surelog
+      //  TypeID.
+      //  // TODO: Remove once all supported things are handled.
+      //  type_name = strip_worklib(entry->getModuleName()) + ' ' +
+      //              absl::StrFormat("(type = %d)", type);
+      //}
+      std::string def_name = strip_worklib(entry->VpiDefName());
+      if (entry->VpiType() == vpiGenScopeArray) {
+        def_name = "[generate]";
       }
-      auto inst_name = strip_worklib(entry->getInstanceName());
+      // VpiName generally doesn't contain the worklib, but it does for the top
+      // level modules.
+      auto inst_name = strip_worklib(entry->VpiName());
       char exp = info.expandable ? (info.expanded ? '-' : '+') : ' ';
-      std::string s = indent + exp + inst_name + ' ' + type_name;
+      std::string s = indent + exp + inst_name + ' ' + def_name;
       max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
-      // printf("DBG:%d - %s\n\r", instance_idx, s.c_str());
-      // mvwprintw(w_, y, 0, "%d - %s", instance_idx, s.c_str());
       int expand_pos = indent.size();
       int inst_pos = expand_pos + 1;
       int type_pos = inst_pos + inst_name.size() + 1;
@@ -90,22 +111,21 @@ void Hierarchy::Draw() {
         if (x == 0 && ui_col_scroll_ != 0 && j >= expand_pos) {
           // Show an overflow character on the left edge if the ui has been
           // scrolled horizontally.
-          wcolor_set(w_, kOverflowTextPair, nullptr);
+          SetColor(w_, kOverflowTextPair);
           mvwaddch(w_, y, x, '<');
         } else if (x == win_w - 1 && j < s.size() - 1) {
           // Replace the last character with an overflow indicator if the line
           // extends beyond the window width.
-          wcolor_set(w_, kOverflowTextPair, nullptr);
+          SetColor(w_, kOverflowTextPair);
           mvwaddch(w_, y, x, '>');
         } else {
           if (j >= type_pos) {
-            wcolor_set(w_,
-                       type_is_generate ? kHierGeneratePair : kHierModulePair,
-                       nullptr);
+            SetColor(w_, (entry->VpiType() != vpiModule) ? kHierOtherPair
+                                                         : kHierModulePair);
           } else if (j >= inst_pos) {
-            wcolor_set(w_, kHierInstancePair, nullptr);
+            SetColor(w_, kHierInstancePair);
           } else if (j == expand_pos && info.expandable) {
-            wcolor_set(w_, kHierExpandPair, nullptr);
+            SetColor(w_, kHierExpandPair);
           }
           mvwaddch(w_, y, x, s[j]);
         }
@@ -122,22 +142,22 @@ void Hierarchy::ToggleExpand() {
   if (entries_.empty()) return;
   auto &info = entry_info_[*entry_it];
   if (info.more_idx != 0) {
-    int stopped_pos = info.more_idx;
-    info.more_idx = 0;
-    std::vector<SURELOG::ModuleInstance *> new_entries;
-    auto parent_subs = (*entry_it)->getParent()->getAllSubInstances();
-    for (int i = stopped_pos + 1; i < parent_subs.size(); ++i) {
-      auto new_sub = parent_subs[i];
-      if (!is_interesting(parent_subs[i])) continue;
-      int more_idx = (i - stopped_pos) > kMaxExpandInstances ? i : 0;
-      new_entries.push_back(new_sub);
-      entry_info_[new_sub] = {.depth = info.depth,
-                              .expandable = has_sub_instances(new_sub),
-                              .more_idx = more_idx};
-      if (more_idx != 0) break;
-    }
-    entries_.insert(entry_it + 1, new_entries.cbegin(), new_entries.cend());
-    return;
+    // int stopped_pos = info.more_idx;
+    // info.more_idx = 0;
+    // std::vector<SURELOG::ModuleInstance *> new_entries;
+    // auto parent_subs = (*entry_it)->getParent()->getAllSubInstances();
+    // for (int i = stopped_pos + 1; i < parent_subs.size(); ++i) {
+    //  auto new_sub = parent_subs[i];
+    //  if (!is_interesting(parent_subs[i])) continue;
+    //  int more_idx = (i - stopped_pos) > kMaxExpandInstances ? i : 0;
+    //  new_entries.push_back(new_sub);
+    //  entry_info_[new_sub] = {.depth = info.depth,
+    //                          .expandable = has_sub_instances(new_sub),
+    //                          .more_idx = more_idx};
+    //  if (more_idx != 0) break;
+    //}
+    // entries_.insert(entry_it + 1, new_entries.cbegin(), new_entries.cend());
+    // return;
   } else if (!info.expandable) {
     return;
   } else if (info.expanded) {
@@ -149,30 +169,59 @@ void Hierarchy::ToggleExpand() {
     entries_.erase(entry_it + 1, last);
     info.expanded = false;
   } else {
-    std::vector<SURELOG::ModuleInstance *> new_entries;
-    std::function<void(SURELOG::ModuleInstance *,
-                       std::vector<SURELOG::ModuleInstance *> &)>
-        recurse_add_subs = [&](SURELOG::ModuleInstance *inst,
-                               std::vector<SURELOG::ModuleInstance *> &list) {
-          int sub_idx = 0;
-          for (auto &sub : inst->getAllSubInstances()) {
-            if (!is_interesting(sub)) continue;
-            list.push_back(sub);
-            // Create new UI info only if it doesn't already exist
-            if (entry_info_.find(sub) == entry_info_.end()) {
-              int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
-              entry_info_[sub] = {.depth = entry_info_[inst].depth + 1,
-                                  .expandable = has_sub_instances(sub),
-                                  .more_idx = more_idx};
-              sub_idx++;
-              if (more_idx != 0) break;
-            } else if (entry_info_[sub].more_idx != 0) {
-              break;
-            } else if (entry_info_[sub].expanded) {
-              recurse_add_subs(sub, list);
-            }
-          }
-        };
+    std::vector<UHDM::BaseClass *> new_entries;
+    std::function<void(UHDM::BaseClass *, std::vector<UHDM::BaseClass *> &)>
+        recurse_add_subs =
+            [&](UHDM::BaseClass *item, std::vector<UHDM::BaseClass *> &list) {
+              int sub_idx = 0;
+              std::vector<UHDM::BaseClass *> subs;
+              if (item->VpiType() == vpiModule) {
+                auto m = reinterpret_cast<UHDM::module *>(item);
+                if (m->Modules() != nullptr) {
+                  subs.insert(subs.end(), m->Modules()->cbegin(),
+                              m->Modules()->cend());
+                }
+                if (m->Gen_scope_arrays() != nullptr) {
+                  subs.insert(subs.end(), m->Gen_scope_arrays()->cbegin(),
+                              m->Gen_scope_arrays()->cend());
+                }
+                // TODO: Other stuff. Tasks & functions.
+                // TODO: How do module arrays work?
+              } else if (item->VpiType() == vpiGenScopeArray) {
+                // TODO: What to do if there is 0 or 2+ GenScopes in here??
+                auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
+                auto g = (*ga->Gen_scopes())[0];
+                if (g->Modules() != nullptr) {
+                  subs.insert(subs.end(), g->Modules()->cbegin(),
+                              g->Modules()->cend());
+                }
+                if (g->Gen_scope_arrays() != nullptr) {
+                  subs.insert(subs.end(), g->Gen_scope_arrays()->cbegin(),
+                              g->Gen_scope_arrays()->cend());
+                }
+              }
+              // TODO: Also offer lexical sort?
+              std::stable_sort(subs.begin(), subs.end(),
+                               [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
+                                 return a->VpiLineNo() < b->VpiLineNo();
+                               });
+              for (auto &sub : subs) {
+                list.push_back(sub);
+                // Create new UI info only if it doesn't already exist
+                if (entry_info_.find(sub) == entry_info_.end()) {
+                  int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
+                  entry_info_[sub] = {.depth = entry_info_[item].depth + 1,
+                                      .expandable = is_expandable(sub),
+                                      .more_idx = more_idx};
+                  sub_idx++;
+                  if (more_idx != 0) break;
+                } else if (entry_info_[sub].more_idx != 0) {
+                  break;
+                } else if (entry_info_[sub].expanded) {
+                  recurse_add_subs(sub, list);
+                }
+              }
+            };
     recurse_add_subs(*entry_it, new_entries);
     entries_.insert(entry_it + 1, new_entries.cbegin(), new_entries.cend());
     info.expanded = true;
@@ -265,17 +314,33 @@ bool Hierarchy::TransferPending() {
   return false;
 }
 
-SURELOG::ModuleInstance *Hierarchy::InstanceForSource() {
+UHDM::BaseClass *Hierarchy::InstanceForSource() {
   return entries_[ui_line_index_ + ui_row_scroll_];
 }
 
-void Hierarchy::SetDesign(SURELOG::Design *d) {
+void Hierarchy::SetDesign(UHDM::design *d) {
   if (d == nullptr) return;
+
   design_ = d;
-  for (auto &top : d->getTopLevelModuleInstances()) {
+  for (auto &top : *d->TopModules()) {
     entries_.push_back(top);
-    entry_info_[top].expandable = has_sub_instances(top);
+    entry_info_[top].expandable = is_expandable(top);
   }
+  // Put all top modules with sub instances on top.
+  // Lexical sort within that.
+  auto top_sorter = [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
+    auto &ma = reinterpret_cast<UHDM::module *&>(a);
+    auto &mb = reinterpret_cast<UHDM::module *&>(b);
+    bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
+    bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
+    if (a_has_subs == b_has_subs) {
+      return a->VpiName() < b->VpiName();
+    } else {
+      return a_has_subs;
+    }
+  };
+  std::stable_sort(entries_.begin(), entries_.end(), top_sorter);
+
   ui_line_index_ = 0;
   ui_row_scroll_ = 0;
   // First instance is pre-expanded for usability if there is just one.

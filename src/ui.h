@@ -6,7 +6,7 @@
 #include "waves.h"
 #include "absl/time/time.h"
 #include <memory>
-#include <surelog/Design/Design.h>
+#include <uhdm.h>
 
 namespace sv {
 
@@ -16,7 +16,7 @@ class UI {
   ~UI();
 
   void EventLoop();
-  void SetDesign(SURELOG::Design *d);
+  void SetDesign(UHDM::design *d);
 
  private:
   void DrawPanes(bool resize);

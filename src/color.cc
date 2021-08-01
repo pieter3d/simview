@@ -1,5 +1,4 @@
 #include "color.h"
-#include <ncurses.h>
 
 namespace sv {
 
@@ -17,11 +16,16 @@ void SetupColors() {
     init_pair(kHierInstancePair, COLOR_WHITE, kBackground);
     init_pair(kHierModulePair, COLOR_CYAN, kBackground);
     init_pair(kHierShowMorePair, COLOR_YELLOW, kBackground);
-    init_pair(kHierGeneratePair, 13, kBackground);       // Bright magenta
-    init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);  // Yellow background
-    init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW); // Yellow background
+    init_pair(kHierOtherPair, 13, kBackground);             // Bright magenta
+    init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);     // Yellow background
+    init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW);    // Yellow background
+    init_pair(kSourceLineNrPair, COLOR_GREEN, kBackground); // Bright blue
+    init_pair(kSourceCommentPair, COLOR_GREEN, kBackground);
+    init_pair(kSourceTextPair, COLOR_WHITE, kBackground);
     use_default_colors();
   }
 }
+
+void SetColor(WINDOW *w, int n) { wcolor_set(w, n, nullptr); }
 
 } // namespace sv

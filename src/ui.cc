@@ -136,7 +136,7 @@ void UI::EventLoop() {
     }
     if (focused_panel_->TransferPending()) {
       if (focused_panel_ == hierarchy_.get()) {
-        source_->SetInstance(hierarchy_->InstanceForSource());
+        //source_->SetInstance(hierarchy_->InstanceForSource());
       }
     }
     // For now:
@@ -156,6 +156,7 @@ void UI::DrawPanes(bool resize) {
     mvwin(waves_->Window(), wave_pos_y_ + 1, 0);
   }
   erase();
+  // Render the dividing lines
   if (focused_panel_ != waves_.get()) {
     color_set(kFocusBorderPair, nullptr);
   } else {
@@ -176,12 +177,14 @@ void UI::DrawPanes(bool resize) {
     color_set(kBorderPair, nullptr);
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
-  // TODO: remove
+  
+  // Display most recent key codes for development ease. TODO: remove
   std::string s;
   for (int code : tmp_ch)
     s.append(absl::StrFormat("0x%x ", code));
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
 
+  // Render the tooltip.
   auto tooltip = "/:search " + focused_panel_->Tooltip();
   for (int x = 0; x < term_w_; ++x) {
     // Look for a key (indicated by colon following).
@@ -190,17 +193,17 @@ void UI::DrawPanes(bool resize) {
     mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
   }
 
-  wnoutrefresh(stdscr);
   hierarchy_->Draw();
   source_->Draw();
   waves_->Draw();
+  wnoutrefresh(stdscr);
   wnoutrefresh(hierarchy_->Window());
   wnoutrefresh(source_->Window());
   wnoutrefresh(waves_->Window());
   doupdate();
 }
 
-void UI::SetDesign(SURELOG::Design *d) {
+void UI::SetDesign(UHDM::design *d) {
   hierarchy_->SetDesign(d);
   DrawPanes(false);
 }

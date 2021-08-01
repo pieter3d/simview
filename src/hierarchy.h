@@ -1,9 +1,10 @@
 #ifndef _SRC_HIERARCHY_H_
 #define _SRC_HIERARCHY_H_
 
+#include "BaseClass.h"
 #include "panel.h"
-#include <Design/Design.h>
-#include <Design/ModuleInstance.h>
+#include <uhdm/headers/BaseClass.h>
+#include <uhdm/headers/design.h>
 #include <unordered_map>
 
 namespace sv {
@@ -11,25 +12,26 @@ namespace sv {
 class Hierarchy : public Panel {
  public:
   Hierarchy(WINDOW *w);
-  void SetDesign(SURELOG::Design *d);
+  void SetDesign(UHDM::design *d);
   void Draw() override;
   void UIChar(int ch) override;
   bool TransferPending() override;
   std::string Tooltip() const override;
-  SURELOG::ModuleInstance *InstanceForSource();
+  UHDM::BaseClass *InstanceForSource();
 
  private:
   struct EntryInfo {
     int depth = 0;
     bool expanded = false;
     bool expandable = false;
+    bool is_generate = false;
     int more_idx = 0;
   };
   void ToggleExpand();
 
-  SURELOG::Design *design_;
-  std::vector<SURELOG::ModuleInstance *> entries_;
-  std::unordered_map<SURELOG::ModuleInstance *, EntryInfo> entry_info_;
+  UHDM::design *design_;
+  std::vector<UHDM::BaseClass *> entries_;
+  std::unordered_map<UHDM::BaseClass *, EntryInfo> entry_info_;
   int ui_line_index_ = 0;
   int ui_row_scroll_ = 0;
   int ui_col_scroll_ = 0;
