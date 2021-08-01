@@ -26,6 +26,7 @@ class Hierarchy : public Panel {
     bool expandable = false;
     bool is_generate = false;
     int more_idx = 0;
+    UHDM::BaseClass *parent = nullptr;
   };
   void ToggleExpand();
 
