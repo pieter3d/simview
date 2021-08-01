@@ -115,31 +115,10 @@ void Hierarchy::Draw() {
   ui_max_col_scroll_ = max_string_len - win_w;
 }
 
-void Hierarchy::RecurseAddSubs(SURELOG::ModuleInstance *inst,
-                               std::vector<SURELOG::ModuleInstance *> &list) {
-  int sub_idx = 0;
-  for (auto &sub : inst->getAllSubInstances()) {
-    if (!is_interesting(sub)) continue;
-    list.push_back(sub);
-    // Create new UI info only if it doesn't already exist
-    if (entry_info_.find(sub) == entry_info_.end()) {
-      int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
-      entry_info_[sub] = {.depth = entry_info_[inst].depth + 1,
-                          .expandable = has_sub_instances(sub),
-                          .more_idx = more_idx};
-      sub_idx++;
-      if (more_idx != 0) break;
-    } else if (entry_info_[sub].more_idx != 0) {
-      break;
-    } else if (entry_info_[sub].expanded) {
-      RecurseAddSubs(sub, list);
-    }
-  }
-}
-
 void Hierarchy::ToggleExpand() {
   const int idx = ui_line_index_ + ui_row_scroll_;
   const auto entry_it = entries_.cbegin() + idx;
+  if (entries_.empty()) return;
   auto &info = entry_info_[*entry_it];
   if (info.more_idx != 0) {
     int stopped_pos = info.more_idx;
@@ -170,7 +149,30 @@ void Hierarchy::ToggleExpand() {
     info.expanded = false;
   } else {
     std::vector<SURELOG::ModuleInstance *> new_entries;
-    RecurseAddSubs(*entry_it, new_entries);
+    std::function<void(SURELOG::ModuleInstance *,
+                       std::vector<SURELOG::ModuleInstance *> &)>
+        recurse_add_subs = [&](SURELOG::ModuleInstance *inst,
+                               std::vector<SURELOG::ModuleInstance *> &list) {
+          int sub_idx = 0;
+          for (auto &sub : inst->getAllSubInstances()) {
+            if (!is_interesting(sub)) continue;
+            list.push_back(sub);
+            // Create new UI info only if it doesn't already exist
+            if (entry_info_.find(sub) == entry_info_.end()) {
+              int more_idx = sub_idx > kMaxExpandInstances ? sub_idx : 0;
+              entry_info_[sub] = {.depth = entry_info_[inst].depth + 1,
+                                  .expandable = has_sub_instances(sub),
+                                  .more_idx = more_idx};
+              sub_idx++;
+              if (more_idx != 0) break;
+            } else if (entry_info_[sub].more_idx != 0) {
+              break;
+            } else if (entry_info_[sub].expanded) {
+              recurse_add_subs(sub, list);
+            }
+          }
+        };
+    recurse_add_subs(*entry_it, new_entries);
     entries_.insert(entry_it + 1, new_entries.cbegin(), new_entries.cend());
     info.expanded = true;
     // Move the selection up a ways if the new lines are all hidden.
@@ -267,6 +269,7 @@ SURELOG::ModuleInstance *Hierarchy::InstanceForSource() {
 }
 
 void Hierarchy::SetDesign(SURELOG::Design *d) {
+  if (d == nullptr) return;
   design_ = d;
   for (auto &top : d->getTopLevelModuleInstances()) {
     entries_.push_back(top);

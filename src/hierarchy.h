@@ -25,8 +25,6 @@ class Hierarchy : public Panel {
     int more_idx = 0;
   };
   void ToggleExpand();
-  void RecurseAddSubs(SURELOG::ModuleInstance *inst,
-                      std::vector<SURELOG::ModuleInstance *> &list);
 
   SURELOG::Design *design_;
   std::vector<SURELOG::ModuleInstance *> entries_;

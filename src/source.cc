@@ -5,7 +5,7 @@ namespace sv {
 void Source::Draw() {
   werase(w_);
   // test
-  mvwprintw(w_, 0, 0, inst_ ? inst_->getInstanceName().c_str() : "Beep!");
+  mvwprintw(w_, 0, 0, inst_ ? inst_->getFileName().c_str() : "Beep!");
 }
 
 void Source::UIChar(int ch) {}
