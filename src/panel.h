@@ -2,6 +2,7 @@
 #define _SRC_PANEL_H_
 
 #include <ncurses.h>
+#include <string>
 
 namespace sv {
 
@@ -12,6 +13,7 @@ class Panel {
   virtual void Draw() = 0;
   virtual void UIChar(int ch) = 0;
   virtual bool TransferPending() = 0;
+  virtual std::string Tooltip() const = 0;
   WINDOW *Window() const { return w_; }
 
  protected:

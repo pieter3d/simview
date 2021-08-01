@@ -16,8 +16,9 @@ void SetupColors() {
     init_pair(kHierExpandPair, 10, kBackground);  // bright green
     init_pair(kHierInstancePair, COLOR_WHITE, kBackground);
     init_pair(kHierModulePair, COLOR_CYAN, kBackground);
-    init_pair(kHierShowMore, COLOR_YELLOW, kBackground);
-    init_pair(kHierGenerate, 13, kBackground); // Bright magenta
+    init_pair(kHierShowMorePair, COLOR_YELLOW, kBackground);
+    init_pair(kHierGeneratePair, 13, kBackground);      // Bright magenta
+    init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW); // Yellow background
     use_default_colors();
   }
 }

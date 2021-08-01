@@ -54,7 +54,7 @@ void Hierarchy::Draw() {
     auto info = entry_info_[entry];
     std::string indent(info.depth, ' ');
     if (info.more_idx != 0) {
-      wcolor_set(w_, kHierShowMore, nullptr);
+      wcolor_set(w_, kHierShowMorePair, nullptr);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
       auto type = entry->getType();
@@ -99,7 +99,8 @@ void Hierarchy::Draw() {
           mvwaddch(w_, y, x, '>');
         } else {
           if (j >= type_pos) {
-            wcolor_set(w_, type_is_generate ? kHierGenerate : kHierModulePair,
+            wcolor_set(w_,
+                       type_is_generate ? kHierGeneratePair : kHierModulePair,
                        nullptr);
           } else if (j >= inst_pos) {
             wcolor_set(w_, kHierInstancePair, nullptr);
@@ -280,5 +281,7 @@ void Hierarchy::SetDesign(SURELOG::Design *d) {
   // First instance is pre-expanded for usability if there is just one.
   if (entries_.size() == 1) ToggleExpand();
 }
+
+std::string Hierarchy::Tooltip() const { return "s:open source"; }
 
 } // namespace sv

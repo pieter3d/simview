@@ -15,6 +15,7 @@ class Hierarchy : public Panel {
   void Draw() override;
   void UIChar(int ch) override;
   bool TransferPending() override;
+  std::string Tooltip() const override;
   SURELOG::ModuleInstance *InstanceForSource();
 
  private:

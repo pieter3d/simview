@@ -31,7 +31,7 @@ UI::UI() {
   source_ = std::make_unique<Source>(
       newwin(wave_pos_y_, term_w_ - src_pos_x_, 0, src_pos_x_ + 1));
   waves_ = std::make_unique<Waves>(
-      newwin(term_h_ - wave_pos_y_ - 1, term_w_, wave_pos_y_ + 1, 0));
+      newwin(term_h_ - wave_pos_y_ - 2, term_w_, wave_pos_y_ + 1, 0));
   focused_panel_ = hierarchy_.get();
   prev_focused_panel_ = focused_panel_;
 
@@ -152,36 +152,42 @@ void UI::DrawPanes(bool resize) {
     wresize(hierarchy_->Window(), wave_pos_y_, src_pos_x_);
     wresize(source_->Window(), wave_pos_y_, term_w_ - src_pos_x_ - 1);
     mvwin(source_->Window(), 0, src_pos_x_ + 1);
-    wresize(waves_->Window(), term_h_ - wave_pos_y_ - 1, term_w_);
+    wresize(waves_->Window(), term_h_ - wave_pos_y_ - 2, term_w_);
     mvwin(waves_->Window(), wave_pos_y_ + 1, 0);
   }
   erase();
   if (focused_panel_ != waves_.get()) {
-    attron(COLOR_PAIR(kFocusBorderPair));
+    color_set(kFocusBorderPair, nullptr);
   } else {
-    attron(COLOR_PAIR(kBorderPair));
+    color_set(kBorderPair, nullptr);
   }
   mvvline(0, src_pos_x_, ACS_VLINE, wave_pos_y_);
   if (focused_panel_ != source_.get()) {
-    attron(COLOR_PAIR(kFocusBorderPair));
+    color_set(kFocusBorderPair, nullptr);
   } else {
-    attron(COLOR_PAIR(kBorderPair));
+    color_set(kBorderPair, nullptr);
   }
   mvhline(wave_pos_y_, 0, ACS_HLINE, src_pos_x_);
-  attron(COLOR_PAIR(kFocusBorderPair));
+  color_set(kFocusBorderPair, nullptr);
   mvaddch(wave_pos_y_, src_pos_x_, ACS_BTEE);
   if (focused_panel_ != hierarchy_.get()) {
-    attron(COLOR_PAIR(kFocusBorderPair));
+    color_set(kFocusBorderPair, nullptr);
   } else {
-    attron(COLOR_PAIR(kBorderPair));
+    color_set(kBorderPair, nullptr);
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
   // TODO: remove
   std::string s;
   for (int code : tmp_ch)
     s.append(absl::StrFormat("0x%x ", code));
-
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
+
+  auto tooltip = focused_panel_->Tooltip();
+  color_set(kTooltipPair, nullptr);
+  for (int x = 0; x < term_w_; ++x) {
+    mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
+  }
+
   wnoutrefresh(stdscr);
   hierarchy_->Draw();
   source_->Draw();

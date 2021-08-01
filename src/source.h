@@ -12,6 +12,7 @@ class Source : public Panel {
   void Draw() override;
   void UIChar(int ch) override;
   bool TransferPending() override;
+  std::string Tooltip() const override { return ""; }
   void SetInstance(SURELOG::ModuleInstance *inst) { inst_ = inst; }
 
  private:

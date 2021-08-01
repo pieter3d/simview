@@ -8,8 +8,9 @@ constexpr int kOverflowTextPair = 3;
 constexpr int kHierExpandPair = 4;
 constexpr int kHierInstancePair = 5;
 constexpr int kHierModulePair = 6;
-constexpr int kHierShowMore = 7;
-constexpr int kHierGenerate = 8;
+constexpr int kHierShowMorePair = 7;
+constexpr int kHierGeneratePair = 8;
+constexpr int kTooltipPair = 9;
 
 void SetupColors();
 
