@@ -208,6 +208,22 @@ void Hierarchy::UIChar(int ch) {
   int win_h = getmaxy(w_);
   switch (ch) {
   case 's': load_source_ = true; break;
+  case 'u': {
+    int current_depth = entry_info_[entries_[data_idx]].depth;
+    int new_idx = data_idx - 1;
+    if (current_depth != 0) {
+      while (entry_info_[entries_[new_idx]].depth >= current_depth) {
+        new_idx--;
+      }
+      int delta = data_idx - new_idx;
+      ui_line_index_ -= delta;
+      if (ui_line_index_ < 0) {
+        ui_row_scroll_ += ui_line_index_;
+        ui_line_index_ = 0;
+      }
+    }
+    break;
+  }
   case 0x20: // space
   case 0xd:  // enter
     ToggleExpand();
@@ -314,6 +330,6 @@ void Hierarchy::SetDesign(UHDM::design *d) {
   if (entries_.size() == 1) ToggleExpand();
 }
 
-std::string Hierarchy::Tooltip() const { return "s:open source"; }
+std::string Hierarchy::Tooltip() const { return "s:open source u:up scope"; }
 
 } // namespace sv
