@@ -17,7 +17,7 @@ class Hierarchy : public Panel {
   void UIChar(int ch) override;
   bool TransferPending() override;
   std::string Tooltip() const override;
-  UHDM::BaseClass *InstanceForSource();
+  UHDM::BaseClass *ItemForSource();
 
  private:
   struct EntryInfo {

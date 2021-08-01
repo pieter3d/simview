@@ -1,8 +1,9 @@
 #ifndef _SRC_SOURCE_H_
 #define _SRC_SOURCE_H_
 
-#include <Design/ModuleInstance.h>
 #include "panel.h"
+#include <uhdm/headers/BaseClass.h>
+#include <vector>
 
 namespace sv {
 
@@ -13,11 +14,11 @@ class Source : public Panel {
   void UIChar(int ch) override;
   bool TransferPending() override;
   std::string Tooltip() const override { return ""; }
-  void SetInstance(SURELOG::ModuleInstance *inst);
+  void SetItem(UHDM::BaseClass *item);
 
  private:
   struct State {
-    SURELOG::ModuleInstance *instance = nullptr;
+    UHDM::BaseClass *item = nullptr;
     int line_num = 0;
   };
   struct SourceLine {
@@ -31,6 +32,7 @@ class Source : public Panel {
   int ui_line_index_ = 0;
   std::vector<SourceLine> lines_;
   State state_;
+  std::string current_file_;
 };
 
 } // namespace sv

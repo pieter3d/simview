@@ -136,7 +136,7 @@ void UI::EventLoop() {
     }
     if (focused_panel_->TransferPending()) {
       if (focused_panel_ == hierarchy_.get()) {
-        //source_->SetInstance(hierarchy_->InstanceForSource());
+        source_->SetItem(hierarchy_->ItemForSource());
       }
     }
     // For now:

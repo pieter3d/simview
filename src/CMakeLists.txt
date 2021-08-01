@@ -46,6 +46,7 @@ add_executable(simview
   hierarchy.cc
   source.cc
   waves.cc
+  utils.cc
   ui.cc
   color.cc
   main.cc

@@ -1,9 +1,10 @@
 #include "hierarchy.h"
-#include "BaseClass.h"
 #include "absl/strings/str_format.h"
 #include "color.h"
+#include "utils.h"
 #include <algorithm>
 #include <iostream>
+#include <uhdm/headers/BaseClass.h>
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
@@ -13,12 +14,6 @@ namespace {
 
 // Limit number of instances dumped into the UI at once.
 constexpr int kMaxExpandInstances = 100;
-
-std::string strip_worklib(const std::string &s) {
-  const int lib_delimieter_pos = s.find('@');
-  if (lib_delimieter_pos == std::string::npos) return s;
-  return s.substr(lib_delimieter_pos + 1);
-}
 
 std::vector<UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
   std::vector<UHDM::BaseClass *> subs;
@@ -87,13 +82,13 @@ void Hierarchy::Draw() {
       SetColor(w_, kHierShowMorePair);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
-      std::string def_name = strip_worklib(entry->VpiDefName());
+      std::string def_name = StripWorklib(entry->VpiDefName());
       if (entry->VpiType() == vpiGenScopeArray) {
         def_name = "[generate]";
       }
       // VpiName generally doesn't contain the worklib, but it does for the top
       // level modules.
-      auto inst_name = strip_worklib(entry->VpiName());
+      auto inst_name = StripWorklib(entry->VpiName());
       char exp = info.expandable ? (info.expanded ? '-' : '+') : ' ';
       std::string s = indent + exp + inst_name + ' ' + def_name;
       max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
@@ -297,7 +292,7 @@ bool Hierarchy::TransferPending() {
   return false;
 }
 
-UHDM::BaseClass *Hierarchy::InstanceForSource() {
+UHDM::BaseClass *Hierarchy::ItemForSource() {
   return entries_[ui_line_index_ + ui_row_scroll_];
 }
 

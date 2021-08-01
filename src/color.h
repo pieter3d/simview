@@ -17,7 +17,7 @@ constexpr int kTooltipPair = 9;
 constexpr int kTooltipKeyPair = 10;
 constexpr int kSourceLineNrPair = 11;
 constexpr int kSourceTextPair = 12;
-constexpr int kSourceCommentPair = 13;
+constexpr int kSourceHeaderPair = 13;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);
