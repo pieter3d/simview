@@ -19,9 +19,9 @@ void SetupColors() {
     init_pair(kHierOtherPair, 13, kBackground);          // Bright magenta
     init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);  // Yellow background
     init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW); // Yellow background
-    init_pair(kSourceLineNrPair, COLOR_GREEN, kBackground);
-    init_pair(kSourceHeaderPair, 12, kBackground); // Bright blue
-    init_pair(kSourceTextPair, COLOR_WHITE, kBackground);
+    init_pair(kSourceLineNrPair, 8, kBackground);        // Grey
+    init_pair(kSourceHeaderPair, 12, kBackground);       // Bright blue
+    init_pair(kSourceTextPair, 8, kBackground);          // Grey
     use_default_colors();
   }
 }

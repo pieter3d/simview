@@ -202,7 +202,8 @@ void Hierarchy::UIChar(int ch) {
   const int data_idx = ui_line_index_ + ui_row_scroll_;
   int win_h = getmaxy(w_);
   switch (ch) {
-  case 's': load_source_ = true; break;
+  case 'i': load_instance_ = true; break;
+  case 'd': load_definition_ = true; break;
   case 'u': {
     int current_depth = entry_info_[entries_[data_idx]].depth;
     int new_idx = data_idx - 1;
@@ -285,15 +286,14 @@ void Hierarchy::UIChar(int ch) {
 }
 
 bool Hierarchy::TransferPending() {
-  if (load_source_) {
-    load_source_ = false;
-    return true;
-  }
-  return false;
+  return load_instance_ || load_definition_;
 }
 
-UHDM::BaseClass *Hierarchy::ItemForSource() {
-  return entries_[ui_line_index_ + ui_row_scroll_];
+std::pair<UHDM::BaseClass *, bool> Hierarchy::ItemForSource() {
+  std::pair<UHDM::BaseClass *, bool> ret = {entries_[ui_line_index_ + ui_row_scroll_], load_definition_};
+  load_definition_ = false;
+  load_instance_ = false;
+  return ret;
 }
 
 void Hierarchy::SetDesign(UHDM::design *d) {
@@ -325,6 +325,6 @@ void Hierarchy::SetDesign(UHDM::design *d) {
   if (entries_.size() == 1) ToggleExpand();
 }
 
-std::string Hierarchy::Tooltip() const { return "s:open source u:up scope"; }
+std::string Hierarchy::Tooltip() const { return "i:instance source  d:definition source  u:up scope"; }
 
 } // namespace sv

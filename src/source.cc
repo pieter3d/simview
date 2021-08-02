@@ -8,6 +8,7 @@
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
+#include <uhdm/headers/variables.h>
 
 namespace sv {
 namespace {
@@ -29,29 +30,28 @@ int num_decimal_digits(int n) {
   return ret;
 }
 
-std::string get_header(UHDM::BaseClass *item, int max_w = 0) {
-  std::string file;
+} // namespace
+
+std::string Source::GetHeader(int max_w = 0) {
+  auto &item = state_.item;
   std::string type;
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
-    file = m->VpiFile();
     type = m->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
     auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
-    file = ga->VpiFile();
     type = ga->VpiFullName();
     break;
   }
   default:
-    file = item->VpiFile();
     type = "Unknown type: " + std::to_string(item->VpiType());
     break;
   }
   const std::string separator = " | ";
-  auto s = file + separator + type;
+  auto s = current_file_ + separator + StripWorklib(type);
   // Attempt to strip as many leading directories from the front of the header
   // until it fits. If it still doesn't fit then oh well, it will get cut off
   // in the Draw funtion.
@@ -63,7 +63,7 @@ std::string get_header(UHDM::BaseClass *item, int max_w = 0) {
     int search_pos = 1;
     int pos = -1;
     do {
-      int result = file.find(sep, search_pos);
+      int result = current_file_.find(sep, search_pos);
       if (result == std::string::npos) break;
       pos = result;
       search_pos = pos + 1;
@@ -76,7 +76,6 @@ std::string get_header(UHDM::BaseClass *item, int max_w = 0) {
   }
   return s;
 }
-} // namespace
 
 void Source::Draw() {
   werase(w_);
@@ -89,11 +88,13 @@ void Source::Draw() {
   const int win_w = getmaxx(w_);
   const int max_digits = num_decimal_digits(ui_row_scroll_ + win_h);
   SetColor(w_, kSourceHeaderPair);
-  mvwaddnstr(w_, 0, 0, get_header(state_.item, win_w).c_str(), win_w);
+  mvwaddnstr(w_, 0, 0, GetHeader(win_w).c_str(), win_w);
+  int min_line = state_.item->VpiLineNo();
+  int max_line = state_.item->VpiEndLineNo();
 
   if (lines_.empty()) {
     SetColor(w_, kSourceTextPair);
-    mvwprintw(w_, 1, 0, "Unable to open file:");
+    mvwprintw(w_, 1, 0, "Unable to open file");
     return;
   }
   for (int y = 1; y < win_h; ++y) {
@@ -101,27 +102,54 @@ void Source::Draw() {
     if (line_idx >= lines_.size()) break;
     const int line_num = line_idx + 1;
     const int line_num_size = num_decimal_digits(line_num);
-    SetColor(w_, kSourceLineNrPair);
+    const bool active_line = line_num >= min_line && line_num <= max_line;
+    SetColor(w_, active_line ? kSourceLineNrPair : kSourceLineNrPair);
     mvwprintw(w_, y, max_digits - line_num_size, "%d", line_num);
-    SetColor(w_, kSourceTextPair);
+    SetColor(w_, active_line ? kSourceTextPair : kSourceTextPair);
     waddch(w_, ' ');
     waddnstr(w_, lines_[line_idx].text.c_str(), win_w - max_digits - 1);
   }
+  // TODO: remove
+  //if (state_.item->VpiType() == vpiModule) {
+  //  auto m = reinterpret_cast<UHDM::module *>(state_.item);
+  //  auto item = state_.item;
+  //  mvwprintw(w_, 0, 0, "|%d %d %d %d %d|", item->VpiLineNo(), item->VpiEndLineNo(),
+  //            item->VpiColumnNo(), item->VpiEndColumnNo(), m->VpiDefLineNo());
+  //  SetColor(w_, kTooltipKeyPair);
+  //  mvwprintw(w_, 1, 0, "%s", m->VpiDefFile().c_str());
+  //}
 }
 
 void Source::UIChar(int ch) {}
 
 bool Source::TransferPending() { return false; }
 
-void Source::SetItem(UHDM::BaseClass *item) {
+void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   state_.item = item;
   // Read all lines. TODO: Handle huge files.
   lines_.clear();
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
-    current_file_ = m->VpiFile();
-    state_.line_num = m->VpiLineNo();
+    if (open_def) { 
+      const std::string &def_name = m->VpiDefName();
+      if (module_defs_.find(def_name) == module_defs_.end()) {
+        // Find the module definition in the UHDB.
+        for (auto &candidate_module: *design_->AllModules()) {
+          if (def_name == candidate_module->VpiDefName()) {
+            module_defs_[def_name] = candidate_module;
+            break;
+          }
+        }
+      }
+      auto def = module_defs_[def_name];
+      current_file_ = def->VpiFile();
+      state_.line_num = def->VpiLineNo();
+      // TODO: Seems to be a bug in UHDM, def file info is blank.
+    } else {
+      current_file_ = m->VpiFile();
+      state_.line_num = m->VpiLineNo();
+    }
     break;
   }
   case vpiGenScopeArray: {
@@ -136,11 +164,10 @@ void Source::SetItem(UHDM::BaseClass *item) {
   }
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
-  while (is) {
-    lines_.push_back({});
-    auto &s = lines_.back().text;
-    std::getline(is, s);
+  std::string s;
+  while (std::getline(is, s)) {
     trim_string(s);
+    lines_.push_back({.text = std::move(s)});
   }
   // Scroll to module definition
   ui_line_index_ = 0;

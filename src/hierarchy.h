@@ -17,7 +17,7 @@ class Hierarchy : public Panel {
   void UIChar(int ch) override;
   bool TransferPending() override;
   std::string Tooltip() const override;
-  UHDM::BaseClass *ItemForSource();
+  std::pair<UHDM::BaseClass *, bool> ItemForSource();
 
  private:
   struct EntryInfo {
@@ -37,7 +37,8 @@ class Hierarchy : public Panel {
   int ui_row_scroll_ = 0;
   int ui_col_scroll_ = 0;
   int ui_max_col_scroll_ = 0;
-  bool load_source_ = false;
+  bool load_instance_ = false;
+  bool load_definition_ = false;
 };
 
 } // namespace sv

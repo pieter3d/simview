@@ -1,24 +1,28 @@
 #include "ui.h"
 #include <surelog/surelog.h>
+#include <uhdm/headers/ElaboratorListener.h>
 #include <uhdm/headers/vpi_listener.h>
 #include <uhdm/headers/vpi_uhdm.h>
-#include <uhdm/headers/ElaboratorListener.h>
 #include <vector>
 
 int main(int argc, const char *argv[]) {
   // Parse the design using the remaining command line arguments
   SURELOG::SymbolTable symbolTable;
   SURELOG::ErrorContainer errors(&symbolTable);
-  SURELOG::CommandLineParser clp(&errors,&symbolTable);
+  SURELOG::CommandLineParser clp(&errors, &symbolTable);
   SURELOG::scompiler *compiler = nullptr;
   clp.noPython();
   clp.setParse(true);
   clp.setElaborate(true);
+  clp.setElabUhdm(true);
   clp.setCompile(true);
   clp.setwritePpOutput(true);
   bool success = clp.parseCommandLine(argc, argv);
   vpiHandle design = nullptr;
-  if (!success || clp.help()) return -1;
+  if (!success || clp.help()) {
+    std::cout << "Problems parsing argumnets." << std::endl;
+    return -1;
+  }
   clp.setMuteStdout();
   compiler = SURELOG::start_compiler(&clp);
   design = SURELOG::get_uhdm_design(compiler);
@@ -45,19 +49,8 @@ int main(int argc, const char *argv[]) {
     std::cout << "Unable to parse the design!" << std::endl;
     return -1;
   }
-  //// Elaborate full UHDM.
-  //std::cout << "UHDM Elaboration...\n";
-  //UHDM::Serializer serializer;
-  //UHDM::ElaboratorListener listener(&serializer, true);
-  //listen_designs({design}, &listener);
-  //// Confirm proper API run
-  //if (vpi_get(vpiType, design) != vpiDesign) {
-  //  std::cout<< "Internal error elaborating UHDM" << std::endl;
-  //  return -1;
-  //}
   // Pretty ugly cast here, both reinterpret and const...
-  auto uhdm_design = (UHDM::design*)((uhdm_handle*)design)->object;
-
+  auto uhdm_design = (UHDM::design *)((uhdm_handle *)design)->object;
 
   if (uhdm_design->TopModules()->empty()) {
     std::cout << "No top level design found!" << std::endl;

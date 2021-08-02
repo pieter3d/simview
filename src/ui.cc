@@ -136,7 +136,8 @@ void UI::EventLoop() {
     }
     if (focused_panel_->TransferPending()) {
       if (focused_panel_ == hierarchy_.get()) {
-        source_->SetItem(hierarchy_->ItemForSource());
+        auto item = hierarchy_->ItemForSource();
+        source_->SetItem(item.first, item.second);
       }
     }
     // For now:
@@ -177,7 +178,7 @@ void UI::DrawPanes(bool resize) {
     color_set(kBorderPair, nullptr);
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
-  
+
   // Display most recent key codes for development ease. TODO: remove
   std::string s;
   for (int code : tmp_ch)
@@ -185,7 +186,7 @@ void UI::DrawPanes(bool resize) {
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
 
   // Render the tooltip.
-  auto tooltip = "/:search " + focused_panel_->Tooltip();
+  auto tooltip = "/:search  " + focused_panel_->Tooltip();
   for (int x = 0; x < term_w_; ++x) {
     // Look for a key (indicated by colon following).
     const bool is_key = x < tooltip.size() - 1 ? tooltip[x + 1] == ':' : false;
@@ -205,6 +206,7 @@ void UI::DrawPanes(bool resize) {
 
 void UI::SetDesign(UHDM::design *d) {
   hierarchy_->SetDesign(d);
+  source_->SetDesign(d);
   DrawPanes(false);
 }
 
