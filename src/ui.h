@@ -1,22 +1,23 @@
 #ifndef _SRC_UI_H_
 #define _SRC_UI_H_
 
+#include "absl/time/time.h"
 #include "hierarchy.h"
 #include "source.h"
 #include "waves.h"
-#include "absl/time/time.h"
+#include "workspace.h"
+#include <uhdm/headers/design.h>
 #include <memory>
-#include <uhdm.h>
 
 namespace sv {
 
 class UI {
  public:
-  UI();
+  UI(UHDM::design *d);
   ~UI();
 
   void EventLoop();
-  void SetDesign(UHDM::design *d);
+  void AddIncludeDir(const std::string &dir);
 
  private:
   void DrawPanes(bool resize);
@@ -33,6 +34,7 @@ class UI {
   std::unique_ptr<Waves> waves_;
   Panel *focused_panel_ = nullptr;
   Panel *prev_focused_panel_ = nullptr;
+  Workspace workspace_;
 };
 
 } // namespace sv

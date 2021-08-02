@@ -11,8 +11,7 @@ namespace sv {
 
 class Hierarchy : public Panel {
  public:
-  Hierarchy(WINDOW *w);
-  void SetDesign(UHDM::design *d);
+  Hierarchy(WINDOW *w, UHDM::design *d);
   void Draw() override;
   void UIChar(int ch) override;
   bool TransferPending() override;

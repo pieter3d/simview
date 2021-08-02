@@ -135,7 +135,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
       const std::string &def_name = m->VpiDefName();
       if (module_defs_.find(def_name) == module_defs_.end()) {
         // Find the module definition in the UHDB.
-        for (auto &candidate_module: *design_->AllModules()) {
+        for (auto &candidate_module: *workspace_.design->AllModules()) {
           if (def_name == candidate_module->VpiDefName()) {
             module_defs_[def_name] = candidate_module;
             break;

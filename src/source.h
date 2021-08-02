@@ -2,21 +2,20 @@
 #define _SRC_SOURCE_H_
 
 #include "panel.h"
+#include "workspace.h"
 #include <uhdm/headers/BaseClass.h>
-#include <uhdm/headers/design.h>
 #include <vector>
 
 namespace sv {
 
 class Source : public Panel {
  public:
-  Source(WINDOW *w) : Panel(w) {}
+  Source(WINDOW *w, Workspace &ws) : Panel(w), workspace_(ws) {}
   void Draw() override;
   void UIChar(int ch) override;
   bool TransferPending() override;
   std::string Tooltip() const override { return ""; }
   void SetItem(UHDM::BaseClass *item, bool open_def = false);
-  void SetDesign(UHDM::design *d) { design_ = d; }
 
  private:
   struct State {
@@ -36,7 +35,7 @@ class Source : public Panel {
   std::unordered_map<std::string, UHDM::module *> module_defs_;
   State state_;
   std::string current_file_;
-  UHDM::design *design_ = nullptr;
+  Workspace &workspace_;
 };
 
 } // namespace sv

@@ -9,7 +9,8 @@
 
 namespace sv {
 
-UI::UI() {
+UI::UI(UHDM::design *d) {
+  workspace_.design = d;
   setlocale(LC_ALL, "");
   // Init ncurses
   initscr();
@@ -26,10 +27,10 @@ UI::UI() {
   wave_pos_y_ = term_h_ * 50 / 100;
 
   // Create windows and associated panels
-  hierarchy_ =
-      std::make_unique<Hierarchy>(newwin(wave_pos_y_, src_pos_x_ - 1, 0, 0));
+  hierarchy_ = std::make_unique<Hierarchy>(
+      newwin(wave_pos_y_, src_pos_x_ - 1, 0, 0), workspace_.design);
   source_ = std::make_unique<Source>(
-      newwin(wave_pos_y_, term_w_ - src_pos_x_, 0, src_pos_x_ + 1));
+      newwin(wave_pos_y_, term_w_ - src_pos_x_, 0, src_pos_x_ + 1), workspace_);
   waves_ = std::make_unique<Waves>(
       newwin(term_h_ - wave_pos_y_ - 2, term_w_, wave_pos_y_ + 1, 0));
   focused_panel_ = hierarchy_.get();
@@ -226,10 +227,8 @@ void UI::DrawPanes(bool resize) {
   doupdate();
 }
 
-void UI::SetDesign(UHDM::design *d) {
-  hierarchy_->SetDesign(d);
-  source_->SetDesign(d);
-  DrawPanes(false);
+void UI::AddIncludeDir(const std::string &dir) {
+  workspace_.include_paths.push_back(dir);
 }
 
 } // namespace sv

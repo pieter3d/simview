@@ -1,7 +1,7 @@
 #include "ui.h"
+#include "workspace.h"
 #include <surelog/surelog.h>
 #include <uhdm/headers/ElaboratorListener.h>
-#include <uhdm/headers/vpi_listener.h>
 #include <uhdm/headers/vpi_uhdm.h>
 #include <vector>
 
@@ -20,7 +20,9 @@ int main(int argc, const char *argv[]) {
   bool success = clp.parseCommandLine(argc, argv);
   vpiHandle design = nullptr;
   if (!success || clp.help()) {
-    std::cout << "Problems parsing argumnets." << std::endl;
+    if (!clp.help()) {
+      std::cout << "Problems parsing argumnets." << std::endl;
+    }
     return -1;
   }
   clp.setMuteStdout();
@@ -56,8 +58,11 @@ int main(int argc, const char *argv[]) {
     std::cout << "No top level design found!" << std::endl;
     return -1;
   }
-  sv::UI ui;
-  ui.SetDesign(uhdm_design);
+
+  sv::UI ui(uhdm_design);
+  for (auto id : clp.getIncludePaths()) {
+    ui.AddIncludeDir(symbolTable.getSymbol(id));
+  }
   ui.EventLoop();
 
   SURELOG::shutdown_compiler(compiler);

@@ -57,7 +57,33 @@ bool is_expandable(const UHDM::BaseClass *item) {
 
 } // namespace
 
-Hierarchy::Hierarchy(WINDOW *w) : Panel(w) {}
+Hierarchy::Hierarchy(WINDOW *w, UHDM::design *d) : Panel(w) {
+  design_ = d;
+  // Populate an intial list of instances, top modules really.
+  for (auto &top : *d->TopModules()) {
+    entries_.push_back(top);
+    entry_info_[top].expandable = is_expandable(top);
+  }
+  // Put all top modules with sub instances on top.
+  // Lexical sort within that.
+  auto top_sorter = [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
+    auto &ma = reinterpret_cast<UHDM::module *&>(a);
+    auto &mb = reinterpret_cast<UHDM::module *&>(b);
+    bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
+    bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
+    if (a_has_subs == b_has_subs) {
+      return a->VpiName() < b->VpiName();
+    } else {
+      return a_has_subs;
+    }
+  };
+  std::stable_sort(entries_.begin(), entries_.end(), top_sorter);
+
+  ui_line_index_ = 0;
+  ui_row_scroll_ = 0;
+  // First instance is pre-expanded for usability if there is just one.
+  if (entries_.size() == 1) ToggleExpand();
+}
 
 void Hierarchy::Draw() {
   werase(w_);
@@ -285,46 +311,18 @@ void Hierarchy::UIChar(int ch) {
   }
 }
 
-bool Hierarchy::TransferPending() {
-  return load_instance_ || load_definition_;
-}
+bool Hierarchy::TransferPending() { return load_instance_ || load_definition_; }
 
 std::pair<UHDM::BaseClass *, bool> Hierarchy::ItemForSource() {
-  std::pair<UHDM::BaseClass *, bool> ret = {entries_[ui_line_index_ + ui_row_scroll_], load_definition_};
+  std::pair<UHDM::BaseClass *, bool> ret = {
+      entries_[ui_line_index_ + ui_row_scroll_], load_definition_};
   load_definition_ = false;
   load_instance_ = false;
   return ret;
 }
 
-void Hierarchy::SetDesign(UHDM::design *d) {
-  if (d == nullptr) return;
-
-  design_ = d;
-  for (auto &top : *d->TopModules()) {
-    entries_.push_back(top);
-    entry_info_[top].expandable = is_expandable(top);
-  }
-  // Put all top modules with sub instances on top.
-  // Lexical sort within that.
-  auto top_sorter = [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
-    auto &ma = reinterpret_cast<UHDM::module *&>(a);
-    auto &mb = reinterpret_cast<UHDM::module *&>(b);
-    bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
-    bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
-    if (a_has_subs == b_has_subs) {
-      return a->VpiName() < b->VpiName();
-    } else {
-      return a_has_subs;
-    }
-  };
-  std::stable_sort(entries_.begin(), entries_.end(), top_sorter);
-
-  ui_line_index_ = 0;
-  ui_row_scroll_ = 0;
-  // First instance is pre-expanded for usability if there is just one.
-  if (entries_.size() == 1) ToggleExpand();
+std::string Hierarchy::Tooltip() const {
+  return "i:instance source  d:definition source  u:up scope";
 }
-
-std::string Hierarchy::Tooltip() const { return "i:instance source  d:definition source  u:up scope"; }
 
 } // namespace sv
