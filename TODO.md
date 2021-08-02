@@ -7,3 +7,5 @@
 * Containers with UHDM pointers should all be const
 * Polishing
   * Hierarchy "more" expansion shouldn't show up if the "..more.." just hides 1 element.
+  * Syntax highlighting of macros
+* Nets should get selected out of the hierarchy panel (no verdi style get without design)

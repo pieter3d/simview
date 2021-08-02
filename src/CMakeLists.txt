@@ -42,6 +42,10 @@ set(ALL_SURELOG_INCLUDES
   ${SURELOG_INCLUDE_DIR}/uhdm/include
 )
 
+add_library(simple_tokenizer simple_tokenizer.cc)
+simview_add_test(simple_tokenizer_test simple_tokenizer_test.cc)
+target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
+
 add_executable(simview
   hierarchy.cc
   source.cc
