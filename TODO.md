@@ -7,4 +7,3 @@
 * Containers with UHDM pointers should all be const
 * Polishing
   * Hierarchy "more" expansion shouldn't show up if the "..more.." just hides 1 element.
-  * tab/shift-tab should cycle focus too.

@@ -129,6 +129,28 @@ void UI::EventLoop() {
         redraw = true;
       }
       break;
+    case 0x9: // tab
+      prev_focused_panel_ = focused_panel_;
+      if (focused_panel_ == hierarchy_.get()) {
+        focused_panel_ = source_.get();
+      } else if (focused_panel_ == source_.get()) {
+        focused_panel_ = waves_.get();
+      } else if (focused_panel_ == waves_.get()) {
+        focused_panel_ = hierarchy_.get();
+      }
+      redraw = true;
+      break;
+    case 0x161: // shift-tab
+      prev_focused_panel_ = focused_panel_;
+      if (focused_panel_ == hierarchy_.get()) {
+        focused_panel_ = waves_.get();
+      } else if (focused_panel_ == source_.get()) {
+        focused_panel_ = hierarchy_.get();
+      } else if (focused_panel_ == waves_.get()) {
+        focused_panel_ = source_.get();
+      }
+      redraw = true;
+      break;
     default:
       focused_panel_->UIChar(ch);
       redraw = true;
