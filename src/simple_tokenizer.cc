@@ -278,7 +278,7 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
     char c = s[i];
     if (in_block_comment_) {
       if ((i > 0 && c == '/' && s[i - 1] == '*') || (i == s.size() - 1)) {
-        comment_ranges_[line_num_].push_back({start_pos, i});
+        comments_[line_num_].push_back({start_pos, i});
         in_block_comment_ = c != '/';
       }
     } else if (in_string_literal_) {
@@ -297,15 +297,17 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
                            : (i - 1);
         // Skip macros and compiler directives.
         if (start_pos > 0 && s[start_pos - 1] == '`') continue;
+        // Skip numerical literals
+        if (start_pos > 0 && s[start_pos - 1] == '\'') continue;
         auto text = s.substr(start_pos, last_pos - start_pos + 1);
         if (IsKeyword(text)) {
-          keywords_[line_num_].push_back({start_pos, text});
+          keywords_[line_num_].push_back({start_pos, last_pos});
         } else {
           identifiers_[line_num_].push_back({start_pos, text});
         }
       }
     } else if (i > 0 && c == '/' && s[i - 1] == '/') {
-      comment_ranges_[line_num_].push_back({i - 1, s.size() - 1});
+      comments_[line_num_].push_back({i - 1, s.size() - 1});
       break;
     } else if (i > 0 && c == '*' && s[i - 1] == '/') {
       in_block_comment_ = true;

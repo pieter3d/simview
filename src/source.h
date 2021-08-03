@@ -2,6 +2,7 @@
 #define _SRC_SOURCE_H_
 
 #include "panel.h"
+#include "simple_tokenizer.h"
 #include "workspace.h"
 #include <uhdm/headers/BaseClass.h>
 #include <vector>
@@ -36,6 +37,7 @@ class Source : public Panel {
   State state_;
   std::string current_file_;
   Workspace &workspace_;
+  SimpleTokenizer tokenizer_;
 };
 
 } // namespace sv

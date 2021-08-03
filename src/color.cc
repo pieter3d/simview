@@ -20,8 +20,11 @@ void SetupColors() {
     init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);  // Yellow background
     init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW); // Yellow background
     init_pair(kSourceLineNrPair, 8, kBackground);        // Grey
-    init_pair(kSourceHeaderPair, 12, kBackground);       // Bright blue
-    init_pair(kSourceTextPair, 8, kBackground);          // Grey
+    init_pair(kSourceHeaderPair, 15, kBackground);       // White
+    init_pair(kSourceTextPair, 7, kBackground);          // Silver
+    init_pair(kSourceIndentifierPair, 9, kBackground);   // Red
+    init_pair(kSourceKeywordPair, 11, kBackground);      // Yellow
+    init_pair(kSourceCommentPair, 12, kBackground);      // Bright blue
     use_default_colors();
   }
 }

@@ -57,7 +57,8 @@ add_executable(simview
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
 target_include_directories(simview PRIVATE ${ALL_SURELOG_INCLUDES})
-target_link_libraries(simview PUBLIC
+target_link_libraries(simview PRIVATE
+  simple_tokenizer
   absl::str_format
   absl::time
   ${CURSES_LIBRARIES}

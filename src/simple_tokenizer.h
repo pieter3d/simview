@@ -16,15 +16,15 @@ class SimpleTokenizer {
  public:
   void ProcessLine(const std::string &s);
   // Returns a list of ranges in the line that are part of comments.
-  std::vector<std::pair<int, int>> &CommentRanges(int line) {
-    return comment_ranges_[line];
+  std::vector<std::pair<int, int>> &Comments(int line) {
+    return comments_[line];
   }
-  // Returns a list positions and strings that are idenfiers in the line.
+  // Returns a list of positions and strings that are idenfiers in the line.
   std::vector<std::pair<int, std::string>> &Identifiers(int line) {
     return identifiers_[line];
   }
-  // Returns a list positions and strings that are keywords in the line.
-  std::vector<std::pair<int, std::string>> &Keywords(int line) {
+  // Returns a list of ranges that are keywords in the line.
+  std::vector<std::pair<int, int>> &Keywords(int line) {
     return keywords_[line];
   }
 
@@ -32,10 +32,10 @@ class SimpleTokenizer {
   int line_num_ = 0;
   bool in_block_comment_ = false;
   bool in_string_literal_ = false;
-  std::unordered_map<int, std::vector<std::pair<int, int>>> comment_ranges_;
+  std::unordered_map<int, std::vector<std::pair<int, int>>> comments_;
+  std::unordered_map<int, std::vector<std::pair<int, int>>> keywords_;
   std::unordered_map<int, std::vector<std::pair<int, std::string>>>
       identifiers_;
-  std::unordered_map<int, std::vector<std::pair<int, std::string>>> keywords_;
 };
 
 } // namespace sv

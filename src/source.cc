@@ -46,9 +46,7 @@ std::string Source::GetHeader(int max_w = 0) {
     type = ga->VpiFullName();
     break;
   }
-  default:
-    type = "Unknown type: " + std::to_string(item->VpiType());
-    break;
+  default: type = "Unknown type: " + std::to_string(item->VpiType()); break;
   }
   const std::string separator = " | ";
   auto s = current_file_ + separator + StripWorklib(type);
@@ -89,8 +87,6 @@ void Source::Draw() {
   const int max_digits = num_decimal_digits(ui_row_scroll_ + win_h);
   SetColor(w_, kSourceHeaderPair);
   mvwaddnstr(w_, 0, 0, GetHeader(win_w).c_str(), win_w);
-  int min_line = state_.item->VpiLineNo();
-  int max_line = state_.item->VpiEndLineNo();
 
   if (lines_.empty()) {
     SetColor(w_, kSourceTextPair);
@@ -102,18 +98,62 @@ void Source::Draw() {
     if (line_idx >= lines_.size()) break;
     const int line_num = line_idx + 1;
     const int line_num_size = num_decimal_digits(line_num);
-    const bool active_line = line_num >= min_line && line_num <= max_line;
-    SetColor(w_, active_line ? kSourceLineNrPair : kSourceLineNrPair);
+    SetColor(w_, kSourceLineNrPair);
     mvwprintw(w_, y, max_digits - line_num_size, "%d", line_num);
-    SetColor(w_, active_line ? kSourceTextPair : kSourceTextPair);
+    SetColor(w_, kSourceTextPair);
     waddch(w_, ' ');
-    waddnstr(w_, lines_[line_idx].text.c_str(), win_w - max_digits - 1);
+    const auto &s = lines_[line_idx].text;
+    const auto &keywords = tokenizer_.Keywords(line_idx);
+    const auto &identifiers = tokenizer_.Identifiers(line_idx);
+    const auto &comments = tokenizer_.Comments(line_idx);
+    bool in_keyword = false;
+    bool in_comment = false;
+    bool in_identifier = false;
+    int k_idx = 0;
+    int c_idx = 0;
+    int id_idx = 0;
+    for (int x = max_digits + 1; x < win_w; ++x) {
+      int pos = x - max_digits - 1;
+      if (pos >= s.size()) break;
+      // Figure out if we have to switch to a new color
+      if (!in_keyword && keywords.size() > k_idx &&
+          keywords[k_idx].first == pos) {
+        in_keyword = true;
+        SetColor(w_, kSourceKeywordPair);
+      } else if (!in_comment && comments.size() > c_idx &&
+                 comments[c_idx].first == pos) {
+        in_comment = true;
+        SetColor(w_, kSourceCommentPair);
+      } else if (!in_identifier && identifiers.size() > id_idx &&
+                 identifiers[id_idx].first == pos) {
+        in_identifier = true;
+        SetColor(w_, kSourceIndentifierPair);
+      }
+      waddch(w_, s[pos]);
+      // See if the color should be turned off.
+      if (in_keyword && keywords[k_idx].second == pos) {
+        in_keyword = false;
+        k_idx++;
+        SetColor(w_, kSourceTextPair);
+      } else if (in_comment && comments[c_idx].second == pos) {
+        in_comment = false;
+        c_idx++;
+        SetColor(w_, kSourceTextPair);
+      } else if (in_identifier &&
+                 (identifiers[id_idx].first +
+                  identifiers[id_idx].second.size() - 1) == pos) {
+        in_identifier = false;
+        id_idx++;
+        SetColor(w_, kSourceTextPair);
+      }
+    }
   }
   // TODO: remove
-  //if (state_.item->VpiType() == vpiModule) {
+  // if (state_.item->VpiType() == vpiModule) {
   //  auto m = reinterpret_cast<UHDM::module *>(state_.item);
   //  auto item = state_.item;
-  //  mvwprintw(w_, 0, 0, "|%d %d %d %d %d|", item->VpiLineNo(), item->VpiEndLineNo(),
+  //  mvwprintw(w_, 0, 0, "|%d %d %d %d %d|", item->VpiLineNo(),
+  //  item->VpiEndLineNo(),
   //            item->VpiColumnNo(), item->VpiEndColumnNo(), m->VpiDefLineNo());
   //  SetColor(w_, kTooltipKeyPair);
   //  mvwprintw(w_, 1, 0, "%s", m->VpiDefFile().c_str());
@@ -131,11 +171,11 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
-    if (open_def) { 
+    if (open_def) {
       const std::string &def_name = m->VpiDefName();
       if (module_defs_.find(def_name) == module_defs_.end()) {
         // Find the module definition in the UHDB.
-        for (auto &candidate_module: *workspace_.design->AllModules()) {
+        for (auto &candidate_module : *workspace_.design->AllModules()) {
           if (def_name == candidate_module->VpiDefName()) {
             module_defs_[def_name] = candidate_module;
             break;
@@ -162,11 +202,13 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     // Do nothing for unknown types.
     return;
   }
+  tokenizer_ = SimpleTokenizer(); // Clear out old info.
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
   std::string s;
   while (std::getline(is, s)) {
     trim_string(s);
+    tokenizer_.ProcessLine(s);
     lines_.push_back({.text = std::move(s)});
   }
   // Scroll to module definition
