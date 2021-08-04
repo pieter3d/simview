@@ -189,20 +189,8 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
     if (open_def) {
-      const std::string &def_name = m->VpiDefName();
-      if (module_defs_.find(def_name) == module_defs_.end()) {
-        // Find the module definition in the UHDB.
-        for (auto &candidate_module : *workspace_.design->AllModules()) {
-          if (def_name == candidate_module->VpiDefName()) {
-            module_defs_[def_name] = candidate_module;
-            break;
-          }
-        }
-      }
-      auto def = module_defs_[def_name];
-      current_file_ = def->VpiFile();
-      line_num = def->VpiLineNo();
-      // TODO: Seems to be a bug in UHDM, def file info is blank.
+      current_file_ = m->VpiDefFile();
+      line_num = m->VpiDefLineNo();
     } else {
       current_file_ = m->VpiFile();
       line_num = m->VpiLineNo();
