@@ -67,8 +67,8 @@ Hierarchy::Hierarchy(WINDOW *w, UHDM::design *d) : Panel(w) {
   // Put all top modules with sub instances on top.
   // Lexical sort within that.
   auto top_sorter = [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
-    auto &ma = reinterpret_cast<UHDM::module *&>(a);
-    auto &mb = reinterpret_cast<UHDM::module *&>(b);
+    auto ma = reinterpret_cast<UHDM::module *>(a);
+    auto mb = reinterpret_cast<UHDM::module *>(b);
     bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
     bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
     if (a_has_subs == b_has_subs) {
