@@ -33,20 +33,19 @@ int num_decimal_digits(int n) {
 } // namespace
 
 std::string Source::GetHeader(int max_w = 0) {
-  auto &item = state_.item;
   std::string type;
-  switch (item->VpiType()) {
+  switch (item_->VpiType()) {
   case vpiModule: {
-    auto m = reinterpret_cast<UHDM::module *>(item);
+    auto m = reinterpret_cast<UHDM::module *>(item_);
     type = m->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
+    auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item_);
     type = ga->VpiFullName();
     break;
   }
-  default: type = "Unknown type: " + std::to_string(item->VpiType()); break;
+  default: type = "Unknown type: " + std::to_string(item_->VpiType()); break;
   }
   const std::string separator = " | ";
   auto s = current_file_ + separator + StripWorklib(type);
@@ -78,13 +77,13 @@ std::string Source::GetHeader(int max_w = 0) {
 void Source::Draw() {
   werase(w_);
   wattrset(w_, A_NORMAL);
-  if (state_.item == nullptr) {
+  if (item_ == nullptr) {
     mvwprintw(w_, 0, 0, "Module instance source code appears here.");
     return;
   }
   const int win_h = getmaxy(w_);
   const int win_w = getmaxx(w_);
-  const int max_digits = num_decimal_digits(ui_row_scroll_ + win_h);
+  const int max_digits = num_decimal_digits(scroll_row_ + win_h);
   SetColor(w_, kSourceHeaderPair);
   mvwaddnstr(w_, 0, 0, GetHeader(win_w).c_str(), win_w);
 
@@ -94,9 +93,9 @@ void Source::Draw() {
     return;
   }
   for (int y = 1; y < win_h; ++y) {
-    int line_idx = y - 1 + ui_row_scroll_;
+    int line_idx = y - 1 + scroll_row_;
     if (line_idx >= lines_.size()) break;
-    if (line_idx == state_.line_idx) wattron(w_, A_REVERSE);
+    if (line_idx == line_idx_) wattron(w_, A_REVERSE);
     const int line_num = line_idx + 1;
     const int line_num_size = num_decimal_digits(line_num);
     SetColor(w_, kSourceLineNrPair);
@@ -163,52 +162,26 @@ void Source::Draw() {
 }
 
 void Source::UIChar(int ch) {
-  int win_h = getmaxy(w_) - 1; // Account for header
   switch (ch) {
   case 'u': {
     // TODO: Go up in scope.
     break;
   }
-  case 0x20: // space
-  case 0xd:  // enter
-    break;
-  case 'h':
-  case 0x104: // left
-    break;
-  case 'l':
-  case 0x105: // right
-    break;
-  case 'k':
-  case 0x103: // up
-    if (state_.line_idx == 0) break;
-    state_.line_idx--;
-    if (state_.line_idx - ui_row_scroll_ < 0) ui_row_scroll_--;
-    break;
-  case 'j':
-  case 0x102: // down
-    if (state_.line_idx == lines_.size() - 1) break;
-    state_.line_idx++;
-    if (state_.line_idx - ui_row_scroll_ >= win_h) ui_row_scroll_++;
-    break;
-  case 0x153: { // PgUp
-    break;
+  default: Panel::UIChar(ch);
   }
-  case 0x152: { // PgDn
-    break;
-  }
-  case 'g':   // vim style
-  case 0x217: // Ctrl Home
-    break;
-  case 'G':   // vim style
-  case 0x212: // Ctrl End
-    break;
-  }
+}
+
+std::pair<int, int> Source::ScrollArea() {
+  // Account for the header.
+  int h, w;
+  getmaxyx(w_, h, w);
+  return {h - 1, w};
 }
 
 bool Source::TransferPending() { return false; }
 
 void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
-  state_.item = item;
+  item_ = item;
   // Read all lines. TODO: Handle huge files.
   lines_.clear();
   int line_num = 0;
@@ -246,7 +219,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     // Do nothing for unknown types.
     return;
   }
-  state_.line_idx = line_num - 1;
+  line_idx_ = line_num - 1;
   tokenizer_ = SimpleTokenizer(); // Clear out old info.
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
@@ -258,22 +231,21 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   }
   // Scroll to module definition, attempt to place the line at 1/3rd the screen.
   const int win_h = getmaxy(w_) - 1; // Account for header
-  const int lines_remaining = lines_.size() - state_.line_idx - 1;
+  const int lines_remaining = lines_.size() - line_idx_ - 1;
   if (lines_.size() <= win_h - 1) {
     // If all lines fit on the screen, accounting for the header, then just
     // don't scroll.
-    ui_row_scroll_ = 0;
-  } else if (state_.line_idx < win_h / 3) {
+    scroll_row_ = 0;
+  } else if (line_idx_ < win_h / 3) {
     // Go as far down to the 1/3rd line as possible.
-    ui_row_scroll_ = 0;
+    scroll_row_ = 0;
   } else if (lines_remaining < 2 * win_h / 3) {
     // If there are aren't many lines after the current location, scroll as far
     // up as possible.
-    ui_row_scroll_ = lines_.size() - win_h;
+    scroll_row_ = lines_.size() - win_h;
   } else {
-    ui_row_scroll_ = state_.line_idx - win_h / 3;
+    scroll_row_ = line_idx_ - win_h / 3;
   }
-  ui_col_scroll_ = 0;
 }
 
 } // namespace sv

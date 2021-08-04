@@ -14,9 +14,11 @@ class Source : public Panel {
   Source(WINDOW *w, Workspace &ws) : Panel(w), workspace_(ws) {}
   void Draw() override;
   void UIChar(int ch) override;
+  int NumLines() const override { return lines_.size() - 1; }
   bool TransferPending() override;
   std::string Tooltip() const override { return ""; }
   void SetItem(UHDM::BaseClass *item, bool open_def = false);
+  std::pair<int, int> ScrollArea() override;
 
  private:
   struct State {
@@ -29,11 +31,9 @@ class Source : public Panel {
 
   std::string GetHeader(int max_w);
 
-  int ui_col_scroll_ = 0;
-  int ui_row_scroll_ = 0;
   std::vector<SourceLine> lines_;
   std::unordered_map<std::string, UHDM::module *> module_defs_;
-  State state_;
+  UHDM::BaseClass *item_ = nullptr;
   std::string current_file_;
   Workspace &workspace_;
   SimpleTokenizer tokenizer_;

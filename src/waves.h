@@ -10,6 +10,7 @@ class Waves : public Panel {
   Waves(WINDOW *w) : Panel(w) {}
   void Draw() override;
   void UIChar(int ch) override;
+  int NumLines() const override { return 0; }
   bool TransferPending() override;
   std::string Tooltip() const override { return ""; }
 

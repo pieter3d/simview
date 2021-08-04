@@ -178,6 +178,9 @@ void UI::DrawPanes(bool resize) {
     mvwin(source_->Window(), 0, src_pos_x_ + 1);
     wresize(waves_->Window(), term_h_ - wave_pos_y_ - 2, term_w_);
     mvwin(waves_->Window(), wave_pos_y_ + 1, 0);
+    hierarchy_->Resized();
+    source_->Resized();
+    waves_->Resized();
   }
   erase();
   // Render the dividing lines

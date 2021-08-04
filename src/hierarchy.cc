@@ -79,8 +79,6 @@ Hierarchy::Hierarchy(WINDOW *w, UHDM::design *d) : Panel(w) {
   };
   std::stable_sort(entries_.begin(), entries_.end(), top_sorter);
 
-  ui_line_index_ = 0;
-  ui_row_scroll_ = 0;
   // First instance is pre-expanded for usability if there is just one.
   if (entries_.size() == 1) ToggleExpand();
 }
@@ -91,16 +89,11 @@ void Hierarchy::Draw() {
   getmaxyx(w_, win_h, win_w);
   // If the window was resized and the ui line position is now hidden, move it
   // up.
-  if (ui_line_index_ >= win_h) {
-    const int shift = ui_line_index_ - (win_h - 1);
-    ui_line_index_ -= shift;
-    ui_row_scroll_ += shift;
-  }
   int max_string_len = 0;
   for (int y = 0; y < win_h; ++y) {
-    const int entry_idx = y + ui_row_scroll_;
+    const int entry_idx = y + scroll_row_;
     if (entry_idx >= entries_.size()) break;
-    if (y == ui_line_index_) wattron(w_, A_REVERSE);
+    if (entry_idx == line_idx_) wattron(w_, A_REVERSE);
     auto entry = entries_[entry_idx];
     auto info = entry_info_[entry];
     std::string indent(info.depth, ' ');
@@ -154,8 +147,7 @@ void Hierarchy::Draw() {
 }
 
 void Hierarchy::ToggleExpand() {
-  const int idx = ui_line_index_ + ui_row_scroll_;
-  const auto entry_it = entries_.cbegin() + idx;
+  const auto entry_it = entries_.cbegin() + line_idx_;
   if (entries_.empty()) return;
   auto &info = entry_info_[*entry_it];
   if (info.more_idx != 0) {
@@ -215,33 +207,26 @@ void Hierarchy::ToggleExpand() {
     info.expanded = true;
     // Move the selection up a ways if the new lines are all hidden.
     const int win_h = getmaxy(w_);
-    if (ui_line_index_ == win_h - 1) {
-      const int lines_below = entries_.size() - ui_row_scroll_ - win_h;
+    if (line_idx_ - scroll_row_ == win_h - 1) {
+      const int lines_below = entries_.size() - scroll_row_ - win_h;
       const int scroll_amt = std::min(lines_below, win_h / 3);
-      ui_row_scroll_ += scroll_amt;
-      ui_line_index_ -= scroll_amt;
+      scroll_row_ += scroll_amt;
     }
   }
 }
 
 void Hierarchy::UIChar(int ch) {
-  const int data_idx = ui_line_index_ + ui_row_scroll_;
-  int win_h = getmaxy(w_);
   switch (ch) {
   case 'i': load_instance_ = true; break;
   case 'd': load_definition_ = true; break;
   case 'u': {
-    int current_depth = entry_info_[entries_[data_idx]].depth;
-    int new_idx = data_idx - 1;
-    if (current_depth != 0) {
-      while (entry_info_[entries_[new_idx]].depth >= current_depth) {
-        new_idx--;
+    int current_depth = entry_info_[entries_[line_idx_]].depth;
+    if (current_depth != 0 && line_idx_ != 0) {
+      while (entry_info_[entries_[line_idx_]].depth >= current_depth) {
+        line_idx_--;
       }
-      int delta = data_idx - new_idx;
-      ui_line_index_ -= delta;
-      if (ui_line_index_ < 0) {
-        ui_row_scroll_ += ui_line_index_;
-        ui_line_index_ = 0;
+      if (line_idx_ - scroll_row_ < 0) {
+        scroll_row_ = line_idx_;
       }
     }
     break;
@@ -259,63 +244,15 @@ void Hierarchy::UIChar(int ch) {
     if (ui_col_scroll_ < ui_max_col_scroll_) ui_col_scroll_++;
     break;
   case 'k':
-  case 0x103: // up
-    if (ui_line_index_ == 0 && ui_row_scroll_ != 0) {
-      ui_row_scroll_--;
-    } else if (ui_line_index_ > 0) {
-      ui_line_index_--;
-    }
-    break;
-  case 'j':
-  case 0x102: // down
-    if (data_idx < entries_.size() - 1) {
-      if (ui_line_index_ < win_h - 1) {
-        ui_line_index_++;
-      } else {
-        ui_row_scroll_++;
-      }
-    }
-    break;
-  case 0x153: { // PgUp
-    int step = std::min(ui_row_scroll_, win_h - 2);
-    ui_row_scroll_ -= step;
-    ui_line_index_ = std::min(win_h - 2, ui_line_index_ + step);
-    break;
-  }
-  case 0x152: { // PgDn
-    int step =
-        std::min(static_cast<int>(entries_.size()) - (ui_row_scroll_ + win_h),
-                 win_h - 2);
-    ui_row_scroll_ += step;
-    if (step == 0) {
-      ui_line_index_ = win_h - 1;
-    } else {
-      ui_line_index_ = std::max(2, ui_line_index_ - step);
-    }
-    break;
-  }
-  case 'g':   // vim style
-  case 0x217: // Ctrl Home
-    ui_row_scroll_ = 0;
-    ui_line_index_ = 0;
-    break;
-  case 'G':   // vim style
-  case 0x212: // Ctrl End
-    if (entries_.size() > win_h) {
-      ui_row_scroll_ = entries_.size() - win_h;
-      ui_line_index_ = win_h - 1;
-    } else {
-      ui_line_index_ = entries_.size();
-    }
-    break;
+  default: Panel::UIChar(ch);
   }
 }
 
 bool Hierarchy::TransferPending() { return load_instance_ || load_definition_; }
 
 std::pair<UHDM::BaseClass *, bool> Hierarchy::ItemForSource() {
-  std::pair<UHDM::BaseClass *, bool> ret = {
-      entries_[ui_line_index_ + ui_row_scroll_], load_definition_};
+  std::pair<UHDM::BaseClass *, bool> ret = {entries_[line_idx_],
+                                            load_definition_};
   load_definition_ = false;
   load_instance_ = false;
   return ret;

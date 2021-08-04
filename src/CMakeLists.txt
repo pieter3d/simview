@@ -47,6 +47,7 @@ simview_add_test(simple_tokenizer_test simple_tokenizer_test.cc)
 target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
 
 add_executable(simview
+  panel.cc
   hierarchy.cc
   source.cc
   waves.cc

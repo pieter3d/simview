@@ -14,6 +14,7 @@ class Hierarchy : public Panel {
   Hierarchy(WINDOW *w, UHDM::design *d);
   void Draw() override;
   void UIChar(int ch) override;
+  int NumLines() const override { return entries_.size() - 1; }
   bool TransferPending() override;
   std::string Tooltip() const override;
   std::pair<UHDM::BaseClass *, bool> ItemForSource();
@@ -32,8 +33,6 @@ class Hierarchy : public Panel {
   UHDM::design *design_;
   std::vector<UHDM::BaseClass *> entries_;
   std::unordered_map<UHDM::BaseClass *, EntryInfo> entry_info_;
-  int ui_line_index_ = 0;
-  int ui_row_scroll_ = 0;
   int ui_col_scroll_ = 0;
   int ui_max_col_scroll_ = 0;
   bool load_instance_ = false;
