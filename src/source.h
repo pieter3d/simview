@@ -14,7 +14,7 @@ class Source : public Panel {
   Source(WINDOW *w, Workspace &ws) : Panel(w), workspace_(ws) {}
   void Draw() override;
   void UIChar(int ch) override;
-  int NumLines() const override { return lines_.size() - 1; }
+  int NumLines() const override { return lines_.size(); }
   bool TransferPending() override;
   std::string Tooltip() const override { return ""; }
   void SetItem(UHDM::BaseClass *item, bool open_def = false);

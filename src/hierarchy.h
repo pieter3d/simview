@@ -14,7 +14,7 @@ class Hierarchy : public Panel {
   Hierarchy(WINDOW *w, UHDM::design *d);
   void Draw() override;
   void UIChar(int ch) override;
-  int NumLines() const override { return entries_.size() - 1; }
+  int NumLines() const override { return entries_.size(); }
   bool TransferPending() override;
   std::string Tooltip() const override;
   std::pair<UHDM::BaseClass *, bool> ItemForSource();
