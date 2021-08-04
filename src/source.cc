@@ -96,6 +96,7 @@ void Source::Draw() {
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + ui_row_scroll_;
     if (line_idx >= lines_.size()) break;
+    if (line_idx == state_.line_idx) wattron(w_, A_REVERSE);
     const int line_num = line_idx + 1;
     const int line_num_size = num_decimal_digits(line_num);
     SetColor(w_, kSourceLineNrPair);
@@ -147,6 +148,7 @@ void Source::Draw() {
         SetColor(w_, kSourceTextPair);
       }
     }
+    wattroff(w_, A_REVERSE);
   }
   // TODO: remove
   // if (state_.item->VpiType() == vpiModule) {
@@ -160,7 +162,48 @@ void Source::Draw() {
   //}
 }
 
-void Source::UIChar(int ch) {}
+void Source::UIChar(int ch) {
+  int win_h = getmaxy(w_) - 1; // Account for header
+  switch (ch) {
+  case 'u': {
+    // TODO: Go up in scope.
+    break;
+  }
+  case 0x20: // space
+  case 0xd:  // enter
+    break;
+  case 'h':
+  case 0x104: // left
+    break;
+  case 'l':
+  case 0x105: // right
+    break;
+  case 'k':
+  case 0x103: // up
+    if (state_.line_idx == 0) break;
+    state_.line_idx--;
+    if (state_.line_idx - ui_row_scroll_ < 0) ui_row_scroll_--;
+    break;
+  case 'j':
+  case 0x102: // down
+    if (state_.line_idx == lines_.size() - 1) break;
+    state_.line_idx++;
+    if (state_.line_idx - ui_row_scroll_ >= win_h) ui_row_scroll_++;
+    break;
+  case 0x153: { // PgUp
+    break;
+  }
+  case 0x152: { // PgDn
+    break;
+  }
+  case 'g':   // vim style
+  case 0x217: // Ctrl Home
+    break;
+  case 'G':   // vim style
+  case 0x212: // Ctrl End
+    break;
+  }
+}
 
 bool Source::TransferPending() { return false; }
 
@@ -168,6 +211,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   state_.item = item;
   // Read all lines. TODO: Handle huge files.
   lines_.clear();
+  int line_num = 0;
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
@@ -184,24 +228,25 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
       }
       auto def = module_defs_[def_name];
       current_file_ = def->VpiFile();
-      state_.line_num = def->VpiLineNo();
+      line_num = def->VpiLineNo();
       // TODO: Seems to be a bug in UHDM, def file info is blank.
     } else {
       current_file_ = m->VpiFile();
-      state_.line_num = m->VpiLineNo();
+      line_num = m->VpiLineNo();
     }
     break;
   }
   case vpiGenScopeArray: {
     auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
     current_file_ = ga->VpiFile();
-    state_.line_num = ga->VpiLineNo();
+    line_num = ga->VpiLineNo();
     break;
   }
   default:
     // Do nothing for unknown types.
     return;
   }
+  state_.line_idx = line_num - 1;
   tokenizer_ = SimpleTokenizer(); // Clear out old info.
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
@@ -211,10 +256,24 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     tokenizer_.ProcessLine(s);
     lines_.push_back({.text = std::move(s)});
   }
-  // Scroll to module definition
-  ui_line_index_ = 0;
+  // Scroll to module definition, attempt to place the line at 1/3rd the screen.
+  const int win_h = getmaxy(w_) - 1; // Account for header
+  const int lines_remaining = lines_.size() - state_.line_idx - 1;
+  if (lines_.size() <= win_h - 1) {
+    // If all lines fit on the screen, accounting for the header, then just
+    // don't scroll.
+    ui_row_scroll_ = 0;
+  } else if (state_.line_idx < win_h / 3) {
+    // Go as far down to the 1/3rd line as possible.
+    ui_row_scroll_ = 0;
+  } else if (lines_remaining < 2 * win_h / 3) {
+    // If there are aren't many lines after the current location, scroll as far
+    // up as possible.
+    ui_row_scroll_ = lines_.size() - win_h;
+  } else {
+    ui_row_scroll_ = state_.line_idx - win_h / 3;
+  }
   ui_col_scroll_ = 0;
-  ui_row_scroll_ = state_.line_num - 1;
 }
 
 } // namespace sv

@@ -21,7 +21,7 @@ class Source : public Panel {
  private:
   struct State {
     UHDM::BaseClass *item = nullptr;
-    int line_num = 0;
+    int line_idx = 0;
   };
   struct SourceLine {
     std::string text;
@@ -31,7 +31,6 @@ class Source : public Panel {
 
   int ui_col_scroll_ = 0;
   int ui_row_scroll_ = 0;
-  int ui_line_index_ = 0;
   std::vector<SourceLine> lines_;
   std::unordered_map<std::string, UHDM::module *> module_defs_;
   State state_;
