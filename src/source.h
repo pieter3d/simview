@@ -37,6 +37,8 @@ class Source : public Panel {
   std::string current_file_;
   Workspace &workspace_;
   SimpleTokenizer tokenizer_;
+  int start_line_ = 0;
+  int end_line_ = 0;
 };
 
 } // namespace sv

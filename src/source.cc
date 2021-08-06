@@ -98,9 +98,16 @@ void Source::Draw() {
     if (line_idx == line_idx_) wattron(w_, A_REVERSE);
     const int line_num = line_idx + 1;
     const int line_num_size = num_decimal_digits(line_num);
+    const bool active = line_num >= start_line_ && line_num <= end_line_;
+    const int text_color = active ? kSourceTextPair : kSourceInactivePair;
     SetColor(w_, kSourceLineNrPair);
+    // Fill the space before the line number with blanks so that it has the
+    // right background color.
+    for (int x = 0; x < max_digits - line_num_size; ++x) {
+      mvwaddch(w_, y, x, ' ');
+    }
     mvwprintw(w_, y, max_digits - line_num_size, "%d", line_num);
-    SetColor(w_, kSourceTextPair);
+    SetColor(w_, text_color);
     waddch(w_, ' ');
     const auto &s = lines_[line_idx].text;
     const auto &keywords = tokenizer_.Keywords(line_idx);
@@ -116,15 +123,16 @@ void Source::Draw() {
       int pos = x - max_digits - 1;
       if (pos >= s.size()) break;
       // Figure out if we have to switch to a new color
-      if (!in_keyword && keywords.size() > k_idx &&
+      if (active && !in_keyword && keywords.size() > k_idx &&
           keywords[k_idx].first == pos) {
         in_keyword = true;
         SetColor(w_, kSourceKeywordPair);
       } else if (!in_comment && comments.size() > c_idx &&
                  comments[c_idx].first == pos) {
+        // Highlight inactive comments still.
         in_comment = true;
         SetColor(w_, kSourceCommentPair);
-      } else if (!in_identifier && identifiers.size() > id_idx &&
+      } else if (active && !in_identifier && identifiers.size() > id_idx &&
                  identifiers[id_idx].first == pos) {
         in_identifier = true;
         SetColor(w_, kSourceIndentifierPair);
@@ -134,17 +142,17 @@ void Source::Draw() {
       if (in_keyword && keywords[k_idx].second == pos) {
         in_keyword = false;
         k_idx++;
-        SetColor(w_, kSourceTextPair);
+        SetColor(w_, text_color);
       } else if (in_comment && comments[c_idx].second == pos) {
         in_comment = false;
         c_idx++;
-        SetColor(w_, kSourceTextPair);
+        SetColor(w_, text_color);
       } else if (in_identifier &&
                  (identifiers[id_idx].first +
                   identifiers[id_idx].second.size() - 1) == pos) {
         in_identifier = false;
         id_idx++;
-        SetColor(w_, kSourceTextPair);
+        SetColor(w_, text_color);
       }
     }
     wattroff(w_, A_REVERSE);
@@ -189,11 +197,28 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
     if (open_def) {
-      current_file_ = m->VpiDefFile();
-      line_num = m->VpiDefLineNo();
+      // VpiDefFile isn't super useful here, still need the definition to get
+      // the start and end line number.
+      const std::string &def_name = m->VpiDefName();
+      if (module_defs_.find(def_name) == module_defs_.end()) {
+        // Find the module definition in the UHDB.
+        for (auto &candidate_module : *workspace_.design->AllModules()) {
+          if (def_name == candidate_module->VpiDefName()) {
+            module_defs_[def_name] = candidate_module;
+            break;
+          }
+        }
+      }
+      auto def = module_defs_[def_name];
+      current_file_ = def->VpiFile();
+      line_num = def->VpiLineNo();
+      start_line_ = def->VpiLineNo();
+      end_line_ = def->VpiEndLineNo();
     } else {
       current_file_ = m->VpiFile();
       line_num = m->VpiLineNo();
+      start_line_ = m->VpiLineNo();
+      end_line_ = m->VpiEndLineNo();
     }
     break;
   }
@@ -201,6 +226,8 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
     current_file_ = ga->VpiFile();
     line_num = ga->VpiLineNo();
+    start_line_ = ga->VpiLineNo();
+    end_line_ = ga->VpiEndLineNo();
     break;
   }
   default:

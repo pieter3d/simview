@@ -25,6 +25,7 @@ void SetupColors() {
     init_pair(kSourceIndentifierPair, 9, kBackground); // Red
     init_pair(kSourceKeywordPair, 11, kBackground);    // Yellow
     init_pair(kSourceCommentPair, 12, kBackground);    // Bright blue
+    init_pair(kSourceInactivePair, 8, kBackground);    // Grey
     use_default_colors();
   }
 }
