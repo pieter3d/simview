@@ -22,10 +22,12 @@ void SetupColors() {
     init_pair(kSourceLineNrPair, 8, kBackground);        // Grey
     init_pair(kSourceHeaderPair, COLOR_CYAN, kBackground);
     init_pair(kSourceTextPair, 7, kBackground);        // Silver
-    init_pair(kSourceIndentifierPair, 9, kBackground); // Red
+    init_pair(kSourceIdentifierPair, 9, kBackground); // Red
     init_pair(kSourceKeywordPair, 11, kBackground);    // Yellow
     init_pair(kSourceCommentPair, 12, kBackground);    // Bright blue
     init_pair(kSourceInactivePair, 8, kBackground);    // Grey
+    init_pair(kSourceParamPair, 5, kBackground);       // Purple
+    init_pair(kSourceInstancePair, COLOR_CYAN, kBackground);
     use_default_colors();
   }
 }

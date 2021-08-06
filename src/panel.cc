@@ -38,6 +38,7 @@ void Panel::UIChar(int ch) {
     break;
   }
   case 0x152: { // PgDn
+    if (NumLines() <= max_h) break;
     scroll_row_ += std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
     if (line_idx_ - scroll_row_ < 0) {
       line_idx_ = scroll_row_ + 1;

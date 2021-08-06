@@ -4,10 +4,14 @@
 #include <curses.h>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <string>
+#include <uhdm/headers/constant.h>
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
+#include <uhdm/headers/param_assign.h>
+#include <uhdm/headers/parameter.h>
 #include <uhdm/headers/variables.h>
 
 namespace sv {
@@ -120,7 +124,7 @@ void Source::Draw() {
     int c_idx = 0;
     int id_idx = 0;
     for (int x = max_digits + 1; x < win_w; ++x) {
-      int pos = x - max_digits - 1;
+      const int pos = x - max_digits - 1;
       if (pos >= s.size()) break;
       // Figure out if we have to switch to a new color
       if (active && !in_keyword && keywords.size() > k_idx &&
@@ -135,7 +139,13 @@ void Source::Draw() {
       } else if (active && !in_identifier && identifiers.size() > id_idx &&
                  identifiers[id_idx].first == pos) {
         in_identifier = true;
-        SetColor(w_, kSourceIndentifierPair);
+        if (instances_.find(identifiers[id_idx].second) != instances_.end()) {
+          SetColor(w_, kSourceInstancePair);
+        } else if (nets_.find(identifiers[id_idx].second) != nets_.end()) {
+          SetColor(w_, kSourceIdentifierPair);
+        } else if (params_.find(identifiers[id_idx].second) != params_.end()) {
+          SetColor(w_, kSourceParamPair);
+        }
       }
       waddch(w_, s[pos]);
       // See if the color should be turned off.
@@ -171,12 +181,11 @@ void Source::Draw() {
 
 void Source::UIChar(int ch) {
   switch (ch) {
-  case 'u': {
+  case 'u':
     // TODO: Go up in scope.
     break;
   }
-  default: Panel::UIChar(ch);
-  }
+  Panel::UIChar(ch);
 }
 
 std::pair<int, int> Source::ScrollArea() {
@@ -190,12 +199,66 @@ bool Source::TransferPending() { return false; }
 
 void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   item_ = item;
-  // Read all lines. TODO: Handle huge files.
+  // Clear out old info.
   lines_.clear();
+  tokenizer_ = SimpleTokenizer();
+  nets_.clear();
+  instances_.clear();
   int line_num = 0;
+
+  // This lamda recurses through all generate blocks in the item, adding any
+  // nets and instances to the list of navigable things.
+  std::function<void(UHDM::gen_scope_array *)> recurse_genblocks =
+      [&](UHDM::gen_scope_array *ga) {
+        if (ga == nullptr) return;
+        if (ga->Gen_scopes() == nullptr) return;
+        auto &g = (*ga->Gen_scopes())[0];
+        if (g->Nets() != nullptr) {
+          for (auto &n : *g->Nets()) {
+            nets_[n->VpiName()] = n;
+          }
+        }
+        if (g->Variables() != nullptr) {
+          for (auto &v : *g->Variables()) {
+            nets_[v->VpiName()] = v;
+          }
+        }
+        if (g->Modules() != nullptr) {
+          for (auto &sub : *g->Modules()) {
+            instances_[sub->VpiName()] = sub;
+          }
+        }
+        if (g->Gen_scope_arrays() != nullptr) {
+          for (auto &sub_ga : *g->Gen_scope_arrays()) {
+            recurse_genblocks(sub_ga);
+          }
+        }
+      };
+
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
+    // Make a map of all net names -> net objects.
+    if (m->Nets() != nullptr) {
+      for (auto &n : *m->Nets()) {
+        nets_[n->VpiName()] = n;
+      }
+    }
+    if (m->Variables() != nullptr) {
+      for (auto &v : *m->Variables()) {
+        nets_[v->VpiName()] = v;
+      }
+    }
+    if (m->Param_assigns() != nullptr) {
+      for (auto &pa : *m->Param_assigns()) {
+        // Elaborated designs should only have this type of assignment.
+        if (pa->Lhs()->VpiType() != vpiParameter) continue;
+        if (pa->Rhs()->VpiType() != vpiConstant) continue;
+        auto p = reinterpret_cast<const UHDM::parameter *>(pa->Lhs());
+        auto c = reinterpret_cast<const UHDM::constant *>(pa->Rhs());
+        params_[p->VpiName()] = c->VpiDecompile();
+      }
+    }
     if (open_def) {
       // VpiDefFile isn't super useful here, still need the definition to get
       // the start and end line number.
@@ -214,11 +277,35 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
       line_num = def->VpiLineNo();
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
+      // Add all instances in this module as navigable instances.
+      if (m->Modules() != nullptr) {
+        for (auto &sub : *m->Modules()) {
+          instances_[sub->VpiName()] = sub;
+        }
+      }
+      if (m->Gen_scope_arrays() != nullptr) {
+        for (auto *ga : *m->Gen_scope_arrays()) {
+          recurse_genblocks(ga);
+        }
+      }
+      // TODO: recurse through
     } else {
       current_file_ = m->VpiFile();
       line_num = m->VpiLineNo();
       start_line_ = m->VpiLineNo();
       end_line_ = m->VpiEndLineNo();
+      // Add the instance identifier to the list of navigable instances.
+      instances_[m->VpiName()] = m;
+      // If showing the instance, also collect the nets of owning instance.
+      // This will allow nets in the port connections to be navigable.
+      if (m->VpiParent() != nullptr && m->VpiParent()->VpiType() == vpiModule) {
+        auto parent = reinterpret_cast<const UHDM::module *>(m->VpiParent());
+        if (parent->Nets() != nullptr) {
+          for (auto &n : *parent->Nets()) {
+            nets_[n->VpiName()] = n;
+          }
+        }
+      }
     }
     break;
   }
@@ -228,6 +315,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     line_num = ga->VpiLineNo();
     start_line_ = ga->VpiLineNo();
     end_line_ = ga->VpiEndLineNo();
+    recurse_genblocks(ga);
     break;
   }
   default:
@@ -235,7 +323,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     return;
   }
   line_idx_ = line_num - 1;
-  tokenizer_ = SimpleTokenizer(); // Clear out old info.
+  // Read all lines. TODO: Handle huge files.
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
   std::string s;
@@ -244,7 +332,8 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     tokenizer_.ProcessLine(s);
     lines_.push_back({.text = std::move(s)});
   }
-  // Scroll to module definition, attempt to place the line at 1/3rd the screen.
+  // Scroll to module definition, attempt to place the line at 1/3rd the
+  // screen.
   const int win_h = getmaxy(w_) - 1; // Account for header
   const int lines_remaining = lines_.size() - line_idx_ - 1;
   if (lines_.size() <= win_h - 1) {
@@ -255,8 +344,8 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     // Go as far down to the 1/3rd line as possible.
     scroll_row_ = 0;
   } else if (lines_remaining < 2 * win_h / 3) {
-    // If there are aren't many lines after the current location, scroll as far
-    // up as possible.
+    // If there are aren't many lines after the current location, scroll as
+    // far up as possible.
     scroll_row_ = lines_.size() - win_h;
   } else {
     scroll_row_ = line_idx_ - win_h / 3;

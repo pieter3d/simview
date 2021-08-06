@@ -5,6 +5,7 @@
 #include "simple_tokenizer.h"
 #include "workspace.h"
 #include <uhdm/headers/BaseClass.h>
+#include <uhdm/headers/net.h>
 #include <vector>
 
 namespace sv {
@@ -33,6 +34,9 @@ class Source : public Panel {
 
   std::vector<SourceLine> lines_;
   std::unordered_map<std::string, UHDM::module *> module_defs_;
+  std::unordered_map<std::string, UHDM::module *> instances_;
+  std::unordered_map<std::string, UHDM::BaseClass *> nets_;
+  std::unordered_map<std::string, std::string> params_;
   UHDM::BaseClass *item_ = nullptr;
   std::string current_file_;
   Workspace &workspace_;
