@@ -1,4 +1,5 @@
 #include "source.h"
+#include "BaseClass.h"
 #include "color.h"
 #include "utils.h"
 #include <curses.h>
@@ -10,6 +11,7 @@
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
+#include <uhdm/headers/net.h>
 #include <uhdm/headers/param_assign.h>
 #include <uhdm/headers/parameter.h>
 #include <uhdm/headers/variables.h>
@@ -40,12 +42,12 @@ std::string Source::GetHeader(int max_w = 0) {
   std::string type;
   switch (item_->VpiType()) {
   case vpiModule: {
-    auto m = reinterpret_cast<UHDM::module *>(item_);
+    auto m = reinterpret_cast<const UHDM::module *>(item_);
     type = m->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item_);
+    auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item_);
     type = ga->VpiFullName();
     break;
   }
@@ -76,6 +78,22 @@ std::string Source::GetHeader(int max_w = 0) {
     }
   }
   return s;
+}
+
+const UHDM::module *Source::GetDefinition(const UHDM::module *m) {
+  // Top modules don't have a separate definition.
+  if (m->VpiTopModule()) return m;
+  const std::string &def_name = m->VpiDefName();
+  if (module_defs_.find(def_name) == module_defs_.end()) {
+    // Find the module definition in the UHDB.
+    for (auto &candidate_module : *workspace_.design->AllModules()) {
+      if (def_name == candidate_module->VpiDefName()) {
+        module_defs_[def_name] = candidate_module;
+        return candidate_module;
+      }
+    }
+  }
+  return module_defs_[def_name];
 }
 
 void Source::Draw() {
@@ -113,22 +131,37 @@ void Source::Draw() {
     mvwprintw(w_, y, max_digits - line_num_size, "%d", line_num);
     SetColor(w_, text_color);
     waddch(w_, ' ');
-    const auto &s = lines_[line_idx].text;
+    const auto &s = lines_[line_idx];
     const auto &keywords = tokenizer_.Keywords(line_idx);
     const auto &identifiers = tokenizer_.Identifiers(line_idx);
     const auto &comments = tokenizer_.Comments(line_idx);
     bool in_keyword = false;
-    bool in_comment = false;
     bool in_identifier = false;
+    bool in_comment = false;
     int k_idx = 0;
-    int c_idx = 0;
     int id_idx = 0;
+    int c_idx = 0;
     for (int x = max_digits + 1; x < win_w; ++x) {
       const int pos = x - max_digits - 1;
       if (pos >= s.size()) break;
       // Figure out if we have to switch to a new color
-      if (active && !in_keyword && keywords.size() > k_idx &&
-          keywords[k_idx].first == pos) {
+      if (active && !in_identifier && identifiers.size() > id_idx &&
+          identifiers[id_idx].first == pos) {
+        // TODO: This will also highlight instance parameters that happen to
+        // have the same name as a parameter in the enclosing module. This is
+        // pretty ugly, need to find a way to fix this.
+        auto id = identifiers[id_idx].second;
+        if (nav_.find(id) != nav_.end()) {
+          if (nav_[id]->VpiType() == vpiModule) {
+            SetColor(w_, kSourceInstancePair);
+          } else if (nav_[id]->VpiType() == vpiNet ||
+                     nav_[id]->VpiType() == vpiBitVar) {
+            SetColor(w_, kSourceIdentifierPair);
+          }
+        }
+        in_identifier = true;
+      } else if (active && !in_keyword && keywords.size() > k_idx &&
+                 keywords[k_idx].first == pos) {
         in_keyword = true;
         SetColor(w_, kSourceKeywordPair);
       } else if (!in_comment && comments.size() > c_idx &&
@@ -136,16 +169,6 @@ void Source::Draw() {
         // Highlight inactive comments still.
         in_comment = true;
         SetColor(w_, kSourceCommentPair);
-      } else if (active && !in_identifier && identifiers.size() > id_idx &&
-                 identifiers[id_idx].first == pos) {
-        in_identifier = true;
-        if (instances_.find(identifiers[id_idx].second) != instances_.end()) {
-          SetColor(w_, kSourceInstancePair);
-        } else if (nets_.find(identifiers[id_idx].second) != nets_.end()) {
-          SetColor(w_, kSourceIdentifierPair);
-        } else if (params_.find(identifiers[id_idx].second) != params_.end()) {
-          SetColor(w_, kSourceParamPair);
-        }
       }
       waddch(w_, s[pos]);
       // See if the color should be turned off.
@@ -153,15 +176,15 @@ void Source::Draw() {
         in_keyword = false;
         k_idx++;
         SetColor(w_, text_color);
-      } else if (in_comment && comments[c_idx].second == pos) {
-        in_comment = false;
-        c_idx++;
-        SetColor(w_, text_color);
       } else if (in_identifier &&
                  (identifiers[id_idx].first +
                   identifiers[id_idx].second.size() - 1) == pos) {
         in_identifier = false;
         id_idx++;
+        SetColor(w_, text_color);
+      } else if (in_comment && comments[c_idx].second == pos) {
+        in_comment = false;
+        c_idx++;
         SetColor(w_, text_color);
       }
     }
@@ -201,121 +224,143 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   item_ = item;
   // Clear out old info.
   lines_.clear();
+  nav_.clear();
+  params_.clear();
   tokenizer_ = SimpleTokenizer();
-  nets_.clear();
-  instances_.clear();
   int line_num = 0;
 
   // This lamda recurses through all generate blocks in the item, adding any
-  // nets and instances to the list of navigable things.
-  std::function<void(UHDM::gen_scope_array *)> recurse_genblocks =
-      [&](UHDM::gen_scope_array *ga) {
-        if (ga == nullptr) return;
-        if (ga->Gen_scopes() == nullptr) return;
-        auto &g = (*ga->Gen_scopes())[0];
-        if (g->Nets() != nullptr) {
-          for (auto &n : *g->Nets()) {
-            nets_[n->VpiName()] = n;
+  // navigable things found to the hashes.
+  std::function<void(const UHDM::BaseClass *)> find_navigable_items =
+      [&](const UHDM::BaseClass *item) {
+        switch (item->VpiType()) {
+        case vpiModule: {
+          auto m = reinterpret_cast<const UHDM::module *>(item);
+          if (m->Nets() != nullptr) {
+            for (auto &n : *m->Nets()) {
+              nav_[n->VpiName()] = n;
+            }
           }
+          if (m->Variables() != nullptr) {
+            for (auto &v : *m->Variables()) {
+              nav_[v->VpiName()] = v;
+            }
+          }
+          if (m->Modules() != nullptr) {
+            for (auto &sub : *m->Modules()) {
+              nav_[sub->VpiName()] = sub;
+            }
+            // No recursion into modules since that source code is not in scope.
+          }
+          if (m->Param_assigns() != nullptr) {
+            for (auto &pa : *m->Param_assigns()) {
+              // Elaborated designs should only have this type of assignment.
+              if (pa->Lhs()->VpiType() != vpiParameter) continue;
+              if (pa->Rhs()->VpiType() != vpiConstant) continue;
+              auto p = reinterpret_cast<const UHDM::parameter *>(pa->Lhs());
+              auto c = reinterpret_cast<const UHDM::constant *>(pa->Rhs());
+              params_[p->VpiName()] = c->VpiDecompile();
+            }
+          }
+          if (m->Gen_scope_arrays() != nullptr) {
+            for (auto &sub_ga : *m->Gen_scope_arrays()) {
+              find_navigable_items(sub_ga);
+            }
+          }
+          break;
         }
-        if (g->Variables() != nullptr) {
-          for (auto &v : *g->Variables()) {
-            nets_[v->VpiName()] = v;
+        case vpiGenScopeArray: {
+          auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item);
+          // Surelog always uses a gen_scope_array to wrap a single gen_scope
+          // for any generate block, wether it's a single if statement or one
+          // iteration of an unrolled for loop.
+          if (ga->Gen_scopes() != nullptr) {
+            auto &g = (*ga->Gen_scopes())[0];
+            if (g->Nets() != nullptr) {
+              for (auto &n : *g->Nets()) {
+                nav_[n->VpiName()] = n;
+              }
+            }
+            if (g->Variables() != nullptr) {
+              for (auto &v : *g->Variables()) {
+                nav_[v->VpiName()] = v;
+              }
+            }
+            if (g->Modules() != nullptr) {
+              for (auto &sub : *g->Modules()) {
+                nav_[sub->VpiName()] = sub;
+              }
+              // No recursion into modules since that source code is not in
+              // scope.
+            }
+            if (g->Gen_scope_arrays() != nullptr) {
+              for (auto &sub_ga : *g->Gen_scope_arrays()) {
+                find_navigable_items(sub_ga);
+              }
+            }
           }
+          break;
         }
-        if (g->Modules() != nullptr) {
-          for (auto &sub : *g->Modules()) {
-            instances_[sub->VpiName()] = sub;
-          }
-        }
-        if (g->Gen_scope_arrays() != nullptr) {
-          for (auto &sub_ga : *g->Gen_scope_arrays()) {
-            recurse_genblocks(sub_ga);
-          }
         }
       };
 
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<UHDM::module *>(item);
-    // Make a map of all net names -> net objects.
-    if (m->Nets() != nullptr) {
-      for (auto &n : *m->Nets()) {
-        nets_[n->VpiName()] = n;
-      }
-    }
-    if (m->Variables() != nullptr) {
-      for (auto &v : *m->Variables()) {
-        nets_[v->VpiName()] = v;
-      }
-    }
-    if (m->Param_assigns() != nullptr) {
-      for (auto &pa : *m->Param_assigns()) {
-        // Elaborated designs should only have this type of assignment.
-        if (pa->Lhs()->VpiType() != vpiParameter) continue;
-        if (pa->Rhs()->VpiType() != vpiConstant) continue;
-        auto p = reinterpret_cast<const UHDM::parameter *>(pa->Lhs());
-        auto c = reinterpret_cast<const UHDM::constant *>(pa->Rhs());
-        params_[p->VpiName()] = c->VpiDecompile();
-      }
-    }
-    if (open_def) {
+    // Treat top modules as an instance open.
+    if (open_def && m->VpiParent() != nullptr) {
       // VpiDefFile isn't super useful here, still need the definition to get
       // the start and end line number.
-      const std::string &def_name = m->VpiDefName();
-      if (module_defs_.find(def_name) == module_defs_.end()) {
-        // Find the module definition in the UHDB.
-        for (auto &candidate_module : *workspace_.design->AllModules()) {
-          if (def_name == candidate_module->VpiDefName()) {
-            module_defs_[def_name] = candidate_module;
-            break;
-          }
-        }
-      }
-      auto def = module_defs_[def_name];
+      auto def = GetDefinition(m);
       current_file_ = def->VpiFile();
       line_num = def->VpiLineNo();
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
       // Add all instances in this module as navigable instances.
-      if (m->Modules() != nullptr) {
-        for (auto &sub : *m->Modules()) {
-          instances_[sub->VpiName()] = sub;
-        }
-      }
-      if (m->Gen_scope_arrays() != nullptr) {
-        for (auto *ga : *m->Gen_scope_arrays()) {
-          recurse_genblocks(ga);
-        }
-      }
-      // TODO: recurse through
+      find_navigable_items(def);
     } else {
+      // If showing the instance, collect stuff owning instance.
+      // This will allow nets in the port connections to be navigable.
       current_file_ = m->VpiFile();
       line_num = m->VpiLineNo();
-      start_line_ = m->VpiLineNo();
-      end_line_ = m->VpiEndLineNo();
-      // Add the instance identifier to the list of navigable instances.
-      instances_[m->VpiName()] = m;
-      // If showing the instance, also collect the nets of owning instance.
-      // This will allow nets in the port connections to be navigable.
-      if (m->VpiParent() != nullptr && m->VpiParent()->VpiType() == vpiModule) {
-        auto parent = reinterpret_cast<const UHDM::module *>(m->VpiParent());
-        if (parent->Nets() != nullptr) {
-          for (auto &n : *parent->Nets()) {
-            nets_[n->VpiName()] = n;
-          }
-        }
+      auto p = item->VpiParent();
+      while (p != nullptr && p->VpiType() != vpiModule) {
+        find_navigable_items(p);
+        p = p->VpiParent();
+      }
+      if (p != nullptr) {
+        auto def = GetDefinition(reinterpret_cast<const UHDM::module *>(p));
+        find_navigable_items(def);
+        // When opening an instance, still okay to browse the stuff around it.
+        start_line_ = def->VpiLineNo();
+        end_line_ = def->VpiEndLineNo();
+      } else {
+        // For top modules:
+        find_navigable_items(m);
+        start_line_ = m->VpiLineNo();
+        end_line_ = m->VpiEndLineNo();
       }
     }
     break;
   }
   case vpiGenScopeArray: {
     auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
+    find_navigable_items(ga);
     current_file_ = ga->VpiFile();
     line_num = ga->VpiLineNo();
-    start_line_ = ga->VpiLineNo();
-    end_line_ = ga->VpiEndLineNo();
-    recurse_genblocks(ga);
+    // Find the containing module, since that's all in the same file and in
+    // scope.
+    auto p = item->VpiParent();
+    while (p != nullptr && p->VpiType() != vpiModule) {
+      find_navigable_items(p);
+      p = p->VpiParent();
+    }
+    if (p != nullptr) {
+      auto def = GetDefinition(reinterpret_cast<const UHDM::module *>(p));
+      start_line_ = def->VpiLineNo();
+      end_line_ = def->VpiEndLineNo();
+      find_navigable_items(def);
+    }
     break;
   }
   default:
@@ -330,7 +375,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
   while (std::getline(is, s)) {
     trim_string(s);
     tokenizer_.ProcessLine(s);
-    lines_.push_back({.text = std::move(s)});
+    lines_.push_back(std::move(s));
   }
   // Scroll to module definition, attempt to place the line at 1/3rd the
   // screen.
