@@ -17,8 +17,8 @@ class Source : public Panel {
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
   bool TransferPending() override;
-  std::string Tooltip() const override { return ""; }
-  void SetItem(UHDM::BaseClass *item, bool open_def = false);
+  std::string Tooltip() const override;
+  void SetItem(const UHDM::BaseClass *item, bool open_def = false);
   std::pair<int, int> ScrollArea() override;
 
  private:
@@ -29,6 +29,7 @@ class Source : public Panel {
 
   // The selected instance or generate block.
   const UHDM::BaseClass *item_ = nullptr;
+  bool showing_def_;
   // All source lines of the file containing the module instance containing the
   // selected item (this could be the complete instance itself too).
   std::string current_file_;

@@ -194,7 +194,17 @@ void Source::Draw() {
 void Source::UIChar(int ch) {
   switch (ch) {
   case 'u':
-    // TODO: Go up in scope.
+    if (showing_def_) {
+      // Go back up to the instance location if showing a definition
+      SetItem(item_, false);
+    } else {
+      auto p = item_->VpiParent();
+      while (p != nullptr && p->VpiType() != vpiModule &&
+             p->VpiType() != vpiGenScopeArray) {
+        p = p->VpiParent();
+      }
+      if (p != nullptr) SetItem(p, false);
+    }
     break;
   }
   Panel::UIChar(ch);
@@ -209,8 +219,9 @@ std::pair<int, int> Source::ScrollArea() {
 
 bool Source::TransferPending() { return false; }
 
-void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
+void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
   item_ = item;
+  showing_def_ = open_def;
   // Clear out old info.
   lines_.clear();
   nav_.clear();
@@ -295,7 +306,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
 
   switch (item->VpiType()) {
   case vpiModule: {
-    auto m = reinterpret_cast<UHDM::module *>(item);
+    auto m = reinterpret_cast<const UHDM::module *>(item);
     // Treat top modules as an instance open.
     if (open_def && m->VpiParent() != nullptr) {
       // VpiDefFile isn't super useful here, still need the definition to get
@@ -335,7 +346,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = reinterpret_cast<UHDM::gen_scope_array *>(item);
+    auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item);
     find_navigable_items(ga);
     current_file_ = ga->VpiFile();
     line_num = ga->VpiLineNo();
@@ -388,5 +399,7 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
     scroll_row_ = line_idx_ - win_h / 3;
   }
 }
+
+std::string Source ::Tooltip() const { return "u:up scope"; }
 
 } // namespace sv
