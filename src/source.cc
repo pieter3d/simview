@@ -189,16 +189,6 @@ void Source::Draw() {
     }
     wattroff(w_, A_REVERSE);
   }
-  // TODO: remove
-  // if (state_.item->VpiType() == vpiModule) {
-  //  auto m = reinterpret_cast<UHDM::module *>(state_.item);
-  //  auto item = state_.item;
-  //  mvwprintw(w_, 0, 0, "|%d %d %d %d %d|", item->VpiLineNo(),
-  //  item->VpiEndLineNo(),
-  //            item->VpiColumnNo(), item->VpiEndColumnNo(), m->VpiDefLineNo());
-  //  SetColor(w_, kTooltipKeyPair);
-  //  mvwprintw(w_, 1, 0, "%s", m->VpiDefFile().c_str());
-  //}
 }
 
 void Source::UIChar(int ch) {
