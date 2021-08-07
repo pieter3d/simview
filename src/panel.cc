@@ -66,6 +66,7 @@ void Panel::Resized() {
     scroll_row_ = line_idx_ - max_h + 1;
   }
 }
+
 void Panel::SetLineAndScroll(int l) {
   // Scroll to the selected line, attempt to place the line at 1/3rd the
   // screen.

@@ -29,6 +29,7 @@ void SetupColors() {
     init_pair(kSourceInactivePair, 8, kBackground);   // Grey
     init_pair(kSourceParamPair, 5, kBackground);      // Purple
     init_pair(kSourceInstancePair, COLOR_CYAN, kBackground);
+    init_pair(kSourceValuePair, 10, kBackground); // Bright green
     use_default_colors();
   }
 }

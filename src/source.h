@@ -27,10 +27,13 @@ class Source : public Panel {
   // Find the definition of the module that contains the given item.
   const UHDM::module *GetDefinition(const UHDM::module *m);
 
+  // Show values of highlighted items or not.
+  bool show_vals_ = true;
   // Current column location of the cursor, with 0 being the start of the source
   // code line.
   int col_idx_ = 0;
   int max_col_idx_ = 0;
+  int scroll_col_ = 0;
   // The instance or generate block whose source is shown.
   const UHDM::BaseClass *item_ = nullptr;
   bool showing_def_;

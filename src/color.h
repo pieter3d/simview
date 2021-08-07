@@ -25,6 +25,7 @@ constexpr int kSourceCommentPair = 17;
 constexpr int kSourceInactivePair = 18;
 constexpr int kSourceInstancePair = 19;
 constexpr int kSourceParamPair = 20;
+constexpr int kSourceValuePair = 21;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);

@@ -114,6 +114,14 @@ void Source::Draw() {
     mvwprintw(w_, 1, 0, "Unable to open file");
     return;
   }
+  // See if the horizontal scroll position needs to be fixed.
+  // TODO: Kinda ugly to do this here, but this is where the line number size is
+  // computed and that's needed to see where the cursor actually lands in the
+  // window.
+  if (col_idx_ - scroll_col_ + max_digits + 2 >= win_w) {
+    scroll_col_ = col_idx_ + max_digits + 2 - win_w;
+  }
+  int sel_pos = 0; // Save selection start position.
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + scroll_row_;
     if (line_idx >= lines_.size()) break;
@@ -131,6 +139,9 @@ void Source::Draw() {
     mvwprintw(w_, y, max_digits - line_num_size, "%d", line_num);
     SetColor(w_, text_color);
     waddch(w_, ' ');
+
+    // Go charachter by character, up to the window width.
+    // Keep track of the current identifier, keyword and comment in the line.
     const auto &s = lines_[line_idx];
     const auto &keywords = tokenizer_.Keywords(line_idx);
     const auto &identifiers = tokenizer_.Identifiers(line_idx);
@@ -141,8 +152,11 @@ void Source::Draw() {
     int k_idx = 0;
     int id_idx = 0;
     int c_idx = 0;
-    for (int x = max_digits + 1; x < win_w; ++x) {
-      const int pos = x - max_digits - 1;
+    // Subtract the horizontal scroll postion so that the logic iterates over
+    // all text characters. Otherwise the text that is cut off doesn't get
+    // recognized as keywords, identifiers etc.
+    for (int x = max_digits + 1 - scroll_col_; x < win_w; ++x) {
+      const int pos = x - max_digits - 1 + scroll_col_;
       // Set the cursor as a reversed block
       if (has_focus_ && line_idx == line_idx_ && pos == col_idx_) {
         wattron(w_, A_REVERSE);
@@ -172,11 +186,13 @@ void Source::Draw() {
           }
           if (nav_[id] == sel_ && cursor_in_id) {
             wattron(w_, A_UNDERLINE);
+            sel_pos = pos;
           }
         } else if (params_.find(id) != params_.end()) {
           SetColor(w_, kSourceParamPair);
           if (sel_param_ == id && cursor_in_id) {
             wattron(w_, A_UNDERLINE);
+            sel_pos = pos;
           }
         }
         in_identifier = true;
@@ -190,7 +206,9 @@ void Source::Draw() {
         in_comment = true;
         SetColor(w_, kSourceCommentPair);
       }
-      waddch(w_, s[pos]);
+
+      // Skip any characters that are before the line numbers
+      if (x > max_digits) waddch(w_, s[pos]);
       // See if the color should be turned off.
       if (in_keyword && keywords[k_idx].second == pos) {
         in_keyword = false;
@@ -210,6 +228,50 @@ void Source::Draw() {
       }
       wattroff(w_, A_REVERSE);
     }
+    wattroff(w_, A_UNDERLINE);
+  }
+  // Draw the current value of the selected item.
+  // TODO: Also wave values, when sel_ is not null and a net/var.
+  if (show_vals_ && !sel_param_.empty()) {
+    std::string val;
+    if (!sel_param_.empty()) {
+      val = params_[sel_param_];
+    }
+    // Draw a nice box, with an empty value all around it, including the
+    // connecting line:
+    //
+    //           +------+
+    //           | 1234 |
+    //           +------+
+    //           |
+    // blah blah identifier blah blah
+    //
+    // The tag moves to the right and/or below the identifier depending on
+    // available room.
+    const std::string box = " +" + std::string(val.size() + 2, '-') + "+ ";
+    val = " | " + val + " | ";
+    // Always try to draw above, unless the selected line is too close to the
+    // top, then draw below.
+    const int val_line = line_idx_ - scroll_row_ + 1;
+    const bool above = line_idx_ - scroll_row_ > 3;
+    // Always try to draw to the right, unless it doesn't fit. In that case pick
+    // whichever side has more room.
+    const int start_col = max_digits + 1 + sel_pos - scroll_col_ - 1;
+    const bool right =
+        start_col + val.size() <= win_w ||
+        (((win_w - start_col) > (start_col + sel_param_.size() - 1)));
+    SetColor(w_, kSourceValuePair);
+    wattron(w_, A_BOLD);
+    int connector_col = start_col + (right ? 0 : sel_param_.size() - 3 + 2);
+    int max_chars_connector = win_w - connector_col;
+    mvwaddnstr(w_, val_line + (above ? -1 : 1), connector_col, " | ",
+               max_chars_connector);
+    const int col =
+        start_col + (right ? 0 : sel_param_.size() - val.size() + 2);
+    int max_chars = win_w - col;
+    mvwaddnstr(w_, val_line + (above ? -4 : 4), col, box.c_str(), max_chars);
+    mvwaddnstr(w_, val_line + (above ? -3 : 3), col, val.c_str(), max_chars);
+    mvwaddnstr(w_, val_line + (above ? -2 : 2), col, box.c_str(), max_chars);
   }
 }
 
@@ -232,16 +294,21 @@ void Source::UIChar(int ch) {
     break;
   case 'h':
   case 0x104: // left
-    if (col_idx_ > 0) col_idx_--;
-    max_col_idx_ = col_idx_;
+    if (scroll_col_ > 0 && scroll_col_ - col_idx_ == 0) {
+      scroll_col_--;
+    } else if (col_idx_ > 0) {
+      col_idx_--;
+      max_col_idx_ = col_idx_;
+    }
     break;
   case 'l':
   case 0x105: // right
-    if (col_idx_ >= lines_[line_idx_].size()) break;
+    if (col_idx_ >= lines_[line_idx_].size() - 1) break;
     col_idx_++;
     max_col_idx_ = col_idx_;
     break;
   case '^':
+    scroll_col_ = 0;
     col_idx_ = 0;
     max_col_idx_ = col_idx_;
     break;
@@ -262,6 +329,7 @@ void Source::UIChar(int ch) {
       }
     }
     break;
+  case 'v': show_vals_ = !show_vals_; break;
   }
   }
   Panel::UIChar(ch);
@@ -489,6 +557,11 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
   SetLineAndScroll(line_num - 1);
 }
 
-std::string Source ::Tooltip() const { return "u:up scope  d:goto def"; }
+std::string Source ::Tooltip() const {
+  std::string tt = "u:up scope  d:goto def  v:";
+  tt += (show_vals_ ? "SHOW/hide" : "show/HIDE");
+  tt += " vals";
+  return tt;
+}
 
 } // namespace sv

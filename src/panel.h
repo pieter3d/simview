@@ -16,7 +16,7 @@ class Panel {
   virtual std::string Tooltip() const = 0;
   virtual void SetFocus(bool f) { has_focus_ = f; }
   WINDOW *Window() const { return w_; }
-  void Resized();
+  virtual void Resized();
 
  protected:
   virtual int NumLines() const = 0;
