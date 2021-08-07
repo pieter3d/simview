@@ -16,6 +16,7 @@ class Panel {
   virtual std::pair<int, int> ScrollArea();
   virtual bool TransferPending() = 0;
   virtual std::string Tooltip() const = 0;
+  virtual void SetFocus(bool f) { has_focus_ = f; }
   WINDOW *Window() const { return w_; }
   void Resized();
 
@@ -23,6 +24,7 @@ class Panel {
   WINDOW *w_;
   int line_idx_ = 0;
   int scroll_row_ = 0;
+  bool has_focus_ = false;
 };
 } // namespace sv
 

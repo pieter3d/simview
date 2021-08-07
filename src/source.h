@@ -27,9 +27,16 @@ class Source : public Panel {
   // Find the definition of the module that contains the given item.
   const UHDM::module *GetDefinition(const UHDM::module *m);
 
-  // The selected instance or generate block.
+  // Current column location of the cursor, with 0 being the start of the source
+  // code line.
+  int col_idx_ = 0;
+  int max_col_idx_ = 0;
+  // The instance or generate block whose source is shown.
   const UHDM::BaseClass *item_ = nullptr;
   bool showing_def_;
+  // The currently selected item. Could be a parameter too.
+  const UHDM::BaseClass *sel_ = nullptr;
+  std::string sel_param_;
   // All source lines of the file containing the module instance containing the
   // selected item (this could be the complete instance itself too).
   std::string current_file_;
@@ -39,10 +46,15 @@ class Source : public Panel {
   // - Module instances: Open source
   // - Parameters: go to definition
   // These are stored in a hash by identifier so they can be appropriately
-  // syntax-highlighted.
+  // syntax-highlighted. Also stored by line to allow for fast lookup under the
+  // cursor.
   std::unordered_map<std::string, const UHDM::BaseClass *> nav_;
+  std::unordered_map<int, std::vector<std::pair<int, const UHDM::BaseClass *>>>
+      nav_by_line_;
   // Map of all textual parameters and their definitions.
   std::unordered_map<std::string, std::string> params_;
+  std::unordered_map<int, std::vector<std::pair<int, std::string>>>
+      params_by_line_;
   // Reference to the workspace. Used to access the design database, waves, etc.
   Workspace &workspace_;
   // Tokenizer that holds identifiers and keywords for each line. This

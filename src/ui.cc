@@ -35,6 +35,7 @@ UI::UI(UHDM::design *d) {
       newwin(term_h_ - wave_pos_y_ - 2, term_w_, wave_pos_y_ + 1, 0));
   focused_panel_ = hierarchy_.get();
   prev_focused_panel_ = focused_panel_;
+  focused_panel_->SetFocus(true);
 
   // Initial render
   DrawPanes(false);
@@ -157,6 +158,8 @@ void UI::EventLoop() {
       redraw = true;
       break;
     }
+    prev_focused_panel_->SetFocus(false);
+    focused_panel_->SetFocus(true);
     if (focused_panel_->TransferPending()) {
       if (focused_panel_ == hierarchy_.get()) {
         auto item = hierarchy_->ItemForSource();

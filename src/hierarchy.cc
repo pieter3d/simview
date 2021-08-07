@@ -93,7 +93,7 @@ void Hierarchy::Draw() {
   for (int y = 0; y < win_h; ++y) {
     const int entry_idx = y + scroll_row_;
     if (entry_idx >= entries_.size()) break;
-    if (entry_idx == line_idx_) wattron(w_, A_REVERSE);
+    if (has_focus_ && entry_idx == line_idx_) wattron(w_, A_REVERSE);
     auto entry = entries_[entry_idx];
     auto info = entry_info_[entry];
     std::string indent(info.depth, ' ');

@@ -117,12 +117,12 @@ void Source::Draw() {
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + scroll_row_;
     if (line_idx >= lines_.size()) break;
-    if (line_idx == line_idx_) wattron(w_, A_REVERSE);
     const int line_num = line_idx + 1;
     const int line_num_size = num_decimal_digits(line_num);
     const bool active = line_num >= start_line_ && line_num <= end_line_;
     const int text_color = active ? kSourceTextPair : kSourceInactivePair;
-    SetColor(w_, kSourceLineNrPair);
+    SetColor(w_, line_idx == line_idx_ ? kSourceCurrentLineNrPair
+                                       : kSourceLineNrPair);
     // Fill the space before the line number with blanks so that it has the
     // right background color.
     for (int x = 0; x < max_digits - line_num_size; ++x) {
@@ -143,11 +143,26 @@ void Source::Draw() {
     int c_idx = 0;
     for (int x = max_digits + 1; x < win_w; ++x) {
       const int pos = x - max_digits - 1;
-      if (pos >= s.size()) break;
+      // Set the cursor as a reversed block
+      if (has_focus_ && line_idx == line_idx_ && pos == col_idx_) {
+        wattron(w_, A_REVERSE);
+      }
+      if (pos >= s.size()) {
+        // Put a space after an empty line so there is a place to show the
+        // cursor.
+        if (s.size() == 0) {
+          waddch(w_, ' ');
+          wattroff(w_, A_REVERSE);
+        }
+        break;
+      }
       // Figure out if we have to switch to a new color
       if (active && !in_identifier && identifiers.size() > id_idx &&
           identifiers[id_idx].first == pos) {
         auto id = identifiers[id_idx].second;
+        bool cursor_in_id = has_focus_ && line_idx == line_idx_ &&
+                            col_idx_ >= identifiers[id_idx].first &&
+                            col_idx_ < (identifiers[id_idx].first + id.size());
         if (nav_.find(id) != nav_.end()) {
           if (nav_[id]->VpiType() == vpiModule) {
             SetColor(w_, kSourceInstancePair);
@@ -155,8 +170,14 @@ void Source::Draw() {
                      nav_[id]->VpiType() == vpiBitVar) {
             SetColor(w_, kSourceIdentifierPair);
           }
+          if (nav_[id] == sel_ && cursor_in_id) {
+            wattron(w_, A_UNDERLINE);
+          }
         } else if (params_.find(id) != params_.end()) {
           SetColor(w_, kSourceParamPair);
+          if (sel_param_ == id && cursor_in_id) {
+            wattron(w_, A_UNDERLINE);
+          }
         }
         in_identifier = true;
       } else if (active && !in_keyword && keywords.size() > k_idx &&
@@ -181,17 +202,20 @@ void Source::Draw() {
         in_identifier = false;
         id_idx++;
         SetColor(w_, text_color);
+        wattroff(w_, A_UNDERLINE);
       } else if (in_comment && comments[c_idx].second == pos) {
         in_comment = false;
         c_idx++;
         SetColor(w_, text_color);
       }
+      wattroff(w_, A_REVERSE);
     }
-    wattroff(w_, A_REVERSE);
   }
 }
 
 void Source::UIChar(int ch) {
+  int prev_line_idx = line_idx_;
+  int prev_col_idx = col_idx_;
   switch (ch) {
   case 'u':
     if (showing_def_) {
@@ -206,8 +230,57 @@ void Source::UIChar(int ch) {
       if (p != nullptr) SetItem(p, false);
     }
     break;
+  case 'h':
+  case 0x104: // left
+    if (col_idx_ > 0) col_idx_--;
+    max_col_idx_ = col_idx_;
+    break;
+  case 'l':
+  case 0x105: // right
+    if (col_idx_ >= lines_[line_idx_].size()) break;
+    col_idx_++;
+    max_col_idx_ = col_idx_;
+    break;
+  case '^':
+    col_idx_ = 0;
+    max_col_idx_ = col_idx_;
+    break;
+  case '$':
+    col_idx_ = lines_[line_idx_].size() - 1;
+    max_col_idx_ = col_idx_;
+    break;
   }
   Panel::UIChar(ch);
+  bool line_moved = line_idx_ != prev_line_idx;
+  bool col_moved = col_idx_ != prev_col_idx;
+  // If the current line changed, move the cursor to the end if this new line is
+  // shorter. If the new line is longer, move it back to as far as it used to
+  // be.
+  if (line_moved) {
+    int new_line_size = lines_[line_idx_].size();
+    if (col_idx_ >= new_line_size) {
+      col_idx_ = std::max(0, new_line_size - 1);
+    } else {
+      col_idx_ = std::min(max_col_idx_, std::max(0, new_line_size - 1));
+    }
+  }
+  if (line_moved || col_moved) {
+    // Figure out if anything should be highlighted.
+    sel_ = nullptr;
+    sel_param_.clear();
+    for (auto &item : nav_by_line_[line_idx_]) {
+      if (col_idx_ >= item.first &&
+          col_idx_ < (item.first + item.second->VpiName().size())) {
+        sel_ = item.second;
+        break;
+      }
+    }
+    for (auto &p : params_by_line_[line_idx_]) {
+      if (col_idx_ >= p.first && col_idx_ < (p.first + p.second.size())) {
+        sel_param_ = p.second;
+      }
+    }
+  }
 }
 
 std::pair<int, int> Source::ScrollArea() {
@@ -225,7 +298,9 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
   // Clear out old info.
   lines_.clear();
   nav_.clear();
+  nav_by_line_.clear();
   params_.clear();
+  params_by_line_.clear();
   tokenizer_ = SimpleTokenizer();
   int line_num = 0;
 
@@ -375,10 +450,20 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
   std::string s;
+  int n = 0;
   while (std::getline(is, s)) {
     trim_string(s);
     tokenizer_.ProcessLine(s);
     lines_.push_back(std::move(s));
+    // Add all useful identifiers in this line to the appropriate list.
+    for (auto &id : tokenizer_.Identifiers(n)) {
+      if (params_.find(id.second) != params_.end()) {
+        params_by_line_[n].push_back(id);
+      } else if (nav_.find(id.second) != nav_.end()) {
+        nav_by_line_[n].push_back({id.first, nav_[id.second]});
+      }
+    }
+    n++;
   }
   // Scroll to module definition, attempt to place the line at 1/3rd the
   // screen.
