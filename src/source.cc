@@ -158,6 +158,8 @@ void Source::Draw() {
                      nav_[id]->VpiType() == vpiBitVar) {
             SetColor(w_, kSourceIdentifierPair);
           }
+        } else if (params_.find(id) != params_.end()) {
+          SetColor(w_, kSourceParamPair);
         }
         in_identifier = true;
       } else if (active && !in_keyword && keywords.size() > k_idx &&
@@ -317,9 +319,9 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
       // Add all instances in this module as navigable instances.
-      find_navigable_items(def);
+      find_navigable_items(m);
     } else {
-      // If showing the instance, collect stuff owning instance.
+      // If showing the instance, collect stuff in the owning instance.
       // This will allow nets in the port connections to be navigable.
       current_file_ = m->VpiFile();
       line_num = m->VpiLineNo();
@@ -329,9 +331,11 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
         p = p->VpiParent();
       }
       if (p != nullptr) {
+        // Find the nets and stuff in the containing module, but use the line
+        // number of that module's definition. Otherwise the line numbers are of
+        // the containing module's instance in its parent!
+        find_navigable_items(p);
         auto def = GetDefinition(reinterpret_cast<const UHDM::module *>(p));
-        find_navigable_items(def);
-        // When opening an instance, still okay to browse the stuff around it.
         start_line_ = def->VpiLineNo();
         end_line_ = def->VpiEndLineNo();
       } else {
@@ -356,10 +360,11 @@ void Source::SetItem(UHDM::BaseClass *item, bool open_def) {
       p = p->VpiParent();
     }
     if (p != nullptr) {
+      find_navigable_items(p);
+      // Ditto
       auto def = GetDefinition(reinterpret_cast<const UHDM::module *>(p));
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
-      find_navigable_items(def);
     }
     break;
   }
