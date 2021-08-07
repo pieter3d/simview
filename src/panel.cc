@@ -66,5 +66,26 @@ void Panel::Resized() {
     scroll_row_ = line_idx_ - max_h + 1;
   }
 }
+void Panel::SetLineAndScroll(int l) {
+  // Scroll to the selected line, attempt to place the line at 1/3rd the
+  // screen.
+  line_idx_ = l;
+  const int win_h = ScrollArea().first;
+  const int lines_remaining = NumLines() - line_idx_ - 1;
+  if (NumLines() <= win_h - 1) {
+    // If all lines fit on the screen, accounting for the header, then just
+    // don't scroll.
+    scroll_row_ = 0;
+  } else if (line_idx_ < win_h / 3) {
+    // Go as far down to the 1/3rd line as possible.
+    scroll_row_ = 0;
+  } else if (lines_remaining < 2 * win_h / 3) {
+    // If there are aren't many lines after the current location, scroll as
+    // far up as possible.
+    scroll_row_ = NumLines() - win_h;
+  } else {
+    scroll_row_ = line_idx_ - win_h / 3;
+  }
+}
 
 } // namespace sv

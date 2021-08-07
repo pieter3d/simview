@@ -249,6 +249,20 @@ void Source::UIChar(int ch) {
     col_idx_ = lines_[line_idx_].size() - 1;
     max_col_idx_ = col_idx_;
     break;
+  case 'd': {
+    if (sel_ != nullptr) {
+      if (sel_->VpiType() == vpiModule) {
+        SetItem(sel_, true);
+        // Don't do anything more.
+        return;
+      } else {
+        SetLineAndScroll(sel_->VpiLineNo() - 1);
+        col_idx_ = sel_->VpiColumnNo() - 1;
+        max_col_idx_ = col_idx_;
+      }
+    }
+    break;
+  }
   }
   Panel::UIChar(ch);
   bool line_moved = line_idx_ != prev_line_idx;
@@ -301,8 +315,12 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
   nav_by_line_.clear();
   params_.clear();
   params_by_line_.clear();
+  sel_ = nullptr;
+  sel_param_.clear();
   tokenizer_ = SimpleTokenizer();
-  int line_num = 0;
+  line_idx_ = 0;
+  col_idx_ = 0;
+  max_col_idx_ = 0;
 
   // This lamda recurses through all generate blocks in the item, adding any
   // navigable things found to the hashes.
@@ -378,7 +396,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
         }
         }
       };
-
+  int line_num = 1;
   switch (item->VpiType()) {
   case vpiModule: {
     auto m = reinterpret_cast<const UHDM::module *>(item);
@@ -398,6 +416,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
       // This will allow nets in the port connections to be navigable.
       current_file_ = m->VpiFile();
       line_num = m->VpiLineNo();
+      col_idx_ = m->VpiColumnNo() - 1;
+      max_col_idx_ = col_idx_;
       auto p = item->VpiParent();
       while (p != nullptr && p->VpiType() != vpiModule) {
         find_navigable_items(p);
@@ -425,6 +445,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
     find_navigable_items(ga);
     current_file_ = ga->VpiFile();
     line_num = ga->VpiLineNo();
+    col_idx_ = ga->VpiColumnNo() - 1;
+    max_col_idx_ = col_idx_;
     // Find the containing module, since that's all in the same file and in
     // scope.
     auto p = item->VpiParent();
@@ -445,7 +467,6 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
     // Do nothing for unknown types.
     return;
   }
-  line_idx_ = line_num - 1;
   // Read all lines. TODO: Handle huge files.
   std::ifstream is(current_file_);
   if (is.fail()) return; // Draw function handles file open issues.
@@ -465,26 +486,9 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
     }
     n++;
   }
-  // Scroll to module definition, attempt to place the line at 1/3rd the
-  // screen.
-  const int win_h = getmaxy(w_) - 1; // Account for header
-  const int lines_remaining = lines_.size() - line_idx_ - 1;
-  if (lines_.size() <= win_h - 1) {
-    // If all lines fit on the screen, accounting for the header, then just
-    // don't scroll.
-    scroll_row_ = 0;
-  } else if (line_idx_ < win_h / 3) {
-    // Go as far down to the 1/3rd line as possible.
-    scroll_row_ = 0;
-  } else if (lines_remaining < 2 * win_h / 3) {
-    // If there are aren't many lines after the current location, scroll as
-    // far up as possible.
-    scroll_row_ = lines_.size() - win_h;
-  } else {
-    scroll_row_ = line_idx_ - win_h / 3;
-  }
+  SetLineAndScroll(line_num - 1);
 }
 
-std::string Source ::Tooltip() const { return "u:up scope"; }
+std::string Source ::Tooltip() const { return "u:up scope  d:goto def"; }
 
 } // namespace sv
