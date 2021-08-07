@@ -147,9 +147,6 @@ void Source::Draw() {
       // Figure out if we have to switch to a new color
       if (active && !in_identifier && identifiers.size() > id_idx &&
           identifiers[id_idx].first == pos) {
-        // TODO: This will also highlight instance parameters that happen to
-        // have the same name as a parameter in the enclosing module. This is
-        // pretty ugly, need to find a way to fix this.
         auto id = identifiers[id_idx].second;
         if (nav_.find(id) != nav_.end()) {
           if (nav_[id]->VpiType() == vpiModule) {

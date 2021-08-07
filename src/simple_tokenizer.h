@@ -32,6 +32,7 @@ class SimpleTokenizer {
   int line_num_ = 0;
   bool in_block_comment_ = false;
   bool in_string_literal_ = false;
+  bool last_token_was_dot_ = true;
   std::unordered_map<int, std::vector<std::pair<int, int>>> comments_;
   std::unordered_map<int, std::vector<std::pair<int, int>>> keywords_;
   std::unordered_map<int, std::vector<std::pair<int, std::string>>>

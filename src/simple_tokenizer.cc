@@ -286,6 +286,13 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
     } else if (in_escaped_identifier) {
       if (c == ' ' || c == '\t' || i == s.size() - 1) {
         in_escaped_identifier = false;
+        // Skip identifiers preceded by a period. Those are named port or
+        // parameter connections that belong to a different scope than the
+        // identifiers in this file.
+        if (last_token_was_dot_) {
+          last_token_was_dot_ = false;
+          continue;
+        }
         identifiers_[line_num_].push_back(
             {start_pos, s.substr(start_pos, i - start_pos)});
       }
@@ -299,6 +306,13 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
         if (start_pos > 0 && s[start_pos - 1] == '`') continue;
         // Skip numerical literals
         if (start_pos > 0 && s[start_pos - 1] == '\'') continue;
+        // Skip identifiers preceded by a period. Those are named port or
+        // parameter connections that belong to a different scope than the
+        // identifiers in this file.
+        if (last_token_was_dot_) {
+          last_token_was_dot_ = false;
+          continue;
+        }
         auto text = s.substr(start_pos, last_pos - start_pos + 1);
         if (IsKeyword(text)) {
           keywords_[line_num_].push_back({start_pos, last_pos});
@@ -320,6 +334,10 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
     } else if (IsLeadingIdentifierCharacater(c)) {
       start_pos = i;
       in_identifier = true;
+    } else if (c == '.') {
+      last_token_was_dot_ = true;
+    } else if (c != ' ' && c != '\t') {
+      last_token_was_dot_ = false;
     }
   }
   line_num_++;
