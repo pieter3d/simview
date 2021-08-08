@@ -93,7 +93,9 @@ void Hierarchy::Draw() {
   for (int y = 0; y < win_h; ++y) {
     const int entry_idx = y + scroll_row_;
     if (entry_idx >= entries_.size()) break;
-    if (has_focus_ && entry_idx == line_idx_) wattron(w_, A_REVERSE);
+    if (entry_idx == line_idx_) {
+      wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
+    }
     auto entry = entries_[entry_idx];
     auto info = entry_info_[entry];
     std::string indent(info.depth, ' ');
@@ -151,6 +153,7 @@ void Hierarchy::ToggleExpand() {
   if (entries_.empty()) return;
   auto &info = entry_info_[*entry_it];
   if (info.more_idx != 0) {
+    // Check if the "... more ..." entry needs to be further expanded.
     int stopped_pos = info.more_idx;
     info.more_idx = 0;
     std::vector<UHDM::BaseClass *> new_entries;
