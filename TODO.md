@@ -12,3 +12,4 @@
 * Nets should get selected out of the hierarchy panel (no verdi style get without design)
 * Different layout for loading waves without source, different hierarchy panel probably.
 * Auto-match wave hierarchy against design hierarchy.
+* Home and End keys generate a bunch of terminal escaped chars that aren't handled at the moment.
