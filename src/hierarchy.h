@@ -11,7 +11,7 @@ namespace sv {
 
 class Hierarchy : public Panel {
  public:
-  Hierarchy(WINDOW *w, UHDM::design *d);
+  Hierarchy(WINDOW *w);
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return entries_.size(); }
@@ -30,7 +30,6 @@ class Hierarchy : public Panel {
   };
   void ToggleExpand();
 
-  UHDM::design *design_;
   std::vector<UHDM::BaseClass *> entries_;
   std::unordered_map<UHDM::BaseClass *, EntryInfo> entry_info_;
   int ui_col_scroll_ = 0;

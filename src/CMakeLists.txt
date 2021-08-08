@@ -49,6 +49,7 @@ target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
 add_executable(simview
   panel.cc
   hierarchy.cc
+  workspace.cc
   source.cc
   waves.cc
   utils.cc

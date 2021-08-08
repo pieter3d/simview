@@ -3,7 +3,6 @@
 #include <surelog/surelog.h>
 #include <uhdm/headers/ElaboratorListener.h>
 #include <uhdm/headers/vpi_uhdm.h>
-#include <vector>
 
 int main(int argc, const char *argv[]) {
   // Parse the design using the remaining command line arguments
@@ -59,9 +58,10 @@ int main(int argc, const char *argv[]) {
     return -1;
   }
 
-  sv::UI ui(uhdm_design);
+  sv::Workspace::Get().SetDesign(uhdm_design);
+  sv::UI ui;
   for (auto id : clp.getIncludePaths()) {
-    ui.AddIncludeDir(symbolTable.getSymbol(id));
+    sv::Workspace::Get().AddIncludeDir(symbolTable.getSymbol(id));
   }
   ui.EventLoop();
 

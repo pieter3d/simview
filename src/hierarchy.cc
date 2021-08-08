@@ -2,6 +2,7 @@
 #include "absl/strings/str_format.h"
 #include "color.h"
 #include "utils.h"
+#include "workspace.h"
 #include <algorithm>
 #include <iostream>
 #include <uhdm/headers/BaseClass.h>
@@ -57,10 +58,9 @@ bool is_expandable(const UHDM::BaseClass *item) {
 
 } // namespace
 
-Hierarchy::Hierarchy(WINDOW *w, UHDM::design *d) : Panel(w) {
-  design_ = d;
+Hierarchy::Hierarchy(WINDOW *w) : Panel(w) {
   // Populate an intial list of instances, top modules really.
-  for (auto &top : *d->TopModules()) {
+  for (auto &top : *Workspace::Get().Design()->TopModules()) {
     entries_.push_back(top);
     entry_info_[top].expandable = is_expandable(top);
   }

@@ -12,20 +12,18 @@ namespace sv {
 
 class Source : public Panel {
  public:
-  Source(WINDOW *w, Workspace &ws) : Panel(w), workspace_(ws) {}
+  Source(WINDOW *w) : Panel(w) {}
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
   bool TransferPending() override;
   std::string Tooltip() const override;
-  void SetItem(const UHDM::BaseClass *item, bool open_def = false);
+  void SetItem(const UHDM::BaseClass *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;
 
  private:
   // Generates a nice header that probably fits in the given width.
   std::string GetHeader(int max_w);
-  // Find the definition of the module that contains the given item.
-  const UHDM::module *GetDefinition(const UHDM::module *m);
 
   // Show values of highlighted items or not.
   bool show_vals_ = true;
@@ -58,8 +56,6 @@ class Source : public Panel {
   std::unordered_map<std::string, std::string> params_;
   std::unordered_map<int, std::vector<std::pair<int, std::string>>>
       params_by_line_;
-  // Reference to the workspace. Used to access the design database, waves, etc.
-  Workspace &workspace_;
   // Tokenizer that holds identifiers and keywords for each line. This
   // simplifies syntax highlighting for keywords and comments.
   SimpleTokenizer tokenizer_;
@@ -67,16 +63,13 @@ class Source : public Panel {
   // definition. Text rendering uses this grey out source outside this.
   int start_line_ = 0;
   int end_line_ = 0;
-  // Track all definitions of any given module instance. This not cleared
-  // between item loads, but serves as a cache to avoid iterating over the
-  // design's list of all module definitions.
-  std::unordered_map<std::string, const UHDM::module *> module_defs_;
 
   // Stack of states, to allow going back/forth while browsing source.
   // TODO: Complete this and use it.
   struct State {
     UHDM::BaseClass *item = nullptr;
     int line_idx = 0;
+    bool show_def = false;
   };
 };
 

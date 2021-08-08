@@ -80,22 +80,6 @@ std::string Source::GetHeader(int max_w = 0) {
   return s;
 }
 
-const UHDM::module *Source::GetDefinition(const UHDM::module *m) {
-  // Top modules don't have a separate definition.
-  if (m->VpiTopModule()) return m;
-  const std::string &def_name = m->VpiDefName();
-  if (module_defs_.find(def_name) == module_defs_.end()) {
-    // Find the module definition in the UHDB.
-    for (auto &candidate_module : *workspace_.design->AllModules()) {
-      if (def_name == candidate_module->VpiDefName()) {
-        module_defs_[def_name] = candidate_module;
-        return candidate_module;
-      }
-    }
-  }
-  return module_defs_[def_name];
-}
-
 void Source::Draw() {
   werase(w_);
   wattrset(w_, A_NORMAL);
@@ -472,7 +456,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
     if (open_def && m->VpiParent() != nullptr) {
       // VpiDefFile isn't super useful here, still need the definition to get
       // the start and end line number.
-      auto def = GetDefinition(m);
+      auto def = Workspace::Get().GetDefinition(m);
       current_file_ = def->VpiFile();
       line_num = def->VpiLineNo();
       start_line_ = def->VpiLineNo();
@@ -496,7 +480,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
         // number of that module's definition. Otherwise the line numbers are of
         // the containing module's instance in its parent!
         find_navigable_items(p);
-        auto def = GetDefinition(reinterpret_cast<const UHDM::module *>(p));
+        auto def = Workspace::Get().GetDefinition(
+            reinterpret_cast<const UHDM::module *>(p));
         start_line_ = def->VpiLineNo();
         end_line_ = def->VpiEndLineNo();
       } else {
@@ -525,7 +510,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
     if (p != nullptr) {
       find_navigable_items(p);
       // Ditto
-      auto def = GetDefinition(reinterpret_cast<const UHDM::module *>(p));
+      auto def = Workspace::Get().GetDefinition(
+          reinterpret_cast<const UHDM::module *>(p));
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
     }

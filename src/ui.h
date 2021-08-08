@@ -6,18 +6,16 @@
 #include "source.h"
 #include "waves.h"
 #include "workspace.h"
-#include <uhdm/headers/design.h>
 #include <memory>
 
 namespace sv {
 
 class UI {
  public:
-  UI(UHDM::design *d);
+  UI();
   ~UI();
 
   void EventLoop();
-  void AddIncludeDir(const std::string &dir);
 
  private:
   void DrawPanes(bool resize);
@@ -34,7 +32,6 @@ class UI {
   std::unique_ptr<Waves> waves_;
   Panel *focused_panel_ = nullptr;
   Panel *prev_focused_panel_ = nullptr;
-  Workspace workspace_;
 };
 
 } // namespace sv
