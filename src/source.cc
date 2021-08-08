@@ -300,15 +300,18 @@ void Source::UIChar(int ch) {
     max_col_idx_ = col_idx_;
     break;
   case '^':
+    // Start of line, scoll left if needed.
     scroll_col_ = 0;
     col_idx_ = 0;
     max_col_idx_ = col_idx_;
     break;
   case '$':
+    // End of line
     col_idx_ = lines_[line_idx_].size() - 1;
     max_col_idx_ = col_idx_;
     break;
   case 'd':
+    // Go to definition of a module instance.
     if (sel_ != nullptr) {
       if (sel_->VpiType() == vpiModule) {
         item_for_hier_ = sel_;
@@ -356,6 +359,35 @@ void Source::UIChar(int ch) {
     }
     break;
   }
+  case 'w': {
+    // Go to the next highlightable thing.
+    int param_pos = -1;
+    int identifier_pos = -1;
+    // Look for naviable items
+    if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
+      for (auto &item : nav_by_line_[line_idx_]) {
+        if (item.first > col_idx_) {
+          identifier_pos = item.first;
+          break;
+        }
+      }
+    }
+    // Look for parameters
+    if (params_by_line_.find(line_idx_) != params_by_line_.end()) {
+      for (auto &p : params_by_line_[line_idx_]) {
+        if (p.first > col_idx_) {
+          param_pos = p.first;
+          break;
+        }
+      }
+    }
+    // Pick the closest one.
+    if (param_pos > 0 && identifier_pos > 0) {
+      col_idx_ = std::min(param_pos, identifier_pos);
+    } else if (param_pos > 0 || identifier_pos > 0) {
+      col_idx_ = std::max(param_pos, identifier_pos);
+    }
+  }
   }
   Panel::UIChar(ch);
   bool line_moved = line_idx_ != prev_line_idx;
@@ -375,16 +407,20 @@ void Source::UIChar(int ch) {
     // Figure out if anything should be highlighted.
     sel_ = nullptr;
     sel_param_.clear();
-    for (auto &item : nav_by_line_[line_idx_]) {
-      if (col_idx_ >= item.first &&
-          col_idx_ < (item.first + item.second->VpiName().size())) {
-        sel_ = item.second;
-        break;
+    if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
+      for (auto &item : nav_by_line_[line_idx_]) {
+        if (col_idx_ >= item.first &&
+            col_idx_ < (item.first + item.second->VpiName().size())) {
+          sel_ = item.second;
+          break;
+        }
       }
     }
-    for (auto &p : params_by_line_[line_idx_]) {
-      if (col_idx_ >= p.first && col_idx_ < (p.first + p.second.size())) {
-        sel_param_ = p.second;
+    if (params_by_line_.find(line_idx_) != params_by_line_.end()) {
+      for (auto &p : params_by_line_[line_idx_]) {
+        if (col_idx_ >= p.first && col_idx_ < (p.first + p.second.size())) {
+          sel_param_ = p.second;
+        }
       }
     }
   }
