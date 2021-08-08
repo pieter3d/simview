@@ -16,10 +16,10 @@ class Source : public Panel {
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
-  bool TransferPending() override;
   std::string Tooltip() const override;
   void SetItem(const UHDM::BaseClass *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;
+  std::optional<const UHDM::BaseClass *> ItemForHierarchy();
 
  private:
   // Variant that includes a flag indicating if the item change should save the
@@ -68,6 +68,9 @@ class Source : public Panel {
   // definition. Text rendering uses this grey out source outside this.
   int start_line_ = 0;
   int end_line_ = 0;
+  // When not null, indicates this object should be shown in the hierarchy. This
+  // allows the hierarchy panel to always match current scope.
+  const UHDM::BaseClass *item_for_hier_ = nullptr;
 
   // Stack of states, to allow going back/forth while browsing source.
   // TODO: Complete this and use it.

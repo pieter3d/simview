@@ -157,12 +157,17 @@ void UI::EventLoop() {
       redraw = true;
       break;
     }
+    // Update focus state.
     prev_focused_panel_->SetFocus(false);
     focused_panel_->SetFocus(true);
-    if (focused_panel_->TransferPending()) {
-      if (focused_panel_ == hierarchy_.get()) {
-        auto item = hierarchy_->ItemForSource();
-        source_->SetItem(item.first, item.second);
+    // Look for transfers from Hierarchy -> Source
+    if (focused_panel_ == hierarchy_.get()) {
+      if (auto item = hierarchy_->ItemForSource()) {
+        source_->SetItem(item->first, item->second);
+      }
+    } else if (focused_panel_ == source_.get()) {
+      if (auto item = source_->ItemForHierarchy()) {
+        hierarchy_->SetItem(*item);
       }
     }
     // For now:

@@ -15,9 +15,10 @@ class Hierarchy : public Panel {
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return entries_.size(); }
-  bool TransferPending() override;
   std::string Tooltip() const override;
-  std::pair<UHDM::BaseClass *, bool> ItemForSource();
+  std::optional<std::pair<const UHDM::BaseClass *, bool>> ItemForSource();
+  // Opens the hierarchy to the selected item.
+  void SetItem(const UHDM::BaseClass *item);
 
  private:
   struct EntryInfo {
@@ -26,12 +27,12 @@ class Hierarchy : public Panel {
     bool expandable = false;
     bool is_generate = false;
     int more_idx = 0;
-    UHDM::BaseClass *parent = nullptr;
+    const UHDM::BaseClass *parent = nullptr;
   };
   void ToggleExpand();
 
-  std::vector<UHDM::BaseClass *> entries_;
-  std::unordered_map<UHDM::BaseClass *, EntryInfo> entry_info_;
+  std::vector<const UHDM::BaseClass *> entries_;
+  std::unordered_map<const UHDM::BaseClass *, EntryInfo> entry_info_;
   int ui_col_scroll_ = 0;
   int ui_max_col_scroll_ = 0;
   bool load_instance_ = false;

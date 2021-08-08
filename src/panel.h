@@ -12,7 +12,6 @@ class Panel {
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() = 0;
   virtual void UIChar(int ch);
-  virtual bool TransferPending() = 0;
   virtual std::string Tooltip() const = 0;
   virtual void SetFocus(bool f) { has_focus_ = f; }
   WINDOW *Window() const { return w_; }

@@ -11,7 +11,6 @@ class Waves : public Panel {
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return 0; }
-  bool TransferPending() override;
   std::string Tooltip() const override { return ""; }
 
  private:

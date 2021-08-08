@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <string>
 #include <uhdm/headers/constant.h>
 #include <uhdm/headers/gen_scope.h>
@@ -276,7 +277,10 @@ void Source::UIChar(int ch) {
              p->VpiType() != vpiGenScopeArray) {
         p = p->VpiParent();
       }
-      if (p != nullptr) SetItem(p, false);
+      if (p != nullptr) {
+        SetItem(p, false);
+        item_for_hier_ = p;
+      }
     }
     break;
   case 'h':
@@ -306,6 +310,7 @@ void Source::UIChar(int ch) {
   case 'd':
     if (sel_ != nullptr) {
       if (sel_->VpiType() == vpiModule) {
+        item_for_hier_ = sel_;
         SetItem(sel_, true);
         // Don't do anything more.
         return;
@@ -324,6 +329,7 @@ void Source::UIChar(int ch) {
     SetItem(s.item, s.show_def, /* save_state */ false);
     line_idx_ = s.line_idx;
     scroll_col_ = s.scroll_row;
+    item_for_hier_ = s.item;
     break;
   }
   case 'b': {
@@ -339,11 +345,13 @@ void Source::UIChar(int ch) {
       stack_idx_ -= 2;
       line_idx_ = s.line_idx;
       scroll_col_ = s.scroll_row;
+      item_for_hier_ = s.item;
     } else {
       auto &s = state_stack_[--stack_idx_];
       SetItem(s.item, s.show_def, false);
       line_idx_ = s.line_idx;
       scroll_col_ = s.scroll_row;
+      item_for_hier_ = s.item;
     }
     break;
   }
@@ -388,7 +396,12 @@ std::pair<int, int> Source::ScrollArea() {
   return {h - 1, w};
 }
 
-bool Source::TransferPending() { return false; }
+std::optional<const UHDM::BaseClass *> Source::ItemForHierarchy() {
+  if (item_for_hier_ == nullptr) return std::nullopt;
+  auto item = item_for_hier_;
+  item_for_hier_ = nullptr;
+  return item;
+}
 
 void Source::SetItem(const UHDM::BaseClass *item, bool show_def) {
   SetItem(item, show_def, /*save_state*/ true);
@@ -410,10 +423,6 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
       state_stack_.pop_front();
       stack_idx_--;
     }
-  }
-  printf("Stack size: %ld idx:%d\r\n", state_stack_.size(), stack_idx_);
-  for (auto &s : state_stack_) {
-    printf("st: %s\r\n", s.item->VpiName().c_str());
   }
   item_ = item;
   showing_def_ = show_def;

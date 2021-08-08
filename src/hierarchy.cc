@@ -5,6 +5,7 @@
 #include "workspace.h"
 #include <algorithm>
 #include <iostream>
+#include <optional>
 #include <uhdm/headers/BaseClass.h>
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
@@ -16,8 +17,8 @@ namespace {
 // Limit number of instances dumped into the UI at once.
 constexpr int kMaxExpandInstances = 100;
 
-std::vector<UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
-  std::vector<UHDM::BaseClass *> subs;
+std::vector<const UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
+  std::vector<const UHDM::BaseClass *> subs;
   if (item->VpiType() == vpiModule) {
     auto m = dynamic_cast<const UHDM::module *>(item);
     if (m->Modules() != nullptr) {
@@ -43,7 +44,7 @@ std::vector<UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
   }
   // TODO: Also offer lexical sort?
   std::stable_sort(subs.begin(), subs.end(),
-                   [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
+                   [](const UHDM::BaseClass *a, const UHDM::BaseClass *b) {
                      return a->VpiLineNo() < b->VpiLineNo();
                    });
 
@@ -66,9 +67,9 @@ Hierarchy::Hierarchy(WINDOW *w) : Panel(w) {
   }
   // Put all top modules with sub instances on top.
   // Lexical sort within that.
-  auto top_sorter = [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
-    auto ma = dynamic_cast<UHDM::module *>(a);
-    auto mb = dynamic_cast<UHDM::module *>(b);
+  auto top_sorter = [](const UHDM::BaseClass *a, const UHDM::BaseClass *b) {
+    auto ma = dynamic_cast<const UHDM::module *>(a);
+    auto mb = dynamic_cast<const UHDM::module *>(b);
     bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
     bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
     if (a_has_subs == b_has_subs) {
@@ -156,7 +157,7 @@ void Hierarchy::ToggleExpand() {
     // Check if the "... more ..." entry needs to be further expanded.
     int stopped_pos = info.more_idx;
     info.more_idx = 0;
-    std::vector<UHDM::BaseClass *> new_entries;
+    std::vector<const UHDM::BaseClass *> new_entries;
     const auto parent_subs = get_subs(info.parent);
     for (int i = stopped_pos + 1; i < parent_subs.size(); ++i) {
       auto new_sub = parent_subs[i];
@@ -181,30 +182,31 @@ void Hierarchy::ToggleExpand() {
     entries_.erase(entry_it + 1, last);
     info.expanded = false;
   } else {
-    std::vector<UHDM::BaseClass *> new_entries;
-    std::function<void(UHDM::BaseClass *, std::vector<UHDM::BaseClass *> &)>
-        recurse_add_subs =
-            [&](UHDM::BaseClass *item, std::vector<UHDM::BaseClass *> &list) {
-              int sub_idx = 0;
-              auto subs = get_subs(item);
-              for (auto &sub : subs) {
-                list.push_back(sub);
-                // Create new UI info only if it doesn't already exist
-                if (entry_info_.find(sub) == entry_info_.end()) {
-                  int more_idx = sub_idx >= kMaxExpandInstances ? sub_idx : 0;
-                  entry_info_[sub] = {.depth = entry_info_[item].depth + 1,
-                                      .expandable = is_expandable(sub),
-                                      .more_idx = more_idx,
-                                      .parent = item};
-                  sub_idx++;
-                  if (more_idx != 0) break;
-                } else if (entry_info_[sub].more_idx != 0) {
-                  break;
-                } else if (entry_info_[sub].expanded) {
-                  recurse_add_subs(sub, list);
-                }
-              }
-            };
+    std::vector<const UHDM::BaseClass *> new_entries;
+    std::function<void(const UHDM::BaseClass *,
+                       std::vector<const UHDM::BaseClass *> &)>
+        recurse_add_subs = [&](const UHDM::BaseClass *item,
+                               std::vector<const UHDM::BaseClass *> &list) {
+          int sub_idx = 0;
+          auto subs = get_subs(item);
+          for (auto &sub : subs) {
+            list.push_back(sub);
+            // Create new UI info only if it doesn't already exist
+            if (entry_info_.find(sub) == entry_info_.end()) {
+              int more_idx = sub_idx >= kMaxExpandInstances ? sub_idx : 0;
+              entry_info_[sub] = {.depth = entry_info_[item].depth + 1,
+                                  .expandable = is_expandable(sub),
+                                  .more_idx = more_idx,
+                                  .parent = item};
+              sub_idx++;
+              if (more_idx != 0) break;
+            } else if (entry_info_[sub].more_idx != 0) {
+              break;
+            } else if (entry_info_[sub].expanded) {
+              recurse_add_subs(sub, list);
+            }
+          }
+        };
     recurse_add_subs(*entry_it, new_entries);
     entries_.insert(entry_it + 1, new_entries.cbegin(), new_entries.cend());
     info.expanded = true;
@@ -216,6 +218,41 @@ void Hierarchy::ToggleExpand() {
       scroll_row_ += scroll_amt;
     }
   }
+}
+
+void Hierarchy::SetItem(const UHDM::BaseClass *item) {
+  // First, build a list of all things up to the root.
+  std::vector<const UHDM::BaseClass *> path;
+  while (item != nullptr) {
+    // Skip GenScope, here we only consider GenScopeArray
+    if (item->VpiType() != vpiGenScope) {
+      path.push_back(item);
+    }
+    item = item->VpiParent();
+  }
+  // Now look through the list at every level and expand as necessary.
+  // Iterate backwards so that the root is the first thing looked for.
+  for (int path_idx = path.size() - 1; path_idx >= 0; --path_idx) {
+    auto &item = path[path_idx];
+    bool found = false;
+    for (int entry_idx = 0; entry_idx < entries_.size(); ++entry_idx) {
+      auto &entry = entries_[entry_idx];
+      if (item == entry) {
+        found = true;
+        line_idx_ = entry_idx;
+        // Expand the item if it isn't already, and if it isn't the last one.
+        if (entry_info_[entry].expandable && !entry_info_[entry].expanded &&
+            path_idx != 0) {
+          ToggleExpand();
+        }
+        break;
+      }
+    }
+    // Not found shouldn't happen.
+    // TODO: Proper error handling for this.
+    if (!found) return;
+  }
+  SetLineAndScroll(line_idx_);
 }
 
 void Hierarchy::UIChar(int ch) {
@@ -251,14 +288,16 @@ void Hierarchy::UIChar(int ch) {
   }
 }
 
-bool Hierarchy::TransferPending() { return load_instance_ || load_definition_; }
-
-std::pair<UHDM::BaseClass *, bool> Hierarchy::ItemForSource() {
-  std::pair<UHDM::BaseClass *, bool> ret = {entries_[line_idx_],
-                                            load_definition_};
-  load_definition_ = false;
-  load_instance_ = false;
-  return ret;
+std::optional<std::pair<const UHDM::BaseClass *, bool>>
+Hierarchy::ItemForSource() {
+  if (load_definition_ || load_instance_) {
+    std::pair<const UHDM::BaseClass *, bool> ret = {entries_[line_idx_],
+                                                    load_definition_};
+    load_definition_ = false;
+    load_instance_ = false;
+    return ret;
+  }
+  return std::nullopt;
 }
 
 std::string Hierarchy::Tooltip() const {

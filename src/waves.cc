@@ -10,6 +10,4 @@ void Waves::Draw() {
 
 void Waves::UIChar(int ch) {}
 
-bool Waves::TransferPending() { return false; }
-
 } // namespace sv
