@@ -271,6 +271,7 @@ void Source::UIChar(int ch) {
     if (showing_def_) {
       // Go back up to the instance location if showing a definition
       SetItem(item_, false);
+      item_for_hier_ = item_;
     } else {
       auto p = item_->VpiParent();
       while (p != nullptr && p->VpiType() != vpiModule &&
