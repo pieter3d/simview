@@ -19,7 +19,7 @@ constexpr int kMaxExpandInstances = 100;
 std::vector<UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
   std::vector<UHDM::BaseClass *> subs;
   if (item->VpiType() == vpiModule) {
-    auto m = reinterpret_cast<const UHDM::module *>(item);
+    auto m = dynamic_cast<const UHDM::module *>(item);
     if (m->Modules() != nullptr) {
       subs.insert(subs.end(), m->Modules()->cbegin(), m->Modules()->cend());
     }
@@ -31,7 +31,7 @@ std::vector<UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
     // TODO: How do module arrays work?
   } else if (item->VpiType() == vpiGenScopeArray) {
     // TODO: What to do if there is 0 or 2+ GenScopes in here??
-    auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item);
+    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
     auto g = (*ga->Gen_scopes())[0];
     if (g->Modules() != nullptr) {
       subs.insert(subs.end(), g->Modules()->cbegin(), g->Modules()->cend());
@@ -67,8 +67,8 @@ Hierarchy::Hierarchy(WINDOW *w) : Panel(w) {
   // Put all top modules with sub instances on top.
   // Lexical sort within that.
   auto top_sorter = [](UHDM::BaseClass *a, UHDM::BaseClass *b) {
-    auto ma = reinterpret_cast<UHDM::module *>(a);
-    auto mb = reinterpret_cast<UHDM::module *>(b);
+    auto ma = dynamic_cast<UHDM::module *>(a);
+    auto mb = dynamic_cast<UHDM::module *>(b);
     bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
     bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
     if (a_has_subs == b_has_subs) {

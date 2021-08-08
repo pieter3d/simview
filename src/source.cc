@@ -45,12 +45,12 @@ std::string Source::GetHeader(int max_w = 0) {
   std::string type;
   switch (item_->VpiType()) {
   case vpiModule: {
-    auto m = reinterpret_cast<const UHDM::module *>(item_);
+    auto m = dynamic_cast<const UHDM::module *>(item_);
     type = m->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item_);
+    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item_);
     type = ga->VpiFullName();
     break;
   }
@@ -436,7 +436,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
       [&](const UHDM::BaseClass *item) {
         switch (item->VpiType()) {
         case vpiModule: {
-          auto m = reinterpret_cast<const UHDM::module *>(item);
+          auto m = dynamic_cast<const UHDM::module *>(item);
           if (m->Nets() != nullptr) {
             for (auto &n : *m->Nets()) {
               nav_[n->VpiName()] = n;
@@ -458,8 +458,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
               // Elaborated designs should only have this type of assignment.
               if (pa->Lhs()->VpiType() != vpiParameter) continue;
               if (pa->Rhs()->VpiType() != vpiConstant) continue;
-              auto p = reinterpret_cast<const UHDM::parameter *>(pa->Lhs());
-              auto c = reinterpret_cast<const UHDM::constant *>(pa->Rhs());
+              auto p = dynamic_cast<const UHDM::parameter *>(pa->Lhs());
+              auto c = dynamic_cast<const UHDM::constant *>(pa->Rhs());
               params_[p->VpiName()] = c->VpiDecompile();
             }
           }
@@ -471,7 +471,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
           break;
         }
         case vpiGenScopeArray: {
-          auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item);
+          auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
           // Surelog always uses a gen_scope_array to wrap a single gen_scope
           // for any generate block, wether it's a single if statement or one
           // iteration of an unrolled for loop.
@@ -507,7 +507,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
   int line_num = 1;
   switch (item->VpiType()) {
   case vpiModule: {
-    auto m = reinterpret_cast<const UHDM::module *>(item);
+    auto m = dynamic_cast<const UHDM::module *>(item);
     // Treat top modules as an instance open.
     if (show_def && m->VpiParent() != nullptr) {
       // VpiDefFile isn't super useful here, still need the definition to get
@@ -537,7 +537,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
         // the containing module's instance in its parent!
         find_navigable_items(p);
         auto def = Workspace::Get().GetDefinition(
-            reinterpret_cast<const UHDM::module *>(p));
+            dynamic_cast<const UHDM::module *>(p));
         start_line_ = def->VpiLineNo();
         end_line_ = def->VpiEndLineNo();
       } else {
@@ -550,7 +550,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = reinterpret_cast<const UHDM::gen_scope_array *>(item);
+    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
     find_navigable_items(ga);
     current_file_ = ga->VpiFile();
     line_num = ga->VpiLineNo();
@@ -566,8 +566,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
     if (p != nullptr) {
       find_navigable_items(p);
       // Ditto
-      auto def = Workspace::Get().GetDefinition(
-          reinterpret_cast<const UHDM::module *>(p));
+      auto def =
+          Workspace::Get().GetDefinition(dynamic_cast<const UHDM::module *>(p));
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
     }
