@@ -4,8 +4,8 @@
 #include "panel.h"
 #include "simple_tokenizer.h"
 #include "workspace.h"
+#include <deque>
 #include <uhdm/headers/BaseClass.h>
-#include <uhdm/headers/module.h>
 #include <vector>
 
 namespace sv {
@@ -22,6 +22,11 @@ class Source : public Panel {
   std::pair<int, int> ScrollArea() override;
 
  private:
+  // Variant that includes a flag indicating if the item change should save the
+  // current state (it not empty). This is used for forward/back stack
+  // navigation. If the state is saved, anything beyond current stack pointer
+  // is wiped out.
+  void SetItem(const UHDM::BaseClass *item, bool show_def, bool save_state);
   // Generates a nice header that probably fits in the given width.
   std::string GetHeader(int max_w);
 
@@ -67,10 +72,13 @@ class Source : public Panel {
   // Stack of states, to allow going back/forth while browsing source.
   // TODO: Complete this and use it.
   struct State {
-    UHDM::BaseClass *item = nullptr;
+    const UHDM::BaseClass *item = nullptr;
     int line_idx = 0;
+    int scroll_row = 0;
     bool show_def = false;
   };
+  std::deque<State> state_stack_;
+  int stack_idx_ = 0;
 };
 
 } // namespace sv

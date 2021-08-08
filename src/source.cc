@@ -18,6 +18,9 @@
 
 namespace sv {
 namespace {
+
+constexpr int kMaxStateStackSize = 500;
+
 // Remove newline characters from the start or end of the string.
 void trim_string(std::string &s) {
   if (s.empty()) return;
@@ -300,7 +303,7 @@ void Source::UIChar(int ch) {
     col_idx_ = lines_[line_idx_].size() - 1;
     max_col_idx_ = col_idx_;
     break;
-  case 'd': {
+  case 'd':
     if (sel_ != nullptr) {
       if (sel_->VpiType() == vpiModule) {
         SetItem(sel_, true);
@@ -314,6 +317,35 @@ void Source::UIChar(int ch) {
     }
     break;
   case 'v': show_vals_ = !show_vals_; break;
+  case 'f': {
+    // Can't go forward past the end.
+    if (stack_idx_ >= state_stack_.size() - 1) break;
+    auto &s = state_stack_[++stack_idx_];
+    SetItem(s.item, s.show_def, /* save_state */ false);
+    line_idx_ = s.line_idx;
+    scroll_col_ = s.scroll_row;
+    break;
+  }
+  case 'b': {
+    // Go back in the stack if possible.
+    if (stack_idx_ == 0) break;
+    if (stack_idx_ == state_stack_.size()) {
+      // If not currently doing any kind of stack navigation, get the top of the
+      // stack as the new item, but save the current one.
+      auto s = state_stack_[stack_idx_ - 1];
+      SetItem(s.item, s.show_def, true);
+      // Saving the current one has grown the stack, but since we're now going
+      // down the stack, go back and point *before*.
+      stack_idx_ -= 2;
+      line_idx_ = s.line_idx;
+      scroll_col_ = s.scroll_row;
+    } else {
+      auto &s = state_stack_[--stack_idx_];
+      SetItem(s.item, s.show_def, false);
+      line_idx_ = s.line_idx;
+      scroll_col_ = s.scroll_row;
+    }
+    break;
   }
   }
   Panel::UIChar(ch);
@@ -358,9 +390,33 @@ std::pair<int, int> Source::ScrollArea() {
 
 bool Source::TransferPending() { return false; }
 
-void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
+void Source::SetItem(const UHDM::BaseClass *item, bool show_def) {
+  SetItem(item, show_def, /*save_state*/ true);
+}
+
+void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
+                     bool save_state) {
+  if (save_state && item_ != nullptr) {
+    if (stack_idx_ < state_stack_.size()) {
+      state_stack_.erase(state_stack_.begin() + stack_idx_, state_stack_.end());
+    }
+    state_stack_.push_back({
+        .item = item_,
+        .line_idx = line_idx_,
+        .show_def = showing_def_,
+    });
+    stack_idx_++;
+    if (state_stack_.size() > kMaxStateStackSize) {
+      state_stack_.pop_front();
+      stack_idx_--;
+    }
+  }
+  printf("Stack size: %ld idx:%d\r\n", state_stack_.size(), stack_idx_);
+  for (auto &s : state_stack_) {
+    printf("st: %s\r\n", s.item->VpiName().c_str());
+  }
   item_ = item;
-  showing_def_ = open_def;
+  showing_def_ = show_def;
   // Clear out old info.
   lines_.clear();
   nav_.clear();
@@ -453,7 +509,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
   case vpiModule: {
     auto m = reinterpret_cast<const UHDM::module *>(item);
     // Treat top modules as an instance open.
-    if (open_def && m->VpiParent() != nullptr) {
+    if (show_def && m->VpiParent() != nullptr) {
       // VpiDefFile isn't super useful here, still need the definition to get
       // the start and end line number.
       auto def = Workspace::Get().GetDefinition(m);
@@ -544,7 +600,11 @@ void Source::SetItem(const UHDM::BaseClass *item, bool open_def) {
 }
 
 std::string Source ::Tooltip() const {
-  std::string tt = "u:up scope  d:goto def  v:";
+  std::string tt = "u:up scope";
+  tt += "  d:goto def";
+  tt += "  b:back";
+  tt += "  f:forward";
+  tt += "  v:";
   tt += (show_vals_ ? "SHOW/hide" : "show/HIDE");
   tt += " vals";
   return tt;

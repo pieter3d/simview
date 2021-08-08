@@ -1,6 +1,5 @@
 * Search mode in main UI, pass to focused panel. Need a nice way to search up/down and highlight as you type.
 * Source viewer
-  * Back/forward stack
   * Navigate include files
 * Settings file
   * Sort instances by name or by position in file
