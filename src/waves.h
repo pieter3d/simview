@@ -7,9 +7,10 @@ namespace sv {
 
 class Waves : public Panel {
  public:
-  Waves(WINDOW *w) : Panel(w) {}
+  Waves(int h, int w, int row, int col) : Panel(h, w, row, col) {}
   void Draw() override;
   void UIChar(int ch) override;
+  void Search(const std::string &s, bool preview) {}
   int NumLines() const override { return 0; }
   std::string Tooltip() const override { return ""; }
 

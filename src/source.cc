@@ -299,12 +299,14 @@ void Source::UIChar(int ch) {
     col_idx_++;
     max_col_idx_ = col_idx_;
     break;
+  case 0x106: // Home
   case '^':
     // Start of line, scoll left if needed.
     scroll_col_ = 0;
     col_idx_ = 0;
     max_col_idx_ = col_idx_;
     break;
+  case 0x168: // End
   case '$':
     // End of line
     col_idx_ = lines_[line_idx_].size() - 1;

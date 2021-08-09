@@ -2,6 +2,8 @@
 
 namespace sv {
 
+Panel::Panel(int h, int w, int row, int col) { w_ = newwin(h, w, row, col); }
+
 std::pair<int, int> Panel::ScrollArea() {
   int h, w;
   getmaxyx(w_, h, w);

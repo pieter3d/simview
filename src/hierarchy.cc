@@ -59,7 +59,7 @@ bool is_expandable(const UHDM::BaseClass *item) {
 
 } // namespace
 
-Hierarchy::Hierarchy(WINDOW *w) : Panel(w) {
+Hierarchy::Hierarchy(int h, int w, int row, int col) : Panel(h, w, row, col) {
   // Populate an intial list of instances, top modules really.
   for (auto &top : *Workspace::Get().Design()->TopModules()) {
     entries_.push_back(top);

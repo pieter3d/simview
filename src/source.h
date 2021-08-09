@@ -12,10 +12,11 @@ namespace sv {
 
 class Source : public Panel {
  public:
-  Source(WINDOW *w) : Panel(w) {}
+  Source(int h, int w, int row, int col) : Panel(h, w, row, col) {}
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
+  void Search(const std::string &s, bool preview) {}
   std::string Tooltip() const override;
   void SetItem(const UHDM::BaseClass *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;

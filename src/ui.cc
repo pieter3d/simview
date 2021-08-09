@@ -9,6 +9,10 @@
 
 namespace sv {
 
+namespace {
+constexpr int kMaxSeachHistorySize = 500;
+}
+
 UI::UI() {
   setlocale(LC_ALL, "");
   // Init ncurses
@@ -25,13 +29,12 @@ UI::UI() {
   src_pos_x_ = term_w_ * 30 / 100;
   wave_pos_y_ = term_h_ * 50 / 100;
 
-  // Create windows and associated panels
-  hierarchy_ =
-      std::make_unique<Hierarchy>(newwin(wave_pos_y_, src_pos_x_ - 1, 0, 0));
-  source_ = std::make_unique<Source>(
-      newwin(wave_pos_y_, term_w_ - src_pos_x_, 0, src_pos_x_ + 1));
-  waves_ = std::make_unique<Waves>(
-      newwin(term_h_ - wave_pos_y_ - 2, term_w_, wave_pos_y_ + 1, 0));
+  // Create all UI panels.
+  hierarchy_ = std::make_unique<Hierarchy>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
+  source_ = std::make_unique<Source>(wave_pos_y_, term_w_ - src_pos_x_, 0,
+                                     src_pos_x_ + 1);
+  waves_ = std::make_unique<Waves>(term_h_ - wave_pos_y_ - 2, term_w_,
+                                   wave_pos_y_ + 1, 0);
   focused_panel_ = hierarchy_.get();
   prev_focused_panel_ = focused_panel_;
   focused_panel_->SetFocus(true);
@@ -46,11 +49,8 @@ UI::~UI() {
 }
 
 void UI::EventLoop() {
-  int ch = 0;
-  while (1) {
+  while (int ch = getch()) {
     bool resize = false;
-    bool redraw = false;
-    ch = getch();
 
     // TODO: remove
     auto now = absl::Now();
@@ -60,102 +60,118 @@ void UI::EventLoop() {
     tmp_ch.push_back(ch);
     last_ch = now;
 
-    switch (ch) {
-    case KEY_RESIZE: {
-      float x = (float)src_pos_x_ / term_w_;
-      float y = (float)wave_pos_y_ / term_h_;
-      getmaxyx(stdscr, term_h_, term_w_);
-      src_pos_x_ = (int)(term_w_ * x);
-      wave_pos_y_ = (int)(term_h_ * y);
-      resize = true;
-      break;
-    }
-    case 0x8:   // ctrl-H
-    case 0x221: // ctrl-left
-      if (src_pos_x_ > 5) {
-        src_pos_x_--;
-        resize = true;
+    // Searching is modal, so do nothing else until that is handled.
+    if (searching_) {
+      switch (ch) {
+      case 0x1b: // Escape
+        search_text_ = "";
+        [[fallthrough]];
+      case 0xd: // Enter
+        searching_ = false;
+        focused_panel_->Search(search_text_, false);
+        if (!search_text_.empty()) {
+          search_history_.push_back(search_text_);
+          if (search_history_.size() > kMaxSeachHistorySize) {
+            search_history_.pop_front();
+          }
+        }
+        curs_set(0); // Hide cursor again.
+        break;
       }
-      break;
-    case 0xc:   // ctrl-L
-    case 0x230: // ctrl-right
-      if (src_pos_x_ < term_w_ - 5) {
-        src_pos_x_++;
+    } else {
+      switch (ch) {
+      case KEY_RESIZE: {
+        float x = (float)src_pos_x_ / term_w_;
+        float y = (float)wave_pos_y_ / term_h_;
+        getmaxyx(stdscr, term_h_, term_w_);
+        src_pos_x_ = (int)(term_w_ * x);
+        wave_pos_y_ = (int)(term_h_ * y);
         resize = true;
+        break;
       }
-      break;
-    case 0xb:   // ctrl-K
-    case 0x236: // ctrl-up
-      if (wave_pos_y_ > 5) {
-        wave_pos_y_--;
-        resize = true;
-      }
-      break;
-    case 0xa:   // ctrl-J
-    case 0x20d: // ctrl-down
-      if (wave_pos_y_ < term_h_ - 5) {
-        wave_pos_y_++;
-        resize = true;
-      }
-      break;
-    case 'H':
-    case 0x189: // shift-left
-      if (focused_panel_ == source_.get()) {
+      case 0x8:   // ctrl-H
+      case 0x221: // ctrl-left
+        if (src_pos_x_ > 5) {
+          src_pos_x_--;
+          resize = true;
+        }
+        break;
+      case 0xc:   // ctrl-L
+      case 0x230: // ctrl-right
+        if (src_pos_x_ < term_w_ - 5) {
+          src_pos_x_++;
+          resize = true;
+        }
+        break;
+      case 0xb:   // ctrl-K
+      case 0x236: // ctrl-up
+        if (wave_pos_y_ > 5) {
+          wave_pos_y_--;
+          resize = true;
+        }
+        break;
+      case 0xa:   // ctrl-J
+      case 0x20d: // ctrl-down
+        if (wave_pos_y_ < term_h_ - 5) {
+          wave_pos_y_++;
+          resize = true;
+        }
+        break;
+      case 'H':
+      case 0x189: // shift-left
+        if (focused_panel_ == source_.get()) {
+          prev_focused_panel_ = focused_panel_;
+          focused_panel_ = hierarchy_.get();
+        }
+        break;
+      case 'L':
+      case 0x192: // shift-right
+        if (focused_panel_ == hierarchy_.get()) {
+          prev_focused_panel_ = focused_panel_;
+          focused_panel_ = source_.get();
+        }
+        break;
+      case 'K':
+      case 0x151: // shift-up
+        if (focused_panel_ == waves_.get()) {
+          focused_panel_ = prev_focused_panel_;
+          prev_focused_panel_ = waves_.get();
+        }
+        break;
+      case 'J':
+      case 0x150: // shift-down
+        if (focused_panel_ != waves_.get()) {
+          prev_focused_panel_ = focused_panel_;
+          focused_panel_ = waves_.get();
+        }
+        break;
+      case 0x9: // tab
         prev_focused_panel_ = focused_panel_;
-        focused_panel_ = hierarchy_.get();
-        redraw = true;
-      }
-      break;
-    case 'L':
-    case 0x192: // shift-right
-      if (focused_panel_ == hierarchy_.get()) {
+        if (focused_panel_ == hierarchy_.get()) {
+          focused_panel_ = source_.get();
+        } else if (focused_panel_ == source_.get()) {
+          focused_panel_ = waves_.get();
+        } else if (focused_panel_ == waves_.get()) {
+          focused_panel_ = hierarchy_.get();
+        }
+        break;
+      case 0x161: // shift-tab
         prev_focused_panel_ = focused_panel_;
-        focused_panel_ = source_.get();
-        redraw = true;
+        if (focused_panel_ == hierarchy_.get()) {
+          focused_panel_ = waves_.get();
+        } else if (focused_panel_ == source_.get()) {
+          focused_panel_ = hierarchy_.get();
+        } else if (focused_panel_ == waves_.get()) {
+          focused_panel_ = source_.get();
+        }
+        break;
+      case '/':
+        searching_ = true;
+        move(term_h_ - 1, 1);
+        curs_set(1); // Cursor visible for this.
+        break;
+      default: focused_panel_->UIChar(ch); break;
       }
-      break;
-    case 'K':
-    case 0x151: // shift-up
-      if (focused_panel_ == waves_.get()) {
-        focused_panel_ = prev_focused_panel_;
-        prev_focused_panel_ = waves_.get();
-        redraw = true;
-      }
-      break;
-    case 'J':
-    case 0x150: // shift-down
-      if (focused_panel_ != waves_.get()) {
-        prev_focused_panel_ = focused_panel_;
-        focused_panel_ = waves_.get();
-        redraw = true;
-      }
-      break;
-    case 0x9: // tab
-      prev_focused_panel_ = focused_panel_;
-      if (focused_panel_ == hierarchy_.get()) {
-        focused_panel_ = source_.get();
-      } else if (focused_panel_ == source_.get()) {
-        focused_panel_ = waves_.get();
-      } else if (focused_panel_ == waves_.get()) {
-        focused_panel_ = hierarchy_.get();
-      }
-      redraw = true;
-      break;
-    case 0x161: // shift-tab
-      prev_focused_panel_ = focused_panel_;
-      if (focused_panel_ == hierarchy_.get()) {
-        focused_panel_ = waves_.get();
-      } else if (focused_panel_ == source_.get()) {
-        focused_panel_ = hierarchy_.get();
-      } else if (focused_panel_ == waves_.get()) {
-        focused_panel_ = source_.get();
-      }
-      redraw = true;
-      break;
-    default:
-      focused_panel_->UIChar(ch);
-      redraw = true;
-      break;
     }
     // Update focus state.
     prev_focused_panel_->SetFocus(false);
@@ -172,9 +188,7 @@ void UI::EventLoop() {
     }
     // For now:
     if (ch == 'q') break;
-    if (redraw || resize) {
-      DrawPanes(resize);
-    }
+    DrawPanes(resize);
   }
 }
 
@@ -192,23 +206,23 @@ void UI::DrawPanes(bool resize) {
   erase();
   // Render the dividing lines
   if (focused_panel_ != waves_.get()) {
-    color_set(kFocusBorderPair, nullptr);
+    SetColor(stdscr, kFocusBorderPair);
   } else {
-    color_set(kBorderPair, nullptr);
+    SetColor(stdscr, kBorderPair);
   }
   mvvline(0, src_pos_x_, ACS_VLINE, wave_pos_y_);
   if (focused_panel_ != source_.get()) {
-    color_set(kFocusBorderPair, nullptr);
+    SetColor(stdscr, kFocusBorderPair);
   } else {
-    color_set(kBorderPair, nullptr);
+    SetColor(stdscr, kBorderPair);
   }
   mvhline(wave_pos_y_, 0, ACS_HLINE, src_pos_x_);
-  color_set(kFocusBorderPair, nullptr);
+  SetColor(stdscr, kFocusBorderPair);
   mvaddch(wave_pos_y_, src_pos_x_, ACS_BTEE);
   if (focused_panel_ != hierarchy_.get()) {
-    color_set(kFocusBorderPair, nullptr);
+    SetColor(stdscr, kFocusBorderPair);
   } else {
-    color_set(kBorderPair, nullptr);
+    SetColor(stdscr, kBorderPair);
   }
   hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
 
@@ -218,13 +232,23 @@ void UI::DrawPanes(bool resize) {
     s.append(absl::StrFormat("0x%x ", code));
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
 
-  // Render the tooltip.
-  auto tooltip = "/:search  " + focused_panel_->Tooltip();
-  for (int x = 0; x < term_w_; ++x) {
-    // Look for a key (indicated by colon following).
-    const bool is_key = x < tooltip.size() - 1 ? tooltip[x + 1] == ':' : false;
-    color_set(is_key ? kTooltipKeyPair : kTooltipPair, nullptr);
-    mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
+  if (searching_) {
+    SetColor(stdscr, kSearchPair);
+    mvaddch(term_h_ - 1, 0, '/');
+    for (int x = 1; x < term_w_; ++x) {
+      const int pos = x - 1 + search_scroll_;
+      addch(pos < search_text_.size() ? search_text_[pos] : ' ');
+    }
+  } else {
+    // Render the tooltip when not searching.
+    auto tooltip = "/:search  " + focused_panel_->Tooltip();
+    for (int x = 0; x < term_w_; ++x) {
+      // Look for a key (indicated by colon following).
+      const bool is_key =
+          x < tooltip.size() - 1 ? tooltip[x + 1] == ':' : false;
+      SetColor(stdscr, is_key ? kTooltipKeyPair : kTooltipPair);
+      mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
+    }
   }
 
   hierarchy_->Draw();
@@ -234,6 +258,11 @@ void UI::DrawPanes(bool resize) {
   wnoutrefresh(hierarchy_->Window());
   wnoutrefresh(source_->Window());
   wnoutrefresh(waves_->Window());
+  if (searching_) {
+    // Visible cursor must be set at the very end since all the drawing moves
+    // the real cursor around.
+    move(term_h_ - 1, search_cursor_pos_ + 1);
+  }
   doupdate();
 }
 

@@ -32,6 +32,14 @@ class UI {
   std::unique_ptr<Waves> waves_;
   Panel *focused_panel_ = nullptr;
   Panel *prev_focused_panel_ = nullptr;
+
+  // Search state.
+  bool searching_ = false;
+  std::string search_text_;
+  int search_cursor_pos_ = 0;
+  int search_scroll_ = 0;
+  int search_history_idx_ = 0;
+  std::deque<std::string> search_history_;
 };
 
 } // namespace sv

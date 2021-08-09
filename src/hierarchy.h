@@ -11,11 +11,12 @@ namespace sv {
 
 class Hierarchy : public Panel {
  public:
-  Hierarchy(WINDOW *w);
+  Hierarchy(int h, int w, int row, int col);
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return entries_.size(); }
   std::string Tooltip() const override;
+  void Search(const std::string &s, bool preview) {}
   std::optional<std::pair<const UHDM::BaseClass *, bool>> ItemForSource();
   // Opens the hierarchy to the selected item.
   void SetItem(const UHDM::BaseClass *item);

@@ -47,15 +47,15 @@ simview_add_test(simple_tokenizer_test simple_tokenizer_test.cc)
 target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
 
 add_executable(simview
-  panel.cc
-  hierarchy.cc
-  workspace.cc
-  source.cc
-  waves.cc
-  utils.cc
-  ui.cc
   color.cc
+  hierarchy.cc
   main.cc
+  panel.cc
+  source.cc
+  ui.cc
+  utils.cc
+  waves.cc
+  workspace.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
 target_include_directories(simview PRIVATE ${ALL_SURELOG_INCLUDES})

@@ -8,11 +8,12 @@ namespace sv {
 
 class Panel {
  public:
-  Panel(WINDOW *w) : w_(w) {}
+  Panel(int h, int w, int row, int col);
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() = 0;
+  virtual void Search(const std::string &s, bool preview) = 0;
   virtual void UIChar(int ch);
-  virtual std::string Tooltip() const = 0;
+  virtual std::string Tooltip() const { return ""; };
   virtual void SetFocus(bool f) { has_focus_ = f; }
   WINDOW *Window() const { return w_; }
   virtual void Resized();
