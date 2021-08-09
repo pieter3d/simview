@@ -314,11 +314,19 @@ void UI::DrawPanes(bool resize) {
     }
   } else {
     // Render the tooltip when not searching.
-    auto tooltip = "/:search  " + focused_panel_->Tooltip();
+    auto tooltip = "/nN:search  " + focused_panel_->Tooltip();
     for (int x = 0; x < term_w_; ++x) {
       // Look for a key (indicated by colon following).
-      const bool is_key =
-          x < tooltip.size() - 1 ? tooltip[x + 1] == ':' : false;
+      bool is_key = false;
+      for (int i = x + 1; i < tooltip.size(); ++i) {
+        if (tooltip[i] == ':') {
+          is_key = true;
+          break;
+        } else if (tooltip[i] == ' ') {
+          is_key = false;
+          break;
+        }
+      }
       SetColor(stdscr, is_key ? kTooltipKeyPair : kTooltipPair);
       mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
     }

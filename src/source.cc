@@ -43,6 +43,7 @@ int num_decimal_digits(int n) {
 } // namespace
 
 std::optional<std::pair<int, int>> Source::CursorLocation() const {
+  if (item_ == nullptr) return std::nullopt;
   // Compute width of the line numbers. Minus 1 to account for the header. Add
   // one to the final width to account for the line number margin.
   int linenum_width = 1 + num_decimal_digits(scroll_row_ + getmaxy(w_) - 1);
@@ -268,6 +269,7 @@ void Source::Draw() {
 }
 
 void Source::UIChar(int ch) {
+  if (item_ == nullptr) return;
   int prev_line_idx = line_idx_;
   int prev_col_idx = col_idx_;
   switch (ch) {
