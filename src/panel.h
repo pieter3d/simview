@@ -16,7 +16,8 @@ class Panel {
   virtual std::optional<std::pair<int, int>> CursorLocation() const;
   // Seach given text. If preview is set, indicates the user is still typing.
   // A blank string indicates search cancel.
-  virtual void Search(const std::string &s, bool preview) = 0;
+  // Returns true if something was found.
+  virtual bool Search(const std::string &s, bool preview) = 0;
   // Handle keypress.
   virtual void UIChar(int ch);
   virtual std::string Tooltip() const { return ""; };

@@ -35,6 +35,7 @@ class UI {
 
   // Search state.
   bool searching_ = false;
+  bool search_found_ = false;
   std::string search_text_;
   int search_cursor_pos_ = 0;
   int search_scroll_ = 0;

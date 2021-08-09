@@ -10,7 +10,7 @@ class Waves : public Panel {
   Waves(int h, int w, int row, int col) : Panel(h, w, row, col) {}
   void Draw() override;
   void UIChar(int ch) override;
-  void Search(const std::string &s, bool preview) {}
+  bool Search(const std::string &s, bool preview) { return false; }
   int NumLines() const override { return 0; }
   std::string Tooltip() const override { return ""; }
 

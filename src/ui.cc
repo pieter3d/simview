@@ -136,7 +136,7 @@ void UI::EventLoop() {
         [[fallthrough]];
       case 0xd: // Enter
         searching_ = false;
-        focused_panel_->Search(search_text_, false);
+        focused_panel_->Search(search_text_, /*preview*/ false);
         if (!search_text_.empty()) {
           search_history_.push_front(search_text_);
           if (search_history_.size() > kMaxSeachHistorySize) {
@@ -153,6 +153,8 @@ void UI::EventLoop() {
           search_text_.insert(search_cursor_pos_, 1, static_cast<char>(ch));
           search_cursor_pos_++;
           fix_search_scroll();
+          search_found_ =
+              focused_panel_->Search(search_text_, /*preview*/ true);
         }
         break;
       }
@@ -302,7 +304,9 @@ void UI::DrawPanes(bool resize) {
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
 
   if (searching_) {
-    SetColor(stdscr, kSearchPair);
+    SetColor(stdscr, (search_found_ || search_text_.empty())
+                         ? kSearchPair
+                         : kSearchNotFoundPair);
     mvaddch(term_h_ - 1, 0, '/');
     for (int x = 1; x < term_w_; ++x) {
       const int pos = x - 1 + search_scroll_;

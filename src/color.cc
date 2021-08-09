@@ -13,6 +13,7 @@ void SetupColors() {
     init_pair(kFocusBorderPair, 11, kBackground); // yellow
     init_pair(kOverflowTextPair, 9, kBackground); // bright red
     init_pair(kSearchPair, 15, 5);                // white on purple
+    init_pair(kSearchNotFoundPair, 15, 1);        // white on red
     init_pair(kHierExpandPair, 10, kBackground);  // bright green
     init_pair(kHierInstancePair, COLOR_WHITE, kBackground);
     init_pair(kHierModulePair, COLOR_CYAN, kBackground);

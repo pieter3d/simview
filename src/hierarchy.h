@@ -16,7 +16,7 @@ class Hierarchy : public Panel {
   void UIChar(int ch) override;
   int NumLines() const override { return entries_.size(); }
   std::string Tooltip() const override;
-  void Search(const std::string &s, bool preview) {}
+  bool Search(const std::string &s, bool preview) { return false; }
   std::optional<std::pair<const UHDM::BaseClass *, bool>> ItemForSource();
   // Opens the hierarchy to the selected item.
   void SetItem(const UHDM::BaseClass *item);
