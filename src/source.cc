@@ -42,6 +42,14 @@ int num_decimal_digits(int n) {
 
 } // namespace
 
+std::optional<std::pair<int, int>> Source::CursorLocation() const {
+  // Compute width of the line numbers. Minus 1 to account for the header. Add
+  // one to the final width to account for the line number margin.
+  int linenum_width = 1 + num_decimal_digits(scroll_row_ + getmaxy(w_) - 1);
+  return std::pair(line_idx_ - scroll_row_ + 1,
+                   col_idx_ - scroll_col_ + linenum_width);
+}
+
 std::string Source::GetHeader(int max_w = 0) {
   std::string type;
   switch (item_->VpiType()) {
@@ -109,6 +117,7 @@ void Source::Draw() {
   if (col_idx_ - scroll_col_ + max_digits + 2 >= win_w) {
     scroll_col_ = col_idx_ + max_digits + 2 - win_w;
   }
+  const auto highlight_attr = has_focus_ ? A_REVERSE : A_UNDERLINE;
   int sel_pos = 0; // Save selection start position.
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + scroll_row_;
@@ -145,16 +154,12 @@ void Source::Draw() {
     // recognized as keywords, identifiers etc.
     for (int x = max_digits + 1 - scroll_col_; x < win_w; ++x) {
       const int pos = x - max_digits - 1 + scroll_col_;
-      // Set the cursor as a reversed block
-      if (has_focus_ && line_idx == line_idx_ && pos == col_idx_) {
-        wattron(w_, A_REVERSE);
-      }
       if (pos >= s.size()) {
         // Put a space after an empty line so there is a place to show the
         // cursor.
         if (s.size() == 0) {
           waddch(w_, ' ');
-          wattroff(w_, A_REVERSE);
+          wattroff(w_, highlight_attr);
         }
         break;
       }
@@ -162,7 +167,7 @@ void Source::Draw() {
       if (active && !in_identifier && identifiers.size() > id_idx &&
           identifiers[id_idx].first == pos) {
         auto id = identifiers[id_idx].second;
-        bool cursor_in_id = has_focus_ && line_idx == line_idx_ &&
+        bool cursor_in_id = line_idx == line_idx_ &&
                             col_idx_ >= identifiers[id_idx].first &&
                             col_idx_ < (identifiers[id_idx].first + id.size());
         if (nav_.find(id) != nav_.end()) {
@@ -173,13 +178,13 @@ void Source::Draw() {
             SetColor(w_, kSourceIdentifierPair);
           }
           if (nav_[id] == sel_ && cursor_in_id) {
-            wattron(w_, A_UNDERLINE);
+            wattron(w_, highlight_attr);
             sel_pos = pos;
           }
         } else if (params_.find(id) != params_.end()) {
           SetColor(w_, kSourceParamPair);
           if (sel_param_ == id && cursor_in_id) {
-            wattron(w_, A_UNDERLINE);
+            wattron(w_, highlight_attr);
             sel_pos = pos;
           }
         }
@@ -208,15 +213,14 @@ void Source::Draw() {
         in_identifier = false;
         id_idx++;
         SetColor(w_, text_color);
-        wattroff(w_, A_UNDERLINE);
+        wattroff(w_, highlight_attr);
       } else if (in_comment && comments[c_idx].second == pos) {
         in_comment = false;
         c_idx++;
         SetColor(w_, text_color);
       }
-      wattroff(w_, A_REVERSE);
     }
-    wattroff(w_, A_UNDERLINE);
+    wattroff(w_, highlight_attr);
   }
   // Draw the current value of the selected item.
   // TODO: Also wave values, when sel_ is not null and a net/var.

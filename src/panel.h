@@ -2,6 +2,7 @@
 #define _SRC_PANEL_H_
 
 #include <ncurses.h>
+#include <optional>
 #include <string>
 
 namespace sv {
@@ -12,6 +13,7 @@ class Panel {
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() = 0;
   virtual void Search(const std::string &s, bool preview) = 0;
+  virtual std::optional<std::pair<int, int>> CursorLocation() const;
   virtual void UIChar(int ch);
   virtual std::string Tooltip() const { return ""; };
   virtual void SetFocus(bool f) { has_focus_ = f; }

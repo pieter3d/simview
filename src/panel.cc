@@ -10,6 +10,10 @@ std::pair<int, int> Panel::ScrollArea() {
   return {h, w};
 }
 
+std::optional<std::pair<int, int>> Panel::CursorLocation() const {
+  return std::nullopt;
+}
+
 void Panel::UIChar(int ch) {
   auto [max_h, max_w] = ScrollArea();
   switch (ch) {

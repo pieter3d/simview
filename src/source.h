@@ -17,6 +17,7 @@ class Source : public Panel {
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
   void Search(const std::string &s, bool preview) {}
+  std::optional<std::pair<int, int>> CursorLocation() const override;
   std::string Tooltip() const override;
   void SetItem(const UHDM::BaseClass *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;

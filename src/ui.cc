@@ -20,8 +20,7 @@ UI::UI() {
   cbreak();
   keypad(stdscr, true);
   noecho();
-  nonl();      // don't translate the enter key
-  curs_set(0); // Hide cursor
+  nonl(); // don't translate the enter key
   SetupColors();
 
   // Default splits on startup.
@@ -75,7 +74,6 @@ void UI::EventLoop() {
             search_history_.pop_front();
           }
         }
-        curs_set(0); // Hide cursor again.
         break;
       }
     } else {
@@ -168,7 +166,6 @@ void UI::EventLoop() {
       case '/':
         searching_ = true;
         move(term_h_ - 1, 1);
-        curs_set(1); // Cursor visible for this.
         break;
       default: focused_panel_->UIChar(ch); break;
       }
@@ -258,10 +255,19 @@ void UI::DrawPanes(bool resize) {
   wnoutrefresh(hierarchy_->Window());
   wnoutrefresh(source_->Window());
   wnoutrefresh(waves_->Window());
+  // Update cursor position, if there is one.
   if (searching_) {
-    // Visible cursor must be set at the very end since all the drawing moves
-    // the real cursor around.
     move(term_h_ - 1, search_cursor_pos_ + 1);
+    curs_set(1);
+  } else {
+    if (auto loc = focused_panel_->CursorLocation()) {
+      int x,y;
+      getbegyx(focused_panel_->Window(), y, x);
+      move(loc->first+y, loc->second+x);
+      curs_set(1);
+    } else {
+      curs_set(0);
+    }
   }
   doupdate();
 }
