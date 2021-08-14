@@ -653,6 +653,9 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
   SetLineAndScroll(line_num - 1);
 }
 
+bool Source::Search() { return false; }
+void Source::Search(bool search_down) {}
+
 std::string Source ::Tooltip() const {
   std::string tt = "u:up scope";
   tt += "  d:goto def";

@@ -21,6 +21,8 @@ class Source : public Panel {
   void SetItem(const UHDM::BaseClass *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;
   std::optional<const UHDM::BaseClass *> ItemForHierarchy();
+  bool Search() override;
+  void Search(bool search_down) override;
 
  private:
   // Variant that includes a flag indicating if the item change should save the
@@ -74,7 +76,6 @@ class Source : public Panel {
   const UHDM::BaseClass *item_for_hier_ = nullptr;
 
   // Stack of states, to allow going back/forth while browsing source.
-  // TODO: Complete this and use it.
   struct State {
     const UHDM::BaseClass *item = nullptr;
     int line_idx = 0;
@@ -83,6 +84,8 @@ class Source : public Panel {
   };
   std::deque<State> state_stack_;
   int stack_idx_ = 0;
+  // Searching needs to step within a line too.
+  int search_idx_in_line_ = 0;
 };
 
 } // namespace sv
