@@ -21,8 +21,7 @@ class Source : public Panel {
   void SetItem(const UHDM::BaseClass *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;
   std::optional<const UHDM::BaseClass *> ItemForHierarchy();
-  bool Search() override;
-  void Search(bool search_down) override;
+  bool Search(bool search_down) override;
 
  private:
   // Variant that includes a flag indicating if the item change should save the

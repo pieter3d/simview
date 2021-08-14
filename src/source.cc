@@ -653,8 +653,21 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
   SetLineAndScroll(line_num - 1);
 }
 
-bool Source::Search() { return false; }
-void Source::Search(bool search_down) {}
+bool Source::Search(bool search_down) {
+  for (int i = 0; i < lines_.size(); ++i) {
+    for (const auto &id : tokenizer_.Identifiers(i)) {
+      const auto pos = id.second.find(search_text_, 0);
+      if (pos != std::string::npos) {
+        search_start_col_ = id.first + pos;
+        SetLineAndScroll(i);
+        col_idx_ = search_start_col_;
+        return true;
+      }
+    }
+  }
+  search_start_col_ = -1;
+  return false;
+}
 
 std::string Source ::Tooltip() const {
   std::string tt = "u:up scope";

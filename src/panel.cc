@@ -76,22 +76,24 @@ void Panel::Resized() {
 bool Panel::ReceiveText(const std::string &s, bool preview) {
   search_preview_ = preview;
   search_text_ = s;
-  // Save the current line index so it can be restored if the search is
-  // cancelled.
-  if (preview && search_orig_line_idx_ < 0) {
-    search_orig_line_idx_ = line_idx_;
-  } else if (!preview && s.empty()) {
-    SetLineAndScroll(search_orig_line_idx_);
+
+  // Search only when previewing. A non-preview search can just leave things at
+  // the most recent preview location.
+  if (preview) {
+    // Save the current line index so it can be restored if the search is
+    // cancelled.
+    if (search_orig_line_idx_ < 0) {
+      search_orig_line_idx_ = line_idx_;
+    }
+    const bool found = Search(true); // Search down
+    if (!found) {
+      SetLineAndScroll(search_orig_line_idx_);
+    }
+    return found;
+  } else {
     search_orig_line_idx_ = -1;
+    return true; // Doesn't actually matter here, search box is closed.
   }
-  const bool found = Search();
-  // Also restore the old location if there is nothing to find.
-  // Otherwise it will end up at whatever the last preview location was.
-  if (!preview && !s.empty() && !found) {
-    SetLineAndScroll(search_orig_line_idx_);
-    search_orig_line_idx_ = -1;
-  }
-  return found;
 }
 
 void Panel::SetLineAndScroll(int l) {

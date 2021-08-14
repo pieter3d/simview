@@ -24,10 +24,9 @@ class Panel : public TextReceiver {
   virtual void Resized();
   bool ReceiveText(const std::string &s, bool preview) override;
   // Returns true if search_text_ is found in this panel. Searching must start
-  // from the top. search_start_col_ should be set accordingly.
-  virtual bool Search() { return false; }
-  // Highlight the previous and next search result
-  virtual void Search(bool search_down) {}
+  // from the the current line_idx_ and search_start_col_ should be set
+  // accordingly.
+  virtual bool Search(bool search_down) { return false; }
 
  protected:
   virtual int NumLines() const = 0;

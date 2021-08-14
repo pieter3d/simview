@@ -297,38 +297,28 @@ void Hierarchy::UIChar(int ch) {
   }
 }
 
-bool Hierarchy::Search() {
-  if (search_text_.empty()) return false;
-  for (int i = 0; i < entries_.size(); ++i) {
-    const auto pos = entries_[i]->VpiName().find(search_text_, 0);
-    if (pos != std::string::npos) {
-      search_start_col_ = pos;
-      SetLineAndScroll(i);
-      return true;
-    }
-  }
-  search_start_col_ = -1;
-  return false;
-}
-
-void Hierarchy::Search(bool search_down) {
-  if (entries_.size() < 2) return;
-  const int start_idx = line_idx_;
-  int idx = line_idx_;
+bool Hierarchy::Search(bool search_down) {
+  if (entries_.size() < 2) return false;
+  int idx = search_preview_ ? search_orig_line_idx_ : line_idx_;
+  const int start_idx = idx;
   while (1) {
     idx += search_down ? 1 : -1;
-    if (idx >= entries_.size()) {
-      idx = 0;
-    } else if (idx < 0) {
+    if (idx < 0) {
       idx = entries_.size() - 1;
+    } else if (idx >= entries_.size()) {
+      idx = 0;
     }
-    const auto pos = entries_[idx]->VpiName().find(search_text_, 0);
+    const auto pos =
+        StripWorklib(entries_[idx]->VpiName()).find(search_text_, 0);
     if (pos != std::string::npos) {
       search_start_col_ = pos;
       SetLineAndScroll(idx);
-      return;
+      return true;
     }
-    if (idx == start_idx) return;
+    if (idx == start_idx) {
+      search_start_col_ = -1;
+      return false;
+    }
   }
 }
 

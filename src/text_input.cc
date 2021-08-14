@@ -109,6 +109,7 @@ TextInput::InputState TextInput::HandleKey(int key) {
       text_changed = true;
     }
     break;
+  case 0x3:  // Ctrl-C
   case 0x1b: // Escape
     text_ = "";
     [[fallthrough]];

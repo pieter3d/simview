@@ -19,8 +19,7 @@ class Hierarchy : public Panel {
   std::optional<std::pair<const UHDM::BaseClass *, bool>> ItemForSource();
   // Opens the hierarchy to the selected item.
   void SetItem(const UHDM::BaseClass *item);
-  bool Search() override;
-  void Search(bool search_down) override;
+  bool Search(bool search_down) override;
 
  private:
   struct EntryInfo {
