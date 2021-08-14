@@ -22,6 +22,12 @@ class Panel : public TextReceiver {
   WINDOW *Window() const { return w_; }
   // Optional actions to take when the panel is resized, besides redraw.
   virtual void Resized();
+  bool ReceiveText(const std::string &s, bool preview) override;
+  // Returns true if search_text_ is found in this panel. Searching must start
+  // from the top.
+  virtual bool Search() { return false; }
+  // Highlight the previous and next search result
+  virtual void Search(bool search_down) {}
 
  protected:
   virtual int NumLines() const = 0;
@@ -31,6 +37,11 @@ class Panel : public TextReceiver {
   int line_idx_ = 0;
   int scroll_row_ = 0;
   bool has_focus_ = false;
+  // Search state
+  bool search_preview_ = false;
+  std::string search_text_;
+  int search_start_col_ = 0;
+  int search_orig_line_idx_ = -1;
 };
 } // namespace sv
 

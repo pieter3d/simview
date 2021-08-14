@@ -98,6 +98,9 @@ TextInput::InputState TextInput::HandleKey(int key) {
       cursor_pos_--;
       text_.erase(cursor_pos_, 1);
       text_changed = true;
+    } else {
+      // Backspace empty = cancel search.
+      state = kCancelled;
     }
     break;
   case 0x14a: // delete
@@ -117,10 +120,6 @@ TextInput::InputState TextInput::HandleKey(int key) {
         history_.pop_back();
       }
     }
-    cursor_pos_ = 0;
-    scroll_ = 0;
-    history_idx_ = -1;
-    text_ = "";
     break;
   default:
     if (key <= 0xff) {
@@ -136,6 +135,7 @@ TextInput::InputState TextInput::HandleKey(int key) {
       rx_reject_ = receiver_->ReceiveText(text_, /*preview*/ true);
     } else if (state != kTyping) {
       receiver_->ReceiveText(text_, /*preview*/ false);
+      Reset();
     }
   }
   return state;

@@ -16,7 +16,6 @@ class Source : public Panel {
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
-  bool ReceiveText(const std::string &s, bool preview) override;
   std::optional<std::pair<int, int>> CursorLocation() const override;
   std::string Tooltip() const override;
   void SetItem(const UHDM::BaseClass *item, bool show_def = false);

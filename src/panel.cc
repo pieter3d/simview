@@ -73,6 +73,27 @@ void Panel::Resized() {
   }
 }
 
+bool Panel::ReceiveText(const std::string &s, bool preview) {
+  search_preview_ = preview;
+  search_text_ = s;
+  // Save the current line index so it can be restored if the search is
+  // cancelled.
+  if (preview && search_orig_line_idx_ < 0) {
+    search_orig_line_idx_ = line_idx_;
+  } else if (!preview && s.empty()) {
+    SetLineAndScroll(search_orig_line_idx_);
+    search_orig_line_idx_ = -1;
+  }
+  const bool found = Search();
+  // Also restore the old location if there is nothing to find.
+  // Otherwise it will end up at whatever the last preview location was.
+  if (!preview && !s.empty() && !found) {
+    SetLineAndScroll(search_orig_line_idx_);
+    search_orig_line_idx_ = -1;
+  }
+  return found;
+}
+
 void Panel::SetLineAndScroll(int l) {
   // Scroll to the selected line, attempt to place the line at 1/3rd the
   // screen.

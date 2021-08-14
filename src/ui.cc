@@ -13,7 +13,7 @@ UI::UI() : search_box_("/") {
   setlocale(LC_ALL, "");
   // Init ncurses
   initscr();
-  cbreak();
+  raw(); // Capture ctrl-c etc.
   keypad(stdscr, true);
   noecho();
   nonl(); // don't translate the enter key
@@ -47,6 +47,7 @@ UI::~UI() {
 void UI::EventLoop() {
   while (int ch = getch()) {
     bool resize = false;
+    bool quit = false;
 
     // TODO: remove
     auto now = absl::Now();
@@ -154,11 +155,17 @@ void UI::EventLoop() {
         search_box_.SetReceiver(focused_panel_);
         search_box_.Reset();
         break;
+      case 'n': focused_panel_->Search(/*search_down*/ true); break;
+      case 'N': focused_panel_->Search(/*search_down*/ false); break;
+      case 0x3:  // Ctrl-C
+      case 0x11: // Ctrl-Q
+      case 'q':  // TODO For now, remove eventuall.
+        quit = true;
+        break;
       default: focused_panel_->UIChar(ch); break;
       }
-      // For now:
-      if (ch == 'q') break;
     }
+    if (quit) break;
     // Update focus state.
     prev_focused_panel_->SetFocus(false);
     focused_panel_->SetFocus(true);
@@ -220,7 +227,7 @@ void UI::DrawPanes(bool resize) {
     search_box_.Draw(stdscr);
   } else {
     // Render the tooltip when not searching.
-    auto tooltip = "/nN:search  " + focused_panel_->Tooltip();
+    auto tooltip = "C-q:quit  /nN:search  " + focused_panel_->Tooltip();
     for (int x = 0; x < term_w_; ++x) {
       // Look for a key (indicated by colon following).
       bool is_key = false;

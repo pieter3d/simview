@@ -10,6 +10,8 @@
   * Abort search when pressing backspace on an empty string? Matches vim
 * Nets should get selected out of the hierarchy panel (no verdi style get without design)
 * Different layout for loading waves without source, different hierarchy panel probably.
+* Different layout for loading source without waves.
 * Auto-match wave hierarchy against design hierarchy.
-* Home and End keys generate a bunch of terminal escaped chars that aren't handled at the moment.
-* Search box really should factor out string input into it's own class.
+* Net drivers and loads need to be traced.
+* Source window: Set a marker on a source line (press m), press A to add all
+  signals between current line and marker.

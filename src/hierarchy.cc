@@ -94,7 +94,7 @@ void Hierarchy::Draw() {
   for (int y = 0; y < win_h; ++y) {
     const int entry_idx = y + scroll_row_;
     if (entry_idx >= entries_.size()) break;
-    if (entry_idx == line_idx_) {
+    if (entry_idx == line_idx_ && !search_preview_) {
       wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
     }
     auto entry = entries_[entry_idx];
@@ -117,6 +117,9 @@ void Hierarchy::Draw() {
       int expand_pos = indent.size();
       int inst_pos = expand_pos + 1;
       int type_pos = inst_pos + inst_name.size() + 1;
+      const bool show_search =
+          search_preview_ && entry_idx == line_idx_ && search_start_col_ >= 0;
+      const int search_pos = search_start_col_ + inst_pos;
       for (int j = 0; j < s.size(); ++j) {
         const int x = j - ui_col_scroll_;
         if (x < 0) continue;
@@ -136,11 +139,17 @@ void Hierarchy::Draw() {
             SetColor(w_, (entry->VpiType() != vpiModule) ? kHierOtherPair
                                                          : kHierModulePair);
           } else if (j >= inst_pos) {
+            if (show_search && j == search_pos) {
+              wattron(w_, A_REVERSE);
+            }
             SetColor(w_, kHierInstancePair);
           } else if (j == expand_pos && info.expandable) {
             SetColor(w_, kHierExpandPair);
           }
           mvwaddch(w_, y, x, s[j]);
+          if (show_search && j == search_pos + search_text_.size() - 1) {
+            wattroff(w_, A_REVERSE);
+          }
         }
       }
     }
@@ -288,8 +297,39 @@ void Hierarchy::UIChar(int ch) {
   }
 }
 
-bool Hierarchy::ReceiveText(const std::string &s, bool preview) {
+bool Hierarchy::Search() {
+  if (search_text_.empty()) return false;
+  for (int i = 0; i < entries_.size(); ++i) {
+    const auto pos = entries_[i]->VpiName().find(search_text_, 0);
+    if (pos != std::string::npos) {
+      search_start_col_ = pos;
+      SetLineAndScroll(i);
+      return true;
+    }
+  }
+  search_start_col_ = -1;
   return false;
+}
+
+void Hierarchy::Search(bool search_down) {
+  if (entries_.size() < 2) return;
+  const int start_idx = line_idx_;
+  int idx = line_idx_;
+  while (1) {
+    idx += search_down ? 1 : -1;
+    if (idx >= entries_.size()) {
+      idx = 0;
+    } else if (idx < 0) {
+      idx = entries_.size() - 1;
+    }
+    const auto pos = entries_[idx]->VpiName().find(search_text_, 0);
+    if (pos != std::string::npos) {
+      search_start_col_ = pos;
+      SetLineAndScroll(idx);
+      return;
+    }
+    if (idx == start_idx) return;
+  }
 }
 
 std::optional<std::pair<const UHDM::BaseClass *, bool>>
