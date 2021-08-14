@@ -8,8 +8,8 @@ namespace sv {
 constexpr int kBorderPair = 1;
 constexpr int kFocusBorderPair = 2;
 constexpr int kOverflowTextPair = 3;
-constexpr int kSearchPair = 4;
-constexpr int kSearchNotFoundPair = 5;
+constexpr int kTextInputPair = 4;
+constexpr int kTextInputRejectPair = 5;
 constexpr int kHierExpandPair = 6;
 constexpr int kHierInstancePair = 7;
 constexpr int kHierModulePair = 8;

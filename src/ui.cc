@@ -9,11 +9,7 @@
 
 namespace sv {
 
-namespace {
-constexpr int kMaxSeachHistorySize = 500;
-}
-
-UI::UI() {
+UI::UI() : search_box_("/") {
   setlocale(LC_ALL, "");
   // Init ncurses
   initscr();
@@ -27,6 +23,7 @@ UI::UI() {
   getmaxyx(stdscr, term_h_, term_w_);
   src_pos_x_ = term_w_ * 30 / 100;
   wave_pos_y_ = term_h_ * 50 / 100;
+  search_box_.SetDims(term_h_ - 1, 0, term_w_);
 
   // Create all UI panels.
   hierarchy_ = std::make_unique<Hierarchy>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
@@ -59,15 +56,6 @@ void UI::EventLoop() {
     tmp_ch.push_back(ch);
     last_ch = now;
 
-    auto fix_search_scroll = [&] {
-      // Scroll the search box so that the cursor is inside.
-      if (search_cursor_pos_ < search_scroll_) {
-        search_scroll_ = search_cursor_pos_;
-      } else if (search_cursor_pos_ - search_scroll_ >= term_w_ - 1) {
-        search_scroll_ = search_cursor_pos_ - term_w_ + 2;
-      }
-    };
-
     if (ch == KEY_RESIZE) {
       float x = (float)src_pos_x_ / term_w_;
       float y = (float)wave_pos_y_ / term_h_;
@@ -75,89 +63,13 @@ void UI::EventLoop() {
       src_pos_x_ = (int)(term_w_ * x);
       wave_pos_y_ = (int)(term_h_ * y);
       if (searching_) {
-        fix_search_scroll();
+        search_box_.SetDims(term_h_ - 1, 0, term_w_);
       }
       resize = true;
     } else if (searching_) {
       // Searching is modal, so do nothing else until that is handled.
-      switch (ch) {
-      case 0x104: // left
-        if (search_cursor_pos_ != 0) {
-          search_cursor_pos_--;
-          fix_search_scroll();
-        }
-        break;
-      case 0x105: // right
-        if (search_cursor_pos_ < search_text_.size()) {
-          search_cursor_pos_++;
-          fix_search_scroll();
-        }
-        break;
-      case 0x106: // home
-        search_cursor_pos_ = 0;
-        fix_search_scroll();
-        break;
-      case 0x168: // end
-        search_cursor_pos_ = search_text_.size();
-        fix_search_scroll();
-        break;
-      case 0x103: // up
-        if (search_history_idx_ < search_history_.size()) {
-          search_text_ = search_history_[search_history_idx_];
-          if (search_history_idx_ < search_history_.size() - 1) {
-            search_history_idx_++;
-          }
-          search_cursor_pos_ = search_text_.size();
-        }
-        break;
-      case 0x102: // down
-        if (search_history_idx_ <= search_history_.size()) {
-          if (search_history_idx_ == 0) {
-            search_text_ = "";
-          } else {
-            search_text_ = search_history_[--search_history_idx_];
-          }
-          search_cursor_pos_ = search_text_.size();
-        }
-        break;
-      case 0x107: // backspace
-        if (search_cursor_pos_ > 0) {
-          search_cursor_pos_--;
-          search_text_.erase(search_cursor_pos_, 1);
-        }
-        break;
-      case 0x14a: // delete
-        if (search_cursor_pos_ < search_text_.size()) {
-          search_text_.erase(search_cursor_pos_, 1);
-        }
-        break;
-      case 0x1b: // Escape
-        search_text_ = "";
-        [[fallthrough]];
-      case 0xd: // Enter
-        searching_ = false;
-        focused_panel_->Search(search_text_, /*preview*/ false);
-        if (!search_text_.empty()) {
-          search_history_.push_front(search_text_);
-          if (search_history_.size() > kMaxSeachHistorySize) {
-            search_history_.pop_back();
-          }
-        }
-        search_cursor_pos_ = 0;
-        search_scroll_ = 0;
-        search_history_idx_ = 0;
-        search_text_ = "";
-        break;
-      default:
-        if (ch <= 0xff) {
-          search_text_.insert(search_cursor_pos_, 1, static_cast<char>(ch));
-          search_cursor_pos_++;
-          fix_search_scroll();
-          search_found_ =
-              focused_panel_->Search(search_text_, /*preview*/ true);
-        }
-        break;
-      }
+      auto search_state = search_box_.HandleKey(ch);
+      searching_ = search_state == TextInput::kTyping;
     } else {
       // Normal mode. Top UI only really handles pane resizing.
       switch (ch) {
@@ -239,10 +151,13 @@ void UI::EventLoop() {
         break;
       case '/':
         searching_ = true;
-        move(term_h_ - 1, 1);
+        search_box_.SetReceiver(focused_panel_);
+        search_box_.Reset();
         break;
       default: focused_panel_->UIChar(ch); break;
       }
+      // For now:
+      if (ch == 'q') break;
     }
     // Update focus state.
     prev_focused_panel_->SetFocus(false);
@@ -257,8 +172,6 @@ void UI::EventLoop() {
         hierarchy_->SetItem(*item);
       }
     }
-    // For now:
-    if (ch == 'q') break;
     DrawPanes(resize);
   }
 }
@@ -304,14 +217,7 @@ void UI::DrawPanes(bool resize) {
   mvprintw(wave_pos_y_, 0, "codes: %s", s.c_str());
 
   if (searching_) {
-    SetColor(stdscr, (search_found_ || search_text_.empty())
-                         ? kSearchPair
-                         : kSearchNotFoundPair);
-    mvaddch(term_h_ - 1, 0, '/');
-    for (int x = 1; x < term_w_; ++x) {
-      const int pos = x - 1 + search_scroll_;
-      addch(pos < search_text_.size() ? search_text_[pos] : ' ');
-    }
+    search_box_.Draw(stdscr);
   } else {
     // Render the tooltip when not searching.
     auto tooltip = "/nN:search  " + focused_panel_->Tooltip();
@@ -341,7 +247,8 @@ void UI::DrawPanes(bool resize) {
   wnoutrefresh(waves_->Window());
   // Update cursor position, if there is one.
   if (searching_) {
-    move(term_h_ - 1, search_cursor_pos_ + 1 - search_scroll_);
+    auto loc = search_box_.CursorPos();
+    move(loc.first, loc.second);
     curs_set(1);
   } else {
     if (auto loc = focused_panel_->CursorLocation()) {

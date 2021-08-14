@@ -288,6 +288,10 @@ void Hierarchy::UIChar(int ch) {
   }
 }
 
+bool Hierarchy::ReceiveText(const std::string &s, bool preview) {
+  return false;
+}
+
 std::optional<std::pair<const UHDM::BaseClass *, bool>>
 Hierarchy::ItemForSource() {
   if (load_definition_ || load_instance_) {

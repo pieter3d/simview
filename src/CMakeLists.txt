@@ -52,6 +52,7 @@ add_executable(simview
   main.cc
   panel.cc
   source.cc
+  text_input.cc
   ui.cc
   utils.cc
   waves.cc

@@ -4,6 +4,7 @@
 #include "absl/time/time.h"
 #include "hierarchy.h"
 #include "source.h"
+#include "text_input.h"
 #include "waves.h"
 #include "workspace.h"
 #include <memory>
@@ -33,14 +34,8 @@ class UI {
   Panel *focused_panel_ = nullptr;
   Panel *prev_focused_panel_ = nullptr;
 
-  // Search state.
   bool searching_ = false;
-  bool search_found_ = false;
-  std::string search_text_;
-  int search_cursor_pos_ = 0;
-  int search_scroll_ = 0;
-  int search_history_idx_ = 0;
-  std::deque<std::string> search_history_;
+  TextInput search_box_;
 };
 
 } // namespace sv

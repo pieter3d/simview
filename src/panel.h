@@ -1,23 +1,20 @@
 #ifndef _SRC_PANEL_H_
 #define _SRC_PANEL_H_
 
+#include "text_input.h"
 #include <ncurses.h>
 #include <optional>
 #include <string>
 
 namespace sv {
 
-class Panel {
+class Panel : public TextReceiver {
  public:
   Panel(int h, int w, int row, int col);
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() = 0;
   // Row,Col of the cursor position, if it should be shown.
   virtual std::optional<std::pair<int, int>> CursorLocation() const;
-  // Seach given text. If preview is set, indicates the user is still typing.
-  // A blank string indicates search cancel.
-  // Returns true if something was found.
-  virtual bool Search(const std::string &s, bool preview) = 0;
   // Handle keypress.
   virtual void UIChar(int ch);
   virtual std::string Tooltip() const { return ""; };
