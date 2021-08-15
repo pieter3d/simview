@@ -15,6 +15,8 @@
 #include <uhdm/headers/part_select.h>
 #include <uhdm/headers/process_stmt.h>
 #include <uhdm/headers/ref_obj.h>
+#include <uhdm/headers/task_call.h>
+#include <uhdm/headers/tf_call.h>
 #include <uhdm/headers/while_stmt.h>
 #include <uhdm/include/sv_vpi_user.h>
 #include <uhdm/include/vpi_user.h>
@@ -44,6 +46,13 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     if (nb->Stmts() != nullptr) {
       for (auto s : *nb->Stmts()) {
         RecurseFindItem(s, needle, lhs, list);
+      }
+    }
+  } else if (type == vpiFuncCall || type == vpiTaskCall) {
+    auto tfc = dynamic_cast<const UHDM::tf_call *>(haystack);
+    if (tfc->Tf_call_args() != nullptr) {
+      for (auto a : *tfc->Tf_call_args()) {
+        RecurseFindItem(a, needle, lhs, list);
       }
     }
   } else if (type == vpiAssignment) {
@@ -100,8 +109,7 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
   if (m->Cont_assigns() != nullptr) {
     for (auto &ca : *m->Cont_assigns()) {
       // See if the net is part of the LHS.
-      auto lhs = ca->Lhs();
-      RecurseFindItem(lhs, item, drivers, list);
+      RecurseFindItem(drivers ? ca->Lhs() : ca->Rhs(), item, drivers, list);
     }
   }
   // Look through all process statements.
