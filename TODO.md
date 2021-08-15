@@ -4,6 +4,7 @@
 * Settings file (libconfig)
   * Sort instances by name or by position in file
   * colors. Need to support white backgrounds I guess
+  * Source search: whole file or active scope?
 * Polishing
   * Hierarchy "more" expansion shouldn't show up if the "..more.." just hides 1 element.
   * Syntax highlighting of macros
@@ -14,3 +15,6 @@
 * Net drivers and loads need to be traced.
 * Source window: Set a marker on a source line (press m), press A to add all
   signals between current line and marker.
+* Expose nets in functions and tasks
+* Expose local variables
+

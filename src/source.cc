@@ -1,6 +1,7 @@
 #include "source.h"
 #include "BaseClass.h"
 #include "color.h"
+#include "function.h"
 #include "utils.h"
 #include <curses.h>
 #include <filesystem>
@@ -15,6 +16,7 @@
 #include <uhdm/headers/net.h>
 #include <uhdm/headers/param_assign.h>
 #include <uhdm/headers/parameter.h>
+#include <uhdm/headers/scope.h>
 #include <uhdm/headers/variables.h>
 
 namespace sv {
@@ -61,9 +63,11 @@ std::optional<std::pair<int, int>> Source::CursorLocation() const {
 std::string Source::GetHeader(int max_w = 0) {
   std::string type;
   switch (item_->VpiType()) {
+  case vpiFunction:
+  case vpiTask:
   case vpiModule: {
-    auto m = dynamic_cast<const UHDM::module *>(item_);
-    type = m->VpiFullName();
+    auto s = dynamic_cast<const UHDM::scope *>(item_);
+    type = s->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
@@ -564,6 +568,10 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
           // for any generate block, wether it's a single if statement or one
           // iteration of an unrolled for loop.
           if (ga->Gen_scopes() != nullptr) {
+            // TODO: Use full names here, since generate scopes can come from generate
+            // loops, in which case there could be many items with the same
+            // name.
+            // Currently, the last one overwrites the others.
             auto &g = (*ga->Gen_scopes())[0];
             if (g->Nets() != nullptr) {
               for (auto &n : *g->Nets()) {
@@ -593,8 +601,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
         }
       };
   int line_num = 1;
-  switch (item->VpiType()) {
-  case vpiModule: {
+  if (item->VpiType() == vpiModule) {
     auto m = dynamic_cast<const UHDM::module *>(item);
     // Treat top modules as an instance open.
     if (show_def && m->VpiParent() != nullptr) {
@@ -635,14 +642,14 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
         end_line_ = m->VpiEndLineNo();
       }
     }
-    break;
-  }
-  case vpiGenScopeArray: {
-    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
-    find_navigable_items(ga);
-    current_file_ = ga->VpiFile();
-    line_num = ga->VpiLineNo();
-    col_idx_ = ga->VpiColumnNo() - 1;
+  } else {
+    if (item->VpiType() == vpiGenScopeArray) {
+      auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
+      find_navigable_items(ga);
+    }
+    current_file_ = item->VpiFile();
+    line_num = item->VpiLineNo();
+    col_idx_ = item->VpiColumnNo() - 1;
     max_col_idx_ = col_idx_;
     // Find the containing module, since that's all in the same file and in
     // scope.
@@ -653,17 +660,11 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
     }
     if (p != nullptr) {
       find_navigable_items(p);
-      // Ditto
       auto def =
           Workspace::Get().GetDefinition(dynamic_cast<const UHDM::module *>(p));
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
     }
-    break;
-  }
-  default:
-    // Do nothing for unknown types.
-    return;
   }
   // Read all lines. TODO: Handle huge files.
   std::ifstream is(current_file_);

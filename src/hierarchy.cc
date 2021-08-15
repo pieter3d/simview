@@ -10,6 +10,7 @@
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
+#include <uhdm/headers/task_func.h>
 
 namespace sv {
 namespace {
@@ -28,8 +29,11 @@ std::vector<const UHDM::BaseClass *> get_subs(const UHDM::BaseClass *item) {
       subs.insert(subs.end(), m->Gen_scope_arrays()->cbegin(),
                   m->Gen_scope_arrays()->cend());
     }
-    // TODO: Other stuff. Tasks & functions.
-    // TODO: How do module arrays work?
+    if (m->Task_funcs() != nullptr) {
+      subs.insert(subs.end(), m->Task_funcs()->cbegin(),
+                  m->Task_funcs()->cend());
+    }
+    // TODO: Other stuff ?
   } else if (item->VpiType() == vpiGenScopeArray) {
     // TODO: What to do if there is 0 or 2+ GenScopes in here??
     auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
@@ -107,6 +111,12 @@ void Hierarchy::Draw() {
       std::string def_name = StripWorklib(entry->VpiDefName());
       if (entry->VpiType() == vpiGenScopeArray) {
         def_name = "[generate]";
+      } else if (entry->VpiType() == vpiFunction) {
+        def_name = "[function]";
+      } else if (entry->VpiType() == vpiTask) {
+        def_name = "[task]";
+      } else if (entry->VpiType() != vpiModule) {
+        def_name = absl::StrFormat("[%d]", entry->VpiType());
       }
       // VpiName generally doesn't contain the worklib, but it does for the top
       // level modules.
@@ -301,7 +311,7 @@ bool Hierarchy::Search(bool search_down) {
   if (entries_.size() < 2) return false;
   int idx = line_idx_;
   const int start_idx = idx;
-  const auto step = [&]{
+  const auto step = [&] {
     idx += search_down ? 1 : -1;
     if (idx < 0) {
       idx = entries_.size() - 1;
@@ -310,7 +320,7 @@ bool Hierarchy::Search(bool search_down) {
     }
   };
   while (1) {
-    if(!search_preview_) step();
+    if (!search_preview_) step();
     const auto pos =
         StripWorklib(entries_[idx]->VpiName()).find(search_text_, 0);
     if (pos != std::string::npos) {
@@ -318,7 +328,7 @@ bool Hierarchy::Search(bool search_down) {
       SetLineAndScroll(idx);
       return true;
     }
-    if(search_preview_) step();
+    if (search_preview_) step();
     if (idx == start_idx) {
       search_start_col_ = -1;
       return false;
