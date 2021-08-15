@@ -1,7 +1,6 @@
 #ifndef _SRC_HIERARCHY_H_
 #define _SRC_HIERARCHY_H_
 
-#include "BaseClass.h"
 #include "panel.h"
 #include <uhdm/headers/BaseClass.h>
 #include <uhdm/headers/design.h>

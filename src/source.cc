@@ -1,7 +1,5 @@
 #include "source.h"
-#include "BaseClass.h"
 #include "color.h"
-#include "function.h"
 #include "utils.h"
 #include <curses.h>
 #include <filesystem>
@@ -11,6 +9,7 @@
 #include <string>
 #include <uhdm/headers/constant.h>
 #include <uhdm/headers/gen_scope.h>
+#include <uhdm/headers/function.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
 #include <uhdm/headers/net.h>
