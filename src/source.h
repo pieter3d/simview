@@ -5,7 +5,7 @@
 #include "simple_tokenizer.h"
 #include "workspace.h"
 #include <deque>
-#include <uhdm/headers/BaseClass.h>
+#include <uhdm/headers/uhdm_types.h>
 #include <vector>
 
 namespace sv {
@@ -18,9 +18,9 @@ class Source : public Panel {
   int NumLines() const override { return lines_.size(); }
   std::optional<std::pair<int, int>> CursorLocation() const override;
   std::string Tooltip() const override;
-  void SetItem(const UHDM::BaseClass *item, bool show_def = false);
+  void SetItem(const UHDM::any *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;
-  std::optional<const UHDM::BaseClass *> ItemForHierarchy();
+  std::optional<const UHDM::any *> ItemForHierarchy();
   bool Search(bool search_down) override;
   // Need to look for stuff under the cursor when changing lines.
   void SetLineAndScroll(int l) override;
@@ -30,7 +30,7 @@ class Source : public Panel {
   // current state (it not empty). This is used for forward/back stack
   // navigation. If the state is saved, anything beyond current stack pointer
   // is wiped out.
-  void SetItem(const UHDM::BaseClass *item, bool show_def, bool save_state);
+  void SetItem(const UHDM::any *item, bool show_def, bool save_state);
   // Sets the selected item based on the cursor location
   void SelectItem();
   // Generates a nice header that probably fits in the given width.
@@ -43,10 +43,10 @@ class Source : public Panel {
   int max_col_idx_ = 0;
   int scroll_col_ = 0;
   // The instance or generate block whose source is shown.
-  const UHDM::BaseClass *item_ = nullptr;
+  const UHDM::any *item_ = nullptr;
   bool showing_def_;
   // The currently selected item. Could be a parameter too.
-  const UHDM::BaseClass *sel_ = nullptr;
+  const UHDM::any *sel_ = nullptr;
   std::string sel_param_;
   // All source lines of the file containing the module instance containing the
   // selected item (this could be the complete instance itself too).
@@ -59,8 +59,8 @@ class Source : public Panel {
   // These are stored in a hash by identifier so they can be appropriately
   // syntax-highlighted. Also stored by line to allow for fast lookup under the
   // cursor.
-  std::unordered_map<std::string, const UHDM::BaseClass *> nav_;
-  std::unordered_map<int, std::vector<std::pair<int, const UHDM::BaseClass *>>>
+  std::unordered_map<std::string, const UHDM::any *> nav_;
+  std::unordered_map<int, std::vector<std::pair<int, const UHDM::any *>>>
       nav_by_line_;
   // Map of all textual parameters and their definitions.
   std::unordered_map<std::string, std::string> params_;
@@ -75,11 +75,16 @@ class Source : public Panel {
   int end_line_ = 0;
   // When not null, indicates this object should be shown in the hierarchy. This
   // allows the hierarchy panel to always match current scope.
-  const UHDM::BaseClass *item_for_hier_ = nullptr;
+  const UHDM::any *item_for_hier_ = nullptr;
+  // Drivers and loads
+  const UHDM::any *trace_net_;
+  int trace_idx_;
+  bool trace_drivers_;
+  std::vector<const UHDM::any*> drivers_or_loads_;
 
   // Stack of states, to allow going back/forth while browsing source.
   struct State {
-    const UHDM::BaseClass *item = nullptr;
+    const UHDM::any *item = nullptr;
     int line_idx = 0;
     int scroll_row = 0;
     bool show_def = false;

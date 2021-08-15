@@ -102,28 +102,24 @@ void UI::EventLoop() {
           resize = true;
         }
         break;
-      case 'H':
       case 0x189: // shift-left
         if (focused_panel_ == source_.get()) {
           prev_focused_panel_ = focused_panel_;
           focused_panel_ = hierarchy_.get();
         }
         break;
-      case 'L':
       case 0x192: // shift-right
         if (focused_panel_ == hierarchy_.get()) {
           prev_focused_panel_ = focused_panel_;
           focused_panel_ = source_.get();
         }
         break;
-      case 'K':
       case 0x151: // shift-up
         if (focused_panel_ == waves_.get()) {
           focused_panel_ = prev_focused_panel_;
           prev_focused_panel_ = waves_.get();
         }
         break;
-      case 'J':
       case 0x150: // shift-down
         if (focused_panel_ != waves_.get()) {
           prev_focused_panel_ = focused_panel_;

@@ -17,4 +17,5 @@
   signals between current line and marker.
 * Expose nets in functions and tasks
 * Expose local variables
+* Replace UHDM::BaseClass with UHDM::any
 

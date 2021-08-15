@@ -8,8 +8,8 @@
 #include <optional>
 #include <string>
 #include <uhdm/headers/constant.h>
-#include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/function.h>
+#include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
 #include <uhdm/headers/net.h>
@@ -39,13 +39,6 @@ int num_decimal_digits(int n) {
     n /= 10;
   } while (n != 0);
   return ret;
-}
-
-bool is_traceable(int type) {
-  return type == vpiNet || type == vpiLongIntVar || type == vpiShortIntVar ||
-         type == vpiIntVar || type == vpiShortRealVar || type == vpiByteVar ||
-         type == vpiClassVar || type == vpiStringVar || type == vpiEnumVar ||
-         type == vpiStructVar || type == vpiUnionVar || type == vpiBitVar;
 }
 
 } // namespace
@@ -186,10 +179,8 @@ void Source::Draw() {
         if (nav_.find(id) != nav_.end()) {
           if (nav_[id]->VpiType() == vpiModule) {
             SetColor(w_, kSourceInstancePair);
-          } else if (is_traceable(nav_[id]->VpiType())) {
+          } else if (IsTraceable(nav_[id])) {
             SetColor(w_, kSourceIdentifierPair);
-          } else {
-            printf("%s:%d\n\r", id.c_str(), nav_[id]->VpiType());
           }
           if (nav_[id] == sel_ && cursor_in_id) {
             wattron(w_, highlight_attr);
@@ -355,15 +346,23 @@ void Source::UIChar(int ch) {
   case 'd':
     // Go to definition of a module instance.
     if (sel_ != nullptr) {
-      if (sel_->VpiType() == vpiModule) {
-        item_for_hier_ = sel_;
-        SetItem(sel_, true);
-        // Don't do anything more.
-        return;
-      } else {
-        col_idx_ = sel_->VpiColumnNo() - 1;
-        SetLineAndScroll(sel_->VpiLineNo() - 1);
-      }
+      item_for_hier_ = sel_;
+      SetItem(sel_, true);
+    }
+    break;
+  case 'D':
+  case 'L':
+    if (trace_net_ != sel_ || (trace_drivers_ != (ch == 'D'))) {
+      trace_drivers_ = ch == 'D';
+      GetDriversOrLoads(sel_, trace_drivers_, drivers_or_loads_);
+      trace_net_ = sel_;
+      trace_idx_ = 0;
+    } else if (drivers_or_loads_.size() > 0) {
+      trace_idx_ = (trace_idx_ + 1) % drivers_or_loads_.size();
+    }
+    if (drivers_or_loads_.size() > 0 && trace_net_ != nullptr) {
+      item_for_hier_ = sel_;
+      SetItem(drivers_or_loads_[trace_idx_], true);
     }
     break;
   case 'v': show_vals_ = !show_vals_; break;
@@ -480,19 +479,18 @@ std::pair<int, int> Source::ScrollArea() {
   return {h - 1, w};
 }
 
-std::optional<const UHDM::BaseClass *> Source::ItemForHierarchy() {
+std::optional<const UHDM::any *> Source::ItemForHierarchy() {
   if (item_for_hier_ == nullptr) return std::nullopt;
   auto item = item_for_hier_;
   item_for_hier_ = nullptr;
   return item;
 }
 
-void Source::SetItem(const UHDM::BaseClass *item, bool show_def) {
+void Source::SetItem(const UHDM::any *item, bool show_def) {
   SetItem(item, show_def, /*save_state*/ true);
 }
 
-void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
-                     bool save_state) {
+void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
   if (save_state && item_ != nullptr) {
     if (stack_idx_ < state_stack_.size()) {
       state_stack_.erase(state_stack_.begin() + stack_idx_, state_stack_.end());
@@ -507,6 +505,19 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
     if (state_stack_.size() > kMaxStateStackSize) {
       state_stack_.pop_front();
       stack_idx_--;
+    }
+  }
+  // If the item being set is some traceable thing, then just go to that module.
+  // If the module happens to be the same one as the one currently loaded, just
+  // scroll to it.
+  if (IsTraceable(item)) {
+    auto m = GetContainingModule(item);
+    if (m == item_) {
+      // Module is already loaded. Just scroll to it.
+      col_idx_ = item->VpiColumnNo() - 1;
+      max_col_idx_ = col_idx_;
+      SetLineAndScroll(item->VpiLineNo() - 1);
+      return;
     }
   }
   item_ = item;
@@ -528,8 +539,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
 
   // This lamda recurses through all generate blocks in the item, adding any
   // navigable things found to the hashes.
-  std::function<void(const UHDM::BaseClass *)> find_navigable_items =
-      [&](const UHDM::BaseClass *item) {
+  std::function<void(const UHDM::any *)> find_navigable_items =
+      [&](const UHDM::any *item) {
         switch (item->VpiType()) {
         case vpiModule: {
           auto m = dynamic_cast<const UHDM::module *>(item);
@@ -603,6 +614,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
         }
         }
       };
+  // Top modules are always treated as a definition load since there is nothing
+  // they are instanced in.
   int line_num = 1;
   if (item->VpiType() == vpiModule &&
       (show_def || item->VpiParent() == nullptr)) {
@@ -611,17 +624,17 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
     // the start and end line number.
     auto def = Workspace::Get().GetDefinition(m);
     current_file_ = def->VpiFile();
-    line_num = def->VpiLineNo();
     start_line_ = def->VpiLineNo();
     end_line_ = def->VpiEndLineNo();
     find_navigable_items(m);
     col_idx_ = 0;
     max_col_idx_ = 0;
+    line_num = def->VpiLineNo();
   } else {
     current_file_ = item->VpiFile();
-    line_num = item->VpiLineNo();
     col_idx_ = item->VpiColumnNo() - 1;
     max_col_idx_ = col_idx_;
+    line_num = item->VpiLineNo();
     // Find the containing module, since that's all in the same file and in
     // scope.
     while (1) {
@@ -720,6 +733,8 @@ void Source::SetLineAndScroll(int l) {
 std::string Source ::Tooltip() const {
   std::string tt = "u:up scope";
   tt += "  d:goto def";
+  tt += "  D:drivers";
+  tt += "  L:loads";
   tt += "  b:back";
   tt += "  f:forward";
   tt += "  v:";
