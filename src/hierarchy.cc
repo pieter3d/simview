@@ -299,15 +299,18 @@ void Hierarchy::UIChar(int ch) {
 
 bool Hierarchy::Search(bool search_down) {
   if (entries_.size() < 2) return false;
-  int idx = search_preview_ ? search_orig_line_idx_ : line_idx_;
+  int idx = line_idx_;
   const int start_idx = idx;
-  while (1) {
+  const auto step = [&]{
     idx += search_down ? 1 : -1;
     if (idx < 0) {
       idx = entries_.size() - 1;
     } else if (idx >= entries_.size()) {
       idx = 0;
     }
+  };
+  while (1) {
+    if(!search_preview_) step();
     const auto pos =
         StripWorklib(entries_[idx]->VpiName()).find(search_text_, 0);
     if (pos != std::string::npos) {
@@ -315,6 +318,7 @@ bool Hierarchy::Search(bool search_down) {
       SetLineAndScroll(idx);
       return true;
     }
+    if(search_preview_) step();
     if (idx == start_idx) {
       search_start_col_ = -1;
       return false;

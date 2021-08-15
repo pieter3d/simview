@@ -40,6 +40,13 @@ int num_decimal_digits(int n) {
   return ret;
 }
 
+bool is_traceable(int type) {
+  return type == vpiNet || type == vpiLongIntVar || type == vpiShortIntVar ||
+         type == vpiIntVar || type == vpiShortRealVar || type == vpiByteVar ||
+         type == vpiClassVar || type == vpiStringVar || type == vpiEnumVar ||
+         type == vpiStructVar || type == vpiUnionVar || type == vpiBitVar;
+}
+
 } // namespace
 
 std::optional<std::pair<int, int>> Source::CursorLocation() const {
@@ -118,7 +125,8 @@ void Source::Draw() {
   if (col_idx_ - scroll_col_ + max_digits + 2 >= win_w) {
     scroll_col_ = col_idx_ + max_digits + 2 - win_w;
   }
-  const auto highlight_attr = has_focus_ ? A_REVERSE : A_UNDERLINE;
+  const auto highlight_attr =
+      (!search_preview_ && has_focus_) ? A_REVERSE : A_UNDERLINE;
   int sel_pos = 0; // Save selection start position.
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + scroll_row_;
@@ -168,15 +176,17 @@ void Source::Draw() {
       if (active && !in_identifier && identifiers.size() > id_idx &&
           identifiers[id_idx].first == pos) {
         auto id = identifiers[id_idx].second;
-        bool cursor_in_id = line_idx == line_idx_ &&
-                            col_idx_ >= identifiers[id_idx].first &&
-                            col_idx_ < (identifiers[id_idx].first + id.size());
+        bool cursor_in_id =
+            line_idx == line_idx_ && col_idx_ >= identifiers[id_idx].first &&
+            col_idx_ < (identifiers[id_idx].first + id.size()) &&
+            !(search_preview_ && search_start_col_ < 0);
         if (nav_.find(id) != nav_.end()) {
           if (nav_[id]->VpiType() == vpiModule) {
             SetColor(w_, kSourceInstancePair);
-          } else if (nav_[id]->VpiType() == vpiNet ||
-                     nav_[id]->VpiType() == vpiBitVar) {
+          } else if (is_traceable(nav_[id]->VpiType())) {
             SetColor(w_, kSourceIdentifierPair);
+          } else {
+            printf("%s:%d\n\r", id.c_str(), nav_[id]->VpiType());
           }
           if (nav_[id] == sel_ && cursor_in_id) {
             wattron(w_, highlight_attr);
@@ -202,7 +212,19 @@ void Source::Draw() {
       }
 
       // Skip any characters that are before the line numbers
-      if (x > max_digits) waddch(w_, s[pos]);
+      if (x > max_digits) {
+        // Highight partial search results.
+        if (search_preview_ && !search_text_.empty() && line_idx == line_idx_ &&
+            pos == search_start_col_) {
+          wattron(w_, A_REVERSE);
+        }
+        waddch(w_, s[pos]);
+        if (search_preview_ && line_idx == line_idx_ &&
+            pos == (search_start_col_ + search_text_.size() - 1)) {
+          wattroff(w_, A_REVERSE);
+        }
+      }
+
       // See if the color should be turned off.
       if (in_keyword && keywords[k_idx].second == pos) {
         in_keyword = false;
@@ -297,13 +319,22 @@ void Source::UIChar(int ch) {
     } else if (col_idx_ > 0) {
       col_idx_--;
       max_col_idx_ = col_idx_;
+    } else if (col_idx_ == 0 && line_idx_ != 0) {
+      line_idx_--;
+      col_idx_ = std::max(0, static_cast<int>(lines_[line_idx_].size() - 1));
+      max_col_idx_ = col_idx_;
     }
     break;
   case 'l':
   case 0x105: // right
-    if (col_idx_ >= lines_[line_idx_].size() - 1) break;
-    col_idx_++;
-    max_col_idx_ = col_idx_;
+    if (col_idx_ < static_cast<int>(lines_[line_idx_].size() - 1)) {
+      col_idx_++;
+      max_col_idx_ = col_idx_;
+    } else if (line_idx_ < lines_.size() - 1) {
+      line_idx_++;
+      col_idx_ = 0;
+      max_col_idx_ = 0;
+    }
     break;
   case 0x106: // Home
   case '^':
@@ -327,9 +358,8 @@ void Source::UIChar(int ch) {
         // Don't do anything more.
         return;
       } else {
-        SetLineAndScroll(sel_->VpiLineNo() - 1);
         col_idx_ = sel_->VpiColumnNo() - 1;
-        max_col_idx_ = col_idx_;
+        SetLineAndScroll(sel_->VpiLineNo() - 1);
       }
     }
     break;
@@ -413,22 +443,26 @@ void Source::UIChar(int ch) {
   }
   if (line_moved || col_moved) {
     // Figure out if anything should be highlighted.
-    sel_ = nullptr;
-    sel_param_.clear();
-    if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
-      for (auto &item : nav_by_line_[line_idx_]) {
-        if (col_idx_ >= item.first &&
-            col_idx_ < (item.first + item.second->VpiName().size())) {
-          sel_ = item.second;
-          break;
-        }
+    SelectItem();
+  }
+}
+
+void Source::SelectItem() {
+  sel_ = nullptr;
+  sel_param_.clear();
+  if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
+    for (auto &item : nav_by_line_[line_idx_]) {
+      if (col_idx_ >= item.first &&
+          col_idx_ < (item.first + item.second->VpiName().size())) {
+        sel_ = item.second;
+        break;
       }
     }
-    if (params_by_line_.find(line_idx_) != params_by_line_.end()) {
-      for (auto &p : params_by_line_[line_idx_]) {
-        if (col_idx_ >= p.first && col_idx_ < (p.first + p.second.size())) {
-          sel_param_ = p.second;
-        }
+  }
+  if (params_by_line_.find(line_idx_) != params_by_line_.end()) {
+    for (auto &p : params_by_line_[line_idx_]) {
+      if (col_idx_ >= p.first && col_idx_ < (p.first + p.second.size())) {
+        sel_param_ = p.second;
       }
     }
   }
@@ -654,19 +688,61 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
 }
 
 bool Source::Search(bool search_down) {
-  for (int i = 0; i < lines_.size(); ++i) {
-    for (const auto &id : tokenizer_.Identifiers(i)) {
-      const auto pos = id.second.find(search_text_, 0);
-      if (pos != std::string::npos) {
-        search_start_col_ = id.first + pos;
-        SetLineAndScroll(i);
-        col_idx_ = search_start_col_;
-        return true;
+  if (lines_.empty()) return false;
+  if (search_text_.empty()) return false;
+  int row = line_idx_;
+  int col = col_idx_;
+  const auto line_step = [&] {
+    row += search_down ? 1 : -1;
+    if (row >= static_cast<int>(lines_.size())) {
+      row = 0;
+    } else if (row < 0) {
+      row = lines_.size() - 1;
+    }
+    col = search_down ? 0 : (lines_[row].size() - 1);
+  };
+  if (!search_preview_) {
+    // Go past the current location so that next/prev doesn't just find what's
+    // under the cursor. Can't do this in preview mode otherwise the result
+    // would keep jumping with every new keypress.
+    if (search_down) {
+      if (col == lines_[row].size() - 1) {
+        line_step();
+        col = 0;
+      } else {
+        col++;
+      }
+    } else {
+      if (col == 0) {
+        line_step();
+        col = lines_[row].size() - 1;
+      } else {
+        col--;
       }
     }
   }
-  search_start_col_ = -1;
-  return false;
+  const int start_row = row;
+  while (1) {
+    const auto pos = search_down ? lines_[row].find(search_text_, col)
+                                 : lines_[row].rfind(search_text_, col);
+    if (pos != std::string::npos) {
+      search_start_col_ = pos;
+      col_idx_ = pos;
+      SetLineAndScroll(row);
+      return true;
+    }
+    line_step();
+    if (row == start_row) {
+      search_start_col_ = -1;
+      return false;
+    }
+  }
+}
+
+void Source::SetLineAndScroll(int l) {
+  Panel::SetLineAndScroll(l);
+  max_col_idx_ = col_idx_;
+  SelectItem();
 }
 
 std::string Source ::Tooltip() const {

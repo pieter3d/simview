@@ -22,6 +22,8 @@ class Source : public Panel {
   std::pair<int, int> ScrollArea() override;
   std::optional<const UHDM::BaseClass *> ItemForHierarchy();
   bool Search(bool search_down) override;
+  // Need to look for stuff under the cursor when changing lines.
+  void SetLineAndScroll(int l) override;
 
  private:
   // Variant that includes a flag indicating if the item change should save the
@@ -29,14 +31,15 @@ class Source : public Panel {
   // navigation. If the state is saved, anything beyond current stack pointer
   // is wiped out.
   void SetItem(const UHDM::BaseClass *item, bool show_def, bool save_state);
+  // Sets the selected item based on the cursor location
+  void SelectItem();
   // Generates a nice header that probably fits in the given width.
   std::string GetHeader(int max_w);
 
   // Show values of highlighted items or not.
   bool show_vals_ = true;
   // Current column location of the cursor, with 0 being the start of the source
-  // code line.
-  int col_idx_ = 0;
+  // code line. TODO: See what can be moved to the Panel class.
   int max_col_idx_ = 0;
   int scroll_col_ = 0;
   // The instance or generate block whose source is shown.
@@ -83,8 +86,6 @@ class Source : public Panel {
   };
   std::deque<State> state_stack_;
   int stack_idx_ = 0;
-  // Searching needs to step within a line too.
-  int search_idx_in_line_ = 0;
 };
 
 } // namespace sv

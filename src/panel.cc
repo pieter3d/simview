@@ -84,13 +84,19 @@ bool Panel::ReceiveText(const std::string &s, bool preview) {
     // cancelled.
     if (search_orig_line_idx_ < 0) {
       search_orig_line_idx_ = line_idx_;
+      search_orig_col_idx_ = col_idx_;
     }
     const bool found = Search(true); // Search down
     if (!found) {
       SetLineAndScroll(search_orig_line_idx_);
+      col_idx_ = search_orig_col_idx_;
     }
     return found;
   } else {
+    if (search_text_.empty()) {
+      SetLineAndScroll(search_orig_line_idx_);
+      col_idx_ = search_orig_col_idx_;
+    }
     search_orig_line_idx_ = -1;
     return true; // Doesn't actually matter here, search box is closed.
   }

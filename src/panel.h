@@ -31,9 +31,10 @@ class Panel : public TextReceiver {
  protected:
   virtual int NumLines() const = 0;
   virtual std::pair<int, int> ScrollArea();
-  void SetLineAndScroll(int l);
+  virtual void SetLineAndScroll(int l);
   WINDOW *w_;
   int line_idx_ = 0;
+  int col_idx_ = 0;
   int scroll_row_ = 0;
   bool has_focus_ = false;
   // Search state
@@ -41,6 +42,7 @@ class Panel : public TextReceiver {
   std::string search_text_;
   int search_start_col_ = 0;
   int search_orig_line_idx_ = -1;
+  int search_orig_col_idx_ = -1;
 };
 } // namespace sv
 
