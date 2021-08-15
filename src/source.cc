@@ -374,7 +374,7 @@ void Source::UIChar(int ch) {
     auto &s = state_stack_[++stack_idx_];
     SetItem(s.item, s.show_def, /* save_state */ false);
     line_idx_ = s.line_idx;
-    scroll_col_ = s.scroll_row;
+    scroll_row_ = s.scroll_row;
     item_for_hier_ = s.item;
     break;
   }
@@ -390,13 +390,13 @@ void Source::UIChar(int ch) {
       // down the stack, go back and point *before*.
       stack_idx_ -= 2;
       line_idx_ = s.line_idx;
-      scroll_col_ = s.scroll_row;
+      scroll_row_ = s.scroll_row;
       item_for_hier_ = s.item;
     } else {
       auto &s = state_stack_[--stack_idx_];
       SetItem(s.item, s.show_def, false);
       line_idx_ = s.line_idx;
-      scroll_col_ = s.scroll_row;
+      scroll_row_ = s.scroll_row;
       item_for_hier_ = s.item;
     }
     break;
@@ -426,8 +426,10 @@ void Source::UIChar(int ch) {
     // Pick the closest one.
     if (param_pos > 0 && identifier_pos > 0) {
       col_idx_ = std::min(param_pos, identifier_pos);
+      max_col_idx_ = col_idx_;
     } else if (param_pos > 0 || identifier_pos > 0) {
       col_idx_ = std::max(param_pos, identifier_pos);
+      max_col_idx_ = col_idx_;
     }
   }
   }
@@ -499,6 +501,7 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
     state_stack_.push_back({
         .item = item_,
         .line_idx = line_idx_,
+        .scroll_row = scroll_row_,
         .show_def = showing_def_,
     });
     stack_idx_++;
@@ -521,6 +524,8 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
   line_idx_ = 0;
   col_idx_ = 0;
   max_col_idx_ = 0;
+  start_line_ = 0;
+  end_line_ = 0;
 
   // This lamda recurses through all generate blocks in the item, adding any
   // navigable things found to the hashes.
@@ -568,10 +573,9 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
           // for any generate block, wether it's a single if statement or one
           // iteration of an unrolled for loop.
           if (ga->Gen_scopes() != nullptr) {
-            // TODO: Use full names here, since generate scopes can come from generate
-            // loops, in which case there could be many items with the same
-            // name.
-            // Currently, the last one overwrites the others.
+            // TODO: Use full names here, since generate scopes can come from
+            // generate loops, in which case there could be many items with the
+            // same name. Currently, the last one overwrites the others.
             auto &g = (*ga->Gen_scopes())[0];
             if (g->Nets() != nullptr) {
               for (auto &n : *g->Nets()) {
@@ -601,67 +605,35 @@ void Source::SetItem(const UHDM::BaseClass *item, bool show_def,
         }
       };
   int line_num = 1;
-  if (item->VpiType() == vpiModule) {
+  if (item->VpiType() == vpiModule &&
+      (show_def || item->VpiParent() == nullptr)) {
     auto m = dynamic_cast<const UHDM::module *>(item);
-    // Treat top modules as an instance open.
-    if (show_def && m->VpiParent() != nullptr) {
-      // VpiDefFile isn't super useful here, still need the definition to get
-      // the start and end line number.
-      auto def = Workspace::Get().GetDefinition(m);
-      current_file_ = def->VpiFile();
-      line_num = def->VpiLineNo();
-      start_line_ = def->VpiLineNo();
-      end_line_ = def->VpiEndLineNo();
-      // Add all instances in this module as navigable instances.
-      find_navigable_items(m);
-    } else {
-      // If showing the instance, collect stuff in the owning instance.
-      // This will allow nets in the port connections to be navigable.
-      current_file_ = m->VpiFile();
-      line_num = m->VpiLineNo();
-      col_idx_ = m->VpiColumnNo() - 1;
-      max_col_idx_ = col_idx_;
-      auto p = item->VpiParent();
-      while (p != nullptr && p->VpiType() != vpiModule) {
-        find_navigable_items(p);
-        p = p->VpiParent();
-      }
-      if (p != nullptr) {
-        // Find the nets and stuff in the containing module, but use the line
-        // number of that module's definition. Otherwise the line numbers are of
-        // the containing module's instance in its parent!
-        find_navigable_items(p);
-        auto def = Workspace::Get().GetDefinition(
-            dynamic_cast<const UHDM::module *>(p));
-        start_line_ = def->VpiLineNo();
-        end_line_ = def->VpiEndLineNo();
-      } else {
-        // For top modules:
-        find_navigable_items(m);
-        start_line_ = m->VpiLineNo();
-        end_line_ = m->VpiEndLineNo();
-      }
-    }
+    // VpiDefFile isn't super useful here, still need the definition to get
+    // the start and end line number.
+    auto def = Workspace::Get().GetDefinition(m);
+    current_file_ = def->VpiFile();
+    line_num = def->VpiLineNo();
+    start_line_ = def->VpiLineNo();
+    end_line_ = def->VpiEndLineNo();
+    find_navigable_items(m);
+    col_idx_ = 0;
+    max_col_idx_ = 0;
   } else {
-    if (item->VpiType() == vpiGenScopeArray) {
-      auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
-      find_navigable_items(ga);
-    }
     current_file_ = item->VpiFile();
     line_num = item->VpiLineNo();
     col_idx_ = item->VpiColumnNo() - 1;
     max_col_idx_ = col_idx_;
     // Find the containing module, since that's all in the same file and in
     // scope.
-    auto p = item->VpiParent();
-    while (p != nullptr && p->VpiType() != vpiModule) {
-      find_navigable_items(p);
-      p = p->VpiParent();
+    while (1) {
+      item = item->VpiParent();
+      if (item == nullptr) break;
+      find_navigable_items(item);
+      if (item->VpiType() == vpiModule) break;
     }
-    if (p != nullptr) {
-      find_navigable_items(p);
-      auto def =
-          Workspace::Get().GetDefinition(dynamic_cast<const UHDM::module *>(p));
+    if (item != nullptr) {
+      auto def = Workspace::Get().GetDefinition(
+          dynamic_cast<const UHDM::module *>(item));
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
     }

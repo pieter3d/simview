@@ -349,7 +349,7 @@ Hierarchy::ItemForSource() {
 }
 
 std::string Hierarchy::Tooltip() const {
-  return "i:instance source  d:definition source  u:up scope";
+  return "i:instance  d:definition  u:up scope";
 }
 
 } // namespace sv
