@@ -1,5 +1,7 @@
 #include "utils.h"
 #include "event_control.h"
+#include "gen_scope.h"
+#include "gen_scope_array.h"
 #include "module.h"
 #include "ref_obj.h"
 #include <uhdm/headers/assignment.h>
@@ -25,6 +27,42 @@
 
 namespace sv {
 namespace {
+// Forward declare the recurse call
+void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
+                     bool lhs, std::vector<const UHDM::any *> &list);
+
+// Both Modules and GenScopes can work as the Haystack here, they have the same
+// set of methods. However, they are not virtual, so it's not possible to use
+// the same code on some super type for haystack. A templated function will have
+// to suffice instead.
+template <typename T>
+void FindInContainer(T *haystack, const UHDM::any *needle, bool lhs,
+                     std::vector<const UHDM::any *> &list) {
+  // Look through all continuous assignments.
+  if (haystack->Cont_assigns() != nullptr) {
+    for (auto &ca : *haystack->Cont_assigns()) {
+      // See if the net is part of the LHS.
+      RecurseFindItem(lhs ? ca->Lhs() : ca->Rhs(), needle, lhs, list);
+    }
+  }
+  // Look through all process statements.
+  if (haystack->Process() != nullptr) {
+    for (auto &p : *haystack->Process()) {
+      RecurseFindItem(p->Stmt(), needle, lhs, list);
+    }
+  }
+  // Look through all instances, to see if the net is connected to a port.
+  if (haystack->Modules() != nullptr) {
+    for (auto sub : *haystack->Modules()) {
+      if (sub->Ports() == nullptr) continue;
+      for (auto p : *sub->Ports()) {
+        RecurseFindItem(p->High_conn(), needle, lhs, list);
+        // TODO: Could go into any submodules for any ports that have trivial
+        // connections (no operations).
+      }
+    }
+  }
+}
 
 void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
                      bool lhs, std::vector<const UHDM::any *> &list) {
@@ -32,34 +70,11 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
   auto type = haystack->VpiType();
   if (type == vpiModule) {
     auto m = dynamic_cast<const UHDM::module *>(haystack);
-    // Look through all continuous assignments.
-    if (m->Cont_assigns() != nullptr) {
-      for (auto &ca : *m->Cont_assigns()) {
-        // See if the net is part of the LHS.
-        RecurseFindItem(lhs ? ca->Lhs() : ca->Rhs(), needle, lhs, list);
-      }
-    }
-    // Look through all process statements.
-    if (m->Process() != nullptr) {
-      for (auto &p : *m->Process()) {
-        RecurseFindItem(p->Stmt(), needle, lhs, list);
-      }
-    }
-    // Look through all instances, to see if the net is connected to a port.
-    if (m->Modules() != nullptr) {
-      for (auto sub : *m->Modules()) {
-        if (sub->Ports() == nullptr) continue;
-        for (auto p : *sub->Ports()) {
-          if (p->High_conn()->VpiType() == vpiRefObj) {
-            // Recurse into the submodule for direct connections.
-            // TODO ??
-          } else {
-            RecurseFindItem(p->High_conn(), needle, lhs, list);
-          }
-        }
-      }
-    }
+    FindInContainer(m, needle, lhs, list);
   } else if (type == vpiGenScopeArray) {
+    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(haystack);
+    auto g = (*ga->Gen_scopes())[0];
+    FindInContainer(g, needle, lhs, list);
   } else if (type == vpiOperation) {
     auto op = dynamic_cast<const UHDM::operation *>(haystack);
     if (op->Operands() != nullptr) {
@@ -154,7 +169,6 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
   // There should always be a containing module, but just in case:
   if (m == nullptr) return;
   RecurseFindItem(m, item, drivers, list);
-  // TODO genscope arrays too.
   // Check to see if the net is a module input or inout.
   // TODO
 }
