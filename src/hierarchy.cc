@@ -28,13 +28,16 @@ std::vector<const UHDM::any *> get_subs(const UHDM::any *item) {
       subs.insert(subs.end(), m->Gen_scope_arrays()->cbegin(),
                   m->Gen_scope_arrays()->cend());
     }
+    // TODO: These are definitions, not the task/function calls.
     if (m->Task_funcs() != nullptr) {
       subs.insert(subs.end(), m->Task_funcs()->cbegin(),
                   m->Task_funcs()->cend());
     }
     // TODO: Other stuff ?
   } else if (item->VpiType() == vpiGenScopeArray) {
-    // TODO: What to do if there is 0 or 2+ GenScopes in here??
+    // Working on the assumption that Surelog always just has one GenScope under
+    // any GenScopeArray, since it always unrolls any loop. Even generate
+    // if-statements get a wrapping GenScopeArray.
     auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
     auto g = (*ga->Gen_scopes())[0];
     if (g->Modules() != nullptr) {

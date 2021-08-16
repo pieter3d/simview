@@ -15,6 +15,7 @@ bool IsTraceable(const UHDM::any *item);
 void GetDriversOrLoads(const UHDM::any *item, bool drivers,
                        std::vector<const UHDM::any *> &list);
 const UHDM::module *GetContainingModule(const UHDM::any *item);
+const UHDM::any *GetScopeForUI(const UHDM::any *item);
 
 } // namespace sv
 #endif // _SRC_UTILS_H_

@@ -24,6 +24,7 @@ class Source : public Panel {
   bool Search(bool search_down) override;
   // Need to look for stuff under the cursor when changing lines.
   void SetLineAndScroll(int l) override;
+  void Resized() override;
 
  private:
   // Variant that includes a flag indicating if the item change should save the
@@ -33,9 +34,12 @@ class Source : public Panel {
   void SetItem(const UHDM::any *item, bool show_def, bool save_state);
   // Sets the selected item based on the cursor location
   void SelectItem();
-  // Generates a nice header that probably fits in the given width.
-  std::string GetHeader(int max_w);
+  // Generates a nice header that probably fits in the current window width.
+  void BuildHeader();
 
+  // Textual representation of the current item. For things like nets the
+  // containing scope is used.
+  std::string header_;
   // Show values of highlighted items or not.
   bool show_vals_ = true;
   // Current column location of the cursor, with 0 being the start of the source
@@ -80,7 +84,7 @@ class Source : public Panel {
   const UHDM::any *trace_net_;
   int trace_idx_;
   bool trace_drivers_;
-  std::vector<const UHDM::any*> drivers_or_loads_;
+  std::vector<const UHDM::any *> drivers_or_loads_;
 
   // Stack of states, to allow going back/forth while browsing source.
   struct State {

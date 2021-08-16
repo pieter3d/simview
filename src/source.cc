@@ -52,29 +52,31 @@ std::optional<std::pair<int, int>> Source::CursorLocation() const {
                    col_idx_ - scroll_col_ + linenum_width);
 }
 
-std::string Source::GetHeader(int max_w = 0) {
+void Source::BuildHeader() {
+  auto item = GetScopeForUI(item_);
   std::string type;
-  switch (item_->VpiType()) {
+  switch (item->VpiType()) {
   case vpiFunction:
   case vpiTask:
   case vpiModule: {
-    auto s = dynamic_cast<const UHDM::scope *>(item_);
+    auto s = dynamic_cast<const UHDM::scope *>(item);
     type = s->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item_);
+    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
     type = ga->VpiFullName();
     break;
   }
-  default: type = "Unknown type: " + std::to_string(item_->VpiType()); break;
+  default: type = "Unknown type: " + std::to_string(item->VpiType()); break;
   }
   const std::string separator = " | ";
-  auto s = current_file_ + separator + StripWorklib(type);
+  header_ = current_file_ + separator + StripWorklib(type);
   // Attempt to strip as many leading directories from the front of the header
   // until it fits. If it still doesn't fit then oh well, it will get cut off
   // in the Draw funtion.
-  if (max_w != 0 && s.size() > max_w) {
+  const int max_w = getmaxx(w_);
+  if (max_w != 0 && header_.size() > max_w) {
     const char sep = std::filesystem::path::preferred_separator;
     // No need to include the first character. It's either the leading
     // separator which is shorter than the replacement ellipsis, or it's the
@@ -88,12 +90,11 @@ std::string Source::GetHeader(int max_w = 0) {
       search_pos = pos + 1;
       // Keep going while the new string length still doesn't fit.
       // Account for the ellipsis, 3 dots: ...
-    } while (s.size() - pos + 3 > max_w);
+    } while (header_.size() - pos + 3 > max_w);
     if (pos > 0) {
-      s.replace(0, pos, "...");
+      header_.replace(0, pos, "...");
     }
   }
-  return s;
 }
 
 void Source::Draw() {
@@ -107,7 +108,7 @@ void Source::Draw() {
   const int win_w = getmaxx(w_);
   const int max_digits = num_decimal_digits(scroll_row_ + win_h);
   SetColor(w_, kSourceHeaderPair);
-  mvwaddnstr(w_, 0, 0, GetHeader(win_w).c_str(), win_w);
+  mvwaddnstr(w_, 0, 0, header_.c_str(), win_w);
 
   if (lines_.empty()) {
     SetColor(w_, kSourceTextPair);
@@ -177,7 +178,9 @@ void Source::Draw() {
             col_idx_ < (identifiers[id_idx].first + id.size()) &&
             !(search_preview_ && search_start_col_ < 0);
         if (nav_.find(id) != nav_.end()) {
-          if (nav_[id]->VpiType() == vpiModule) {
+          if (nav_[id]->VpiType() == vpiModule ||
+              nav_[id]->VpiType() == vpiTask ||
+              nav_[id]->VpiType() == vpiFunction) {
             SetColor(w_, kSourceInstancePair);
           } else if (IsTraceable(nav_[id])) {
             SetColor(w_, kSourceIdentifierPair);
@@ -346,7 +349,7 @@ void Source::UIChar(int ch) {
   case 'd':
     // Go to definition of a module instance.
     if (sel_ != nullptr) {
-      item_for_hier_ = sel_;
+      item_for_hier_ = GetScopeForUI(sel_);
       SetItem(sel_, true);
     }
     break;
@@ -554,6 +557,11 @@ void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
               nav_[v->VpiName()] = v;
             }
           }
+          if (m->Task_funcs() != nullptr) {
+            for (auto &tf : *m->Task_funcs()) {
+              nav_[tf->VpiName()] = tf;
+            }
+          }
           if (m->Modules() != nullptr) {
             for (auto &sub : *m->Modules()) {
               nav_[sub->VpiName()] = sub;
@@ -670,6 +678,7 @@ void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
     n++;
   }
   SetLineAndScroll(line_num - 1);
+  BuildHeader();
 }
 
 bool Source::Search(bool search_down) {
@@ -723,6 +732,8 @@ bool Source::Search(bool search_down) {
     }
   }
 }
+
+void Source::Resized() { BuildHeader(); }
 
 void Source::SetLineAndScroll(int l) {
   Panel::SetLineAndScroll(l);
