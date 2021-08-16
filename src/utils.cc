@@ -29,26 +29,26 @@ namespace sv {
 namespace {
 // Forward declare the recurse call
 void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
-                     bool lhs, std::vector<const UHDM::any *> &list);
+                     bool drivers, std::vector<const UHDM::any *> &list);
 
 // Both Modules and GenScopes can work as the Haystack here, they have the same
 // set of methods. However, they are not virtual, so it's not possible to use
 // the same code on some super type for haystack. A templated function will have
 // to suffice instead.
 template <typename T>
-void FindInContainer(T *haystack, const UHDM::any *needle, bool lhs,
+void FindInContainer(T *haystack, const UHDM::any *needle, bool drivers,
                      std::vector<const UHDM::any *> &list) {
   // Look through all continuous assignments.
   if (haystack->Cont_assigns() != nullptr) {
     for (auto &ca : *haystack->Cont_assigns()) {
       // See if the net is part of the LHS.
-      RecurseFindItem(lhs ? ca->Lhs() : ca->Rhs(), needle, lhs, list);
+      RecurseFindItem(drivers ? ca->Lhs() : ca->Rhs(), needle, drivers, list);
     }
   }
   // Look through all process statements.
   if (haystack->Process() != nullptr) {
     for (auto &p : *haystack->Process()) {
-      RecurseFindItem(p->Stmt(), needle, lhs, list);
+      RecurseFindItem(p->Stmt(), needle, drivers, list);
     }
   }
   // Look through all instances, to see if the net is connected to a port.
@@ -56,78 +56,81 @@ void FindInContainer(T *haystack, const UHDM::any *needle, bool lhs,
     for (auto sub : *haystack->Modules()) {
       if (sub->Ports() == nullptr) continue;
       for (auto p : *sub->Ports()) {
-        RecurseFindItem(p->High_conn(), needle, lhs, list);
-        // TODO: Could go into any submodules for any ports that have trivial
-        // connections (no operations).
+        // Skip ports output ports for loads, and input ports for drivers.
+        if ((p->VpiDirection() == vpiOutput && !drivers) ||
+            (p->VpiDirection() == vpiInput && drivers)) {
+          continue;
+        }
+        RecurseFindItem(p->High_conn(), needle, drivers, list);
       }
     }
   }
 }
 
 void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
-                     bool lhs, std::vector<const UHDM::any *> &list) {
+                     bool drivers, std::vector<const UHDM::any *> &list) {
   if (haystack == nullptr) return;
   auto type = haystack->VpiType();
   if (type == vpiModule) {
     auto m = dynamic_cast<const UHDM::module *>(haystack);
-    FindInContainer(m, needle, lhs, list);
+    FindInContainer(m, needle, drivers, list);
   } else if (type == vpiGenScopeArray) {
     auto ga = dynamic_cast<const UHDM::gen_scope_array *>(haystack);
     auto g = (*ga->Gen_scopes())[0];
-    FindInContainer(g, needle, lhs, list);
+    FindInContainer(g, needle, drivers, list);
   } else if (type == vpiOperation) {
     auto op = dynamic_cast<const UHDM::operation *>(haystack);
     if (op->Operands() != nullptr) {
       // Recurse through the full expression.
       for (auto operand : *op->Operands()) {
-        RecurseFindItem(operand, needle, lhs, list);
+        RecurseFindItem(operand, needle, drivers, list);
       }
     }
   } else if (type == vpiBegin) {
     auto b = dynamic_cast<const UHDM::begin *>(haystack);
     if (b->Stmts() != nullptr) {
       for (auto s : *b->Stmts()) {
-        RecurseFindItem(s, needle, lhs, list);
+        RecurseFindItem(s, needle, drivers, list);
       }
     }
   } else if (type == vpiNamedBegin) {
     auto nb = dynamic_cast<const UHDM::named_begin *>(haystack);
     if (nb->Stmts() != nullptr) {
       for (auto s : *nb->Stmts()) {
-        RecurseFindItem(s, needle, lhs, list);
+        RecurseFindItem(s, needle, drivers, list);
       }
     }
   } else if (type == vpiFuncCall || type == vpiTaskCall) {
     auto tfc = dynamic_cast<const UHDM::tf_call *>(haystack);
     if (tfc->Tf_call_args() != nullptr) {
       for (auto a : *tfc->Tf_call_args()) {
-        RecurseFindItem(a, needle, lhs, list);
+        RecurseFindItem(a, needle, drivers, list);
       }
     }
   } else if (type == vpiAssignment) {
     auto assignment = dynamic_cast<const UHDM::assignment *>(haystack);
-    auto expr = lhs ? assignment->Lhs() : assignment->Rhs();
-    RecurseFindItem(expr, needle, lhs, list);
+    auto expr = drivers ? assignment->Lhs() : assignment->Rhs();
+    RecurseFindItem(expr, needle, drivers, list);
   } else if (type == vpiEventControl) {
     auto ec = dynamic_cast<const UHDM::event_control *>(haystack);
-    RecurseFindItem(ec->Stmt(), needle, lhs, list);
-    if (!lhs) RecurseFindItem(ec->VpiCondition(), needle, lhs, list);
+    RecurseFindItem(ec->Stmt(), needle, drivers, list);
+    if (!drivers) RecurseFindItem(ec->VpiCondition(), needle, drivers, list);
   } else if (type == vpiIf) {
     auto is = dynamic_cast<const UHDM::if_stmt *>(haystack);
-    RecurseFindItem(is->VpiStmt(), needle, lhs, list);
+    RecurseFindItem(is->VpiStmt(), needle, drivers, list);
   } else if (type == vpiIfElse) {
     auto ie = dynamic_cast<const UHDM::if_else *>(haystack);
-    RecurseFindItem(ie->VpiStmt(), needle, lhs, list);
-    RecurseFindItem(ie->VpiElseStmt(), needle, lhs, list);
+    RecurseFindItem(ie->VpiStmt(), needle, drivers, list);
+    RecurseFindItem(ie->VpiElseStmt(), needle, drivers, list);
   } else if (type == vpiFor) {
     auto f = dynamic_cast<const UHDM::for_stmt *>(haystack);
-    RecurseFindItem(f->VpiStmt(), needle, lhs, list);
+    RecurseFindItem(f->VpiStmt(), needle, drivers, list);
   } else if (type == vpiWhile) {
     auto w = dynamic_cast<const UHDM::while_stmt *>(haystack);
-    RecurseFindItem(w->VpiStmt(), needle, lhs, list);
+    RecurseFindItem(w->VpiStmt(), needle, drivers, list);
   } else if (type == vpiDoWhile) {
     auto dw = dynamic_cast<const UHDM::do_while *>(haystack);
-    RecurseFindItem(dw->VpiStmt(), needle, lhs, list);
+    RecurseFindItem(dw->VpiStmt(), needle, drivers, list);
   } else if (type == vpiBitSelect) {
     auto bs = dynamic_cast<const UHDM::bit_select *>(haystack);
     if (bs->VpiParent() != nullptr && bs->VpiParent()->VpiType() == vpiRefObj) {
@@ -153,6 +156,9 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     // ref_obj name.
     if (ro->Actual_group() == needle) {
       list.push_back(haystack);
+    } else if (ro->VpiName() == needle->VpiName()) {
+      // Workaround. TODO:remove once Surelog is fixed.
+      list.push_back(haystack);
     }
   }
 }
@@ -170,7 +176,19 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
   if (m == nullptr) return;
   RecurseFindItem(m, item, drivers, list);
   // Check to see if the net is a module input or inout.
-  // TODO
+  if (m->Ports() != nullptr) {
+    for (auto p : *m->Ports()) {
+      if (p->Low_conn()->VpiType() == vpiRefObj) {
+        auto ro = dynamic_cast<const UHDM::ref_obj *>(p->Low_conn());
+        // Inputs and inouts are drivers, outputs and inouts are loads.
+        if (ro->Actual_group() == item &&
+            (p->VpiDirection() == vpiInout ||
+             p->VpiDirection() == (drivers ? vpiInput : vpiOutput))) {
+          list.push_back(p);
+        }
+      }
+    }
+  }
 }
 
 const UHDM::module *GetContainingModule(const UHDM::any *item) {
@@ -200,10 +218,11 @@ std::string StripWorklib(const std::string &s) {
 
 bool IsTraceable(const UHDM::any *item) {
   const int type = item->VpiType();
-  return type == vpiNet || type == vpiLongIntVar || type == vpiShortIntVar ||
-         type == vpiIntVar || type == vpiShortRealVar || type == vpiByteVar ||
-         type == vpiClassVar || type == vpiStringVar || type == vpiEnumVar ||
-         type == vpiStructVar || type == vpiUnionVar || type == vpiBitVar;
+  return type == vpiNet || type == vpiPort || type == vpiLongIntVar ||
+         type == vpiShortIntVar || type == vpiIntVar ||
+         type == vpiShortRealVar || type == vpiByteVar || type == vpiClassVar ||
+         type == vpiStringVar || type == vpiEnumVar || type == vpiStructVar ||
+         type == vpiUnionVar || type == vpiBitVar || type == vpiRefObj;
 }
 
 } // namespace sv
