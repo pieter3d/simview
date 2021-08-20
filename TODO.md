@@ -1,4 +1,6 @@
-* Search mode in main UI, pass to focused panel. Need a nice way to search up/down and highlight as you type.
+# TODO
+Stuff that is still pending to be fixed or implemented.
+
 * Source viewer
   * Navigate include files
 * Settings file (libconfig)
@@ -12,9 +14,8 @@
 * Different layout for loading waves without source, different hierarchy panel probably.
 * Different layout for loading source without waves.
 * Auto-match wave hierarchy against design hierarchy.
-* Net drivers and loads need to be traced.
 * Source window: Set a marker on a source line (press m), press A to add all
   signals between current line and marker.
 * Expose nets in functions and tasks
 * Expose local variables in always blocks?
-* Forward/back in the source should also be saving the column position.
+* tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`

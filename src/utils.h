@@ -1,6 +1,7 @@
 #ifndef _SRC_UTILS_H_
 #define _SRC_UTILS_H_
 
+#include <functional>
 #include <string>
 #include <uhdm/headers/module.h>
 #include <uhdm/headers/uhdm_types.h>

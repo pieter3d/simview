@@ -27,6 +27,7 @@
 
 namespace sv {
 namespace {
+
 // Forward declare the recurse call
 void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
                      bool drivers, std::vector<const UHDM::any *> &list);
@@ -138,7 +139,8 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     if (bs->VpiName() == needle->VpiName()) {
       list.push_back(haystack);
     }
-    //if (bs->VpiParent() != nullptr && bs->VpiParent()->VpiType() == vpiRefObj) {
+    // if (bs->VpiParent() != nullptr && bs->VpiParent()->VpiType() ==
+    // vpiRefObj) {
     //  auto ro = dynamic_cast<const UHDM::ref_obj *>(bs->VpiParent());
     //  if (ro->Actual_group() == needle) {
     //    list.push_back(haystack);
@@ -232,7 +234,7 @@ std::string StripWorklib(const std::string &s) {
 bool IsTraceable(const UHDM::any *item) {
   const int type = item->VpiType();
   return type == vpiNet || type == vpiPort || type == vpiLongIntVar ||
-         type == vpiShortIntVar || type == vpiIntVar ||
+         type == vpiArrayNet || type == vpiShortIntVar || type == vpiIntVar ||
          type == vpiShortRealVar || type == vpiByteVar || type == vpiClassVar ||
          type == vpiStringVar || type == vpiEnumVar || type == vpiStructVar ||
          type == vpiUnionVar || type == vpiBitVar || type == vpiRefObj;
@@ -248,4 +250,5 @@ bool EquivalentNet(const UHDM::any *a, const UHDM::any *b) {
   // thing has VpiFullName, so make sure the containing module is the same.
   return a->VpiName() == b->VpiName() && mod_a == mod_b;
 }
+
 } // namespace sv
