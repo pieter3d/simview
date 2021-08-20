@@ -7,6 +7,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <uhdm/headers/array_net.h>
 #include <uhdm/headers/constant.h>
 #include <uhdm/headers/function.h>
 #include <uhdm/headers/gen_scope.h>
@@ -44,31 +45,29 @@ int num_decimal_digits(int n) {
 } // namespace
 
 std::optional<std::pair<int, int>> Source::CursorLocation() const {
-  if (item_ == nullptr) return std::nullopt;
-  // Compute width of the line numbers. Minus 1 to account for the header. Add
-  // one to the final width to account for the line number margin.
+  if (scope_ == nullptr) return std::nullopt;
+  // Compute width of the line numbers. Minus 1 to account for the header, but
+  // plus one since line numbers start at 1. Add one to the final width to
+  // account for the line number margin.
   int linenum_width = 1 + num_decimal_digits(scroll_row_ + getmaxy(w_) - 1);
   return std::pair(line_idx_ - scroll_row_ + 1,
                    col_idx_ - scroll_col_ + linenum_width);
 }
 
 void Source::BuildHeader() {
-  auto item = GetScopeForUI(item_);
   std::string type;
-  switch (item->VpiType()) {
-  case vpiFunction:
-  case vpiTask:
+  switch (scope_->VpiType()) {
   case vpiModule: {
-    auto s = dynamic_cast<const UHDM::scope *>(item);
+    auto s = dynamic_cast<const UHDM::scope *>(scope_);
     type = s->VpiFullName();
     break;
   }
   case vpiGenScopeArray: {
-    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
+    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(scope_);
     type = ga->VpiFullName();
     break;
   }
-  default: type = "Unknown type: " + std::to_string(item->VpiType()); break;
+  default: type = "Unknown type: " + std::to_string(scope_->VpiType()); break;
   }
   const std::string separator = " | ";
   header_ = current_file_ + separator + StripWorklib(type);
@@ -100,13 +99,13 @@ void Source::BuildHeader() {
 void Source::Draw() {
   werase(w_);
   wattrset(w_, A_NORMAL);
-  if (item_ == nullptr) {
+  if (scope_ == nullptr) {
     mvwprintw(w_, 0, 0, "Module instance source code appears here.");
     return;
   }
   const int win_h = getmaxy(w_);
   const int win_w = getmaxx(w_);
-  const int max_digits = num_decimal_digits(scroll_row_ + win_h);
+  const int max_digits = num_decimal_digits(scroll_row_ + win_h - 1);
   SetColor(w_, kSourceHeaderPair);
   mvwaddnstr(w_, 0, 0, header_.c_str(), win_w);
 
@@ -288,24 +287,20 @@ void Source::Draw() {
 }
 
 void Source::UIChar(int ch) {
-  if (item_ == nullptr) return;
+  if (scope_ == nullptr) return;
   int prev_line_idx = line_idx_;
   int prev_col_idx = col_idx_;
   switch (ch) {
   case 'u':
     if (showing_def_) {
       // Go back up to the instance location if showing a definition
-      SetItem(item_, false);
-      item_for_hier_ = item_;
+      SetItem(scope_, false);
+      item_for_hier_ = scope_;
     } else {
-      auto p = item_->VpiParent();
-      while (p != nullptr && p->VpiType() != vpiModule &&
-             p->VpiType() != vpiGenScopeArray) {
-        p = p->VpiParent();
-      }
-      if (p != nullptr) {
-        SetItem(p, false);
-        item_for_hier_ = p;
+      auto new_scope = GetScopeForUI(scope_->VpiParent());
+      if (new_scope != nullptr) {
+        SetItem(new_scope, false);
+        item_for_hier_ = new_scope;
       }
     }
     break;
@@ -349,13 +344,20 @@ void Source::UIChar(int ch) {
   case 'd':
     // Go to definition of a module instance.
     if (sel_ != nullptr) {
-      item_for_hier_ = GetScopeForUI(sel_);
-      SetItem(sel_, true);
+      // For modules, load the definition.
+      if (sel_->VpiType() == vpiModule) {
+        item_for_hier_ = GetScopeForUI(sel_);
+        SetItem(sel_, true);
+      } else {
+        SetLocation(sel_);
+      }
     }
     break;
   case 'D':
   case 'L':
     if (trace_net_ != sel_ || (trace_drivers_ != (ch == 'D'))) {
+      // Only trace when not tracing the same item, or when switching between
+      // drivers and loads.
       trace_drivers_ = ch == 'D';
       GetDriversOrLoads(sel_, trace_drivers_, drivers_or_loads_);
       trace_net_ = sel_;
@@ -365,42 +367,50 @@ void Source::UIChar(int ch) {
     }
     if (drivers_or_loads_.size() > 0 && trace_net_ != nullptr) {
       item_for_hier_ = sel_;
-      SetItem(drivers_or_loads_[trace_idx_], true);
+      SetLocation(drivers_or_loads_[trace_idx_]);
     }
     break;
+
   case 'v': show_vals_ = !show_vals_; break;
+  case 'b':
   case 'f': {
-    // Can't go forward past the end.
-    if (stack_idx_ >= state_stack_.size() - 1) break;
-    auto &s = state_stack_[++stack_idx_];
-    SetItem(s.item, s.show_def, /* save_state */ false);
-    line_idx_ = s.line_idx;
-    scroll_row_ = s.scroll_row;
-    item_for_hier_ = s.item;
-    break;
-  }
-  case 'b': {
-    // Go back in the stack if possible.
-    if (stack_idx_ == 0) break;
-    if (stack_idx_ == state_stack_.size()) {
-      // If not currently doing any kind of stack navigation, get the top of the
-      // stack as the new item, but save the current one.
-      auto s = state_stack_[stack_idx_ - 1];
-      SetItem(s.item, s.show_def, true);
-      // Saving the current one has grown the stack, but since we're now going
-      // down the stack, go back and point *before*.
-      stack_idx_ -= 2;
+    // Helper function to restore a state.
+    auto load_state = [&](State s) {
+      if (s.scope != scope_) {
+        SetItem(s.scope, s.show_def, false);
+      }
       line_idx_ = s.line_idx;
+      col_idx_ = s.col_idx;
+      max_col_idx_ = s.col_idx;
       scroll_row_ = s.scroll_row;
-      item_for_hier_ = s.item;
+      scroll_col_ = s.scroll_col;
+      item_for_hier_ = s.scope;
+    };
+    if (ch == 'f') {
+
+      // Can't go forward past the end.
+      if (stack_idx_ >= state_stack_.size() - 1) break;
+      auto &s = state_stack_[++stack_idx_];
+      load_state(s);
+      break;
     } else {
-      auto &s = state_stack_[--stack_idx_];
-      SetItem(s.item, s.show_def, false);
-      line_idx_ = s.line_idx;
-      scroll_row_ = s.scroll_row;
-      item_for_hier_ = s.item;
+      // Go back in the stack if possible.
+      if (stack_idx_ == 0) break;
+      if (stack_idx_ == state_stack_.size()) {
+        // If not currently doing any kind of stack navigation, get the top of
+        // the stack as the new item, but save the current one.
+        auto s = state_stack_[stack_idx_ - 1];
+        SaveState();
+        // Saving the current one has grown the stack, but since we're now going
+        // down the stack, go back and point *before*.
+        stack_idx_ -= 2;
+        load_state(s);
+      } else {
+        auto &s = state_stack_[--stack_idx_];
+        load_state(s);
+      }
+      break;
     }
-    break;
   }
   case 'w': {
     // Go to the next highlightable thing.
@@ -493,37 +503,37 @@ void Source::SetItem(const UHDM::any *item, bool show_def) {
   SetItem(item, show_def, /*save_state*/ true);
 }
 
+void Source::SetLocation(const UHDM::any *item) {
+  if (line_idx_ != item->VpiLineNo()) SaveState();
+  col_idx_ = item->VpiColumnNo() - 1;
+  max_col_idx_ = col_idx_;
+  SetLineAndScroll(item->VpiLineNo() - 1);
+}
+
+void Source::SaveState() {
+  if (stack_idx_ < state_stack_.size()) {
+    state_stack_.erase(state_stack_.begin() + stack_idx_, state_stack_.end());
+  }
+  state_stack_.push_back({
+      .scope = scope_,
+      .line_idx = line_idx_,
+      .col_idx = col_idx_,
+      .scroll_row = scroll_row_,
+      .scroll_col = scroll_col_,
+      .show_def = showing_def_,
+  });
+  stack_idx_++;
+  if (state_stack_.size() > kMaxStateStackSize) {
+    state_stack_.pop_front();
+    stack_idx_--;
+  }
+}
+
 void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
-  if (save_state && item_ != nullptr) {
-    if (stack_idx_ < state_stack_.size()) {
-      state_stack_.erase(state_stack_.begin() + stack_idx_, state_stack_.end());
-    }
-    state_stack_.push_back({
-        .item = item_,
-        .line_idx = line_idx_,
-        .scroll_row = scroll_row_,
-        .show_def = showing_def_,
-    });
-    stack_idx_++;
-    if (state_stack_.size() > kMaxStateStackSize) {
-      state_stack_.pop_front();
-      stack_idx_--;
-    }
-  }
-  // If the item being set is some traceable thing, then just go to that module.
-  // If the module happens to be the same one as the one currently loaded, just
-  // scroll to it.
-  if (IsTraceable(item)) {
-    auto m = GetContainingModule(item);
-    if (m == item_) {
-      // Module is already loaded. Just scroll to it.
-      col_idx_ = item->VpiColumnNo() - 1;
-      max_col_idx_ = col_idx_;
-      SetLineAndScroll(item->VpiLineNo() - 1);
-      return;
-    }
-  }
-  item_ = item;
+  if (item == nullptr) return;
+  if (save_state && scope_ != nullptr) SaveState();
+
+  scope_ = GetScopeForUI(item);
   showing_def_ = show_def;
   // Clear out old info.
   lines_.clear();
@@ -542,19 +552,25 @@ void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
 
   // This lamda recurses through all generate blocks in the item, adding any
   // navigable things found to the hashes.
+  // TODO: move some of this to utils.cc
   std::function<void(const UHDM::any *)> find_navigable_items =
       [&](const UHDM::any *item) {
         switch (item->VpiType()) {
         case vpiModule: {
           auto m = dynamic_cast<const UHDM::module *>(item);
+          if (m->Variables() != nullptr) {
+            for (auto &v : *m->Variables()) {
+              nav_[v->VpiName()] = v;
+            }
+          }
           if (m->Nets() != nullptr) {
             for (auto &n : *m->Nets()) {
               nav_[n->VpiName()] = n;
             }
           }
-          if (m->Variables() != nullptr) {
-            for (auto &v : *m->Variables()) {
-              nav_[v->VpiName()] = v;
+          if (m->Array_nets() != nullptr) {
+            for (auto &a : *m->Array_nets()) {
+              nav_[a->VpiName()] = a;
             }
           }
           if (m->Task_funcs() != nullptr) {
@@ -595,14 +611,19 @@ void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
             // generate loops, in which case there could be many items with the
             // same name. Currently, the last one overwrites the others.
             auto &g = (*ga->Gen_scopes())[0];
+            if (g->Variables() != nullptr) {
+              for (auto &v : *g->Variables()) {
+                nav_[v->VpiName()] = v;
+              }
+            }
             if (g->Nets() != nullptr) {
               for (auto &n : *g->Nets()) {
                 nav_[n->VpiName()] = n;
               }
             }
-            if (g->Variables() != nullptr) {
-              for (auto &v : *g->Variables()) {
-                nav_[v->VpiName()] = v;
+            if (g->Array_nets() != nullptr) {
+              for (auto &a : *g->Array_nets()) {
+                nav_[a->VpiName()] = a;
               }
             }
             if (g->Modules() != nullptr) {

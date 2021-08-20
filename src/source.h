@@ -27,11 +27,15 @@ class Source : public Panel {
   void Resized() override;
 
  private:
+  // Push the current state onto the stack.
+  void SaveState();
   // Variant that includes a flag indicating if the item change should save the
   // current state (it not empty). This is used for forward/back stack
-  // navigation. If the state is saved, anything beyond current stack pointer
-  // is wiped out.
+  // navigation.
   void SetItem(const UHDM::any *item, bool show_def, bool save_state);
+  // Jump to particular location in the current file, using the item's line and
+  // column number.
+  void SetLocation(const UHDM::any *item);
   // Sets the selected item based on the cursor location
   void SelectItem();
   // Generates a nice header that probably fits in the current window width.
@@ -47,7 +51,7 @@ class Source : public Panel {
   int max_col_idx_ = 0;
   int scroll_col_ = 0;
   // The instance or generate block whose source is shown.
-  const UHDM::any *item_ = nullptr;
+  const UHDM::any *scope_ = nullptr;
   bool showing_def_;
   // The currently selected item. Could be a parameter too.
   const UHDM::any *sel_ = nullptr;
@@ -88,9 +92,11 @@ class Source : public Panel {
 
   // Stack of states, to allow going back/forth while browsing source.
   struct State {
-    const UHDM::any *item = nullptr;
+    const UHDM::any *scope = nullptr;
     int line_idx = 0;
+    int col_idx = 0;
     int scroll_row = 0;
+    int scroll_col = 0;
     bool show_def = false;
   };
   std::deque<State> state_stack_;

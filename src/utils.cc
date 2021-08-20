@@ -82,8 +82,8 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     auto op = dynamic_cast<const UHDM::operation *>(haystack);
     if (op->Operands() != nullptr) {
       // Recurse through the full expression.
-      for (auto operand : *op->Operands()) {
-        RecurseFindItem(operand, needle, drivers, list);
+      for (auto o : *op->Operands()) {
+        RecurseFindItem(o, needle, drivers, list);
       }
     }
   } else if (type == vpiBegin) {
@@ -113,13 +113,15 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     RecurseFindItem(expr, needle, drivers, list);
   } else if (type == vpiEventControl) {
     auto ec = dynamic_cast<const UHDM::event_control *>(haystack);
-    RecurseFindItem(ec->Stmt(), needle, drivers, list);
     if (!drivers) RecurseFindItem(ec->VpiCondition(), needle, drivers, list);
+    RecurseFindItem(ec->Stmt(), needle, drivers, list);
   } else if (type == vpiIf) {
     auto is = dynamic_cast<const UHDM::if_stmt *>(haystack);
+    if (!drivers) RecurseFindItem(is->VpiCondition(), needle, drivers, list);
     RecurseFindItem(is->VpiStmt(), needle, drivers, list);
   } else if (type == vpiIfElse) {
     auto ie = dynamic_cast<const UHDM::if_else *>(haystack);
+    if (!drivers) RecurseFindItem(ie->VpiCondition(), needle, drivers, list);
     RecurseFindItem(ie->VpiStmt(), needle, drivers, list);
     RecurseFindItem(ie->VpiElseStmt(), needle, drivers, list);
   } else if (type == vpiFor) {
@@ -133,14 +135,17 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     RecurseFindItem(dw->VpiStmt(), needle, drivers, list);
   } else if (type == vpiBitSelect) {
     auto bs = dynamic_cast<const UHDM::bit_select *>(haystack);
-    if (bs->VpiParent() != nullptr && bs->VpiParent()->VpiType() == vpiRefObj) {
-      auto ro = dynamic_cast<const UHDM::ref_obj *>(bs->VpiParent());
-      if (ro->Actual_group() == needle) {
-        list.push_back(haystack);
-      }
-    } else if (bs->VpiParent() == needle) {
+    if (bs->VpiName() == needle->VpiName()) {
       list.push_back(haystack);
     }
+    //if (bs->VpiParent() != nullptr && bs->VpiParent()->VpiType() == vpiRefObj) {
+    //  auto ro = dynamic_cast<const UHDM::ref_obj *>(bs->VpiParent());
+    //  if (ro->Actual_group() == needle) {
+    //    list.push_back(haystack);
+    //  }
+    //} else if (bs->VpiParent() == needle) {
+    //  list.push_back(haystack);
+    //}
   } else if (type == vpiPartSelect) {
     auto ps = dynamic_cast<const UHDM::part_select *>(haystack);
     if (ps->VpiParent() != nullptr && ps->VpiParent()->VpiType() == vpiRefObj) {
@@ -151,13 +156,7 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     }
   } else if (type == vpiRefObj) {
     auto ro = dynamic_cast<const UHDM::ref_obj *>(haystack);
-    // TODO: Bug in Surelog has this as null for any expressions in port
-    // connections. A workaround could be to match the needle using the
-    // ref_obj name.
     if (ro->Actual_group() == needle) {
-      list.push_back(haystack);
-    } else if (ro->VpiName() == needle->VpiName()) {
-      // Workaround. TODO:remove once Surelog is fixed.
       list.push_back(haystack);
     }
   }
@@ -169,6 +168,10 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
                        std::vector<const UHDM::any *> &list) {
   list.clear();
   if (item == nullptr) return;
+  // For RefObjects, trace the actual net it's referring to.
+  if (item->VpiType() == vpiRefObj) {
+    item = dynamic_cast<const UHDM::ref_obj *>(item)->Actual_group();
+  }
   if (!IsTraceable(item)) return;
   // First, find the containing module.
   auto m = GetContainingModule(item);
@@ -192,21 +195,31 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
 }
 
 const UHDM::module *GetContainingModule(const UHDM::any *item) {
+  bool keep_going = false;
   do {
+    if (keep_going && item->VpiType() == vpiModule) {
+      keep_going = false;
+    }
+    auto prev_item = item;
     item = item->VpiParent();
-  } while (item != nullptr && item->VpiType() != vpiModule);
+    if (item->VpiType() == vpiPort) {
+      auto p = dynamic_cast<const UHDM::port *>(item);
+      if (p->High_conn() == prev_item) {
+        // If the thing we were tracing was a connection to a port, then the
+        // containing module is really the modules that contains this module's
+        // instance.
+        keep_going = true;
+      }
+    }
+  } while (!(item == nullptr || (item->VpiType() == vpiModule && !keep_going)));
   return dynamic_cast<const UHDM::module *>(item);
 }
 
 const UHDM::any *GetScopeForUI(const UHDM::any *item) {
-  if (item->VpiType() != vpiModule || item->VpiType() != vpiTask ||
-      item->VpiType() != vpiFunction || item->VpiType() != vpiGenScopeArray) {
-    return item;
-  }
-  do {
+  while (!(item == nullptr || item->VpiType() == vpiModule ||
+           item->VpiType() == vpiGenScopeArray)) {
     item = item->VpiParent();
-  } while (item != nullptr && (item->VpiType() != vpiModule ||
-                               item->VpiType() != vpiGenScopeArray));
+  }
   return item;
 }
 
@@ -225,4 +238,14 @@ bool IsTraceable(const UHDM::any *item) {
          type == vpiUnionVar || type == vpiBitVar || type == vpiRefObj;
 }
 
+bool EquivalentNet(const UHDM::any *a, const UHDM::any *b) {
+  if (a == nullptr || b == nullptr) return false;
+  if (a == b) return true;
+  auto mod_a = GetContainingModule(a);
+  auto mod_b = GetContainingModule(b);
+  // Why all this? int_var (and similar) still should be considered equivalent
+  // to logic_var, Surelog seems to use them interchangeably. And not every UHDM
+  // thing has VpiFullName, so make sure the containing module is the same.
+  return a->VpiName() == b->VpiName() && mod_a == mod_b;
+}
 } // namespace sv

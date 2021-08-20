@@ -16,6 +16,5 @@
 * Source window: Set a marker on a source line (press m), press A to add all
   signals between current line and marker.
 * Expose nets in functions and tasks
-* Expose local variables
-* Replace UHDM::BaseClass with UHDM::any
-
+* Expose local variables in always blocks?
+* Forward/back in the source should also be saving the column position.

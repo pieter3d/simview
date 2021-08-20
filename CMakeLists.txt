@@ -52,3 +52,6 @@ add_subdirectory(external)
 
 # Add all source
 add_subdirectory(src)
+
+# Experimental targets
+add_subdirectory(experimental)
