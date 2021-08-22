@@ -18,7 +18,10 @@ target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
 
 add_executable(simview
   color.cc
-  hierarchy.cc
+  design_tree_item.cc
+  design_tree_panel.cc
+  tree_data.cc
+  tree_panel.cc
   main.cc
   panel.cc
   source.cc

@@ -20,7 +20,7 @@ class Source : public Panel {
   std::string Tooltip() const override;
   void SetItem(const UHDM::any *item, bool show_def = false);
   std::pair<int, int> ScrollArea() override;
-  std::optional<const UHDM::any *> ItemForHierarchy();
+  std::optional<const UHDM::any *> ItemForDesignTree();
   bool Search(bool search_down) override;
   // Need to look for stuff under the cursor when changing lines.
   void SetLineAndScroll(int l) override;
@@ -81,8 +81,8 @@ class Source : public Panel {
   // definition. Text rendering uses this grey out source outside this.
   int start_line_ = 0;
   int end_line_ = 0;
-  // When not null, indicates this object should be shown in the hierarchy. This
-  // allows the hierarchy panel to always match current scope.
+  // When not null, indicates this object should be shown in the design tree.
+  // This allows the design tree panel to always match current scope.
   const UHDM::any *item_for_hier_ = nullptr;
   // Drivers and loads
   const UHDM::any *trace_net_;

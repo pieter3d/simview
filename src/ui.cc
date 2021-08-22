@@ -4,7 +4,6 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "color.h"
-#include <memory>
 #include <ncurses.h>
 
 namespace sv {
@@ -26,12 +25,12 @@ UI::UI() : search_box_("/") {
   search_box_.SetDims(term_h_ - 1, 0, term_w_);
 
   // Create all UI panels.
-  hierarchy_ = std::make_unique<Hierarchy>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
+  design_tree_ = std::make_unique<DesignTreePanel>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
   source_ = std::make_unique<Source>(wave_pos_y_, term_w_ - src_pos_x_, 0,
                                      src_pos_x_ + 1);
   waves_ = std::make_unique<Waves>(term_h_ - wave_pos_y_ - 2, term_w_,
                                    wave_pos_y_ + 1, 0);
-  focused_panel_ = hierarchy_.get();
+  focused_panel_ = design_tree_.get();
   prev_focused_panel_ = focused_panel_;
   focused_panel_->SetFocus(true);
 
@@ -105,11 +104,11 @@ void UI::EventLoop() {
       case 0x189: // shift-left
         if (focused_panel_ == source_.get()) {
           prev_focused_panel_ = focused_panel_;
-          focused_panel_ = hierarchy_.get();
+          focused_panel_ = design_tree_.get();
         }
         break;
       case 0x192: // shift-right
-        if (focused_panel_ == hierarchy_.get()) {
+        if (focused_panel_ == design_tree_.get()) {
           prev_focused_panel_ = focused_panel_;
           focused_panel_ = source_.get();
         }
@@ -128,20 +127,20 @@ void UI::EventLoop() {
         break;
       case 0x9: // tab
         prev_focused_panel_ = focused_panel_;
-        if (focused_panel_ == hierarchy_.get()) {
+        if (focused_panel_ == design_tree_.get()) {
           focused_panel_ = source_.get();
         } else if (focused_panel_ == source_.get()) {
           focused_panel_ = waves_.get();
         } else if (focused_panel_ == waves_.get()) {
-          focused_panel_ = hierarchy_.get();
+          focused_panel_ = design_tree_.get();
         }
         break;
       case 0x161: // shift-tab
         prev_focused_panel_ = focused_panel_;
-        if (focused_panel_ == hierarchy_.get()) {
+        if (focused_panel_ == design_tree_.get()) {
           focused_panel_ = waves_.get();
         } else if (focused_panel_ == source_.get()) {
-          focused_panel_ = hierarchy_.get();
+          focused_panel_ = design_tree_.get();
         } else if (focused_panel_ == waves_.get()) {
           focused_panel_ = source_.get();
         }
@@ -165,14 +164,14 @@ void UI::EventLoop() {
     // Update focus state.
     prev_focused_panel_->SetFocus(false);
     focused_panel_->SetFocus(true);
-    // Look for transfers from Hierarchy -> Source
-    if (focused_panel_ == hierarchy_.get()) {
-      if (auto item = hierarchy_->ItemForSource()) {
+    // Look for transfers from DesignTree -> Source
+    if (focused_panel_ == design_tree_.get()) {
+      if (auto item = design_tree_->ItemForSource()) {
         source_->SetItem(item->first, item->second);
       }
     } else if (focused_panel_ == source_.get()) {
-      if (auto item = source_->ItemForHierarchy()) {
-        hierarchy_->SetItem(*item);
+      if (auto item = source_->ItemForDesignTree()) {
+        design_tree_->SetItem(*item);
       }
     }
     DrawPanes(resize);
@@ -181,12 +180,12 @@ void UI::EventLoop() {
 
 void UI::DrawPanes(bool resize) {
   if (resize) {
-    wresize(hierarchy_->Window(), wave_pos_y_, src_pos_x_);
+    wresize(design_tree_->Window(), wave_pos_y_, src_pos_x_);
     wresize(source_->Window(), wave_pos_y_, term_w_ - src_pos_x_ - 1);
     mvwin(source_->Window(), 0, src_pos_x_ + 1);
     wresize(waves_->Window(), term_h_ - wave_pos_y_ - 2, term_w_);
     mvwin(waves_->Window(), wave_pos_y_ + 1, 0);
-    hierarchy_->Resized();
+    design_tree_->Resized();
     source_->Resized();
     waves_->Resized();
   }
@@ -206,7 +205,7 @@ void UI::DrawPanes(bool resize) {
   mvhline(wave_pos_y_, 0, ACS_HLINE, src_pos_x_);
   SetColor(stdscr, kFocusBorderPair);
   mvaddch(wave_pos_y_, src_pos_x_, ACS_BTEE);
-  if (focused_panel_ != hierarchy_.get()) {
+  if (focused_panel_ != design_tree_.get()) {
     SetColor(stdscr, kFocusBorderPair);
   } else {
     SetColor(stdscr, kBorderPair);
@@ -241,11 +240,11 @@ void UI::DrawPanes(bool resize) {
     }
   }
 
-  hierarchy_->Draw();
+  design_tree_->Draw();
   source_->Draw();
   waves_->Draw();
   wnoutrefresh(stdscr);
-  wnoutrefresh(hierarchy_->Window());
+  wnoutrefresh(design_tree_->Window());
   wnoutrefresh(source_->Window());
   wnoutrefresh(waves_->Window());
   // Update cursor position, if there is one.

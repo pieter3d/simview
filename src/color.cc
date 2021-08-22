@@ -15,8 +15,8 @@ void SetupColors() {
     init_pair(kTextInputPair, 15, 5);             // white on purple
     init_pair(kTextInputRejectPair, 15, 1);       // white on red
     init_pair(kHierExpandPair, 10, kBackground);  // bright green
-    init_pair(kHierInstancePair, COLOR_WHITE, kBackground);
-    init_pair(kHierModulePair, COLOR_CYAN, kBackground);
+    init_pair(kHierNamePair, COLOR_WHITE, kBackground);
+    init_pair(kHierTypePair, COLOR_CYAN, kBackground);
     init_pair(kHierShowMorePair, COLOR_YELLOW, kBackground);
     init_pair(kHierOtherPair, 13, kBackground);           // Bright magenta
     init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);   // Yellow background

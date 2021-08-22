@@ -2,7 +2,7 @@
 #define _SRC_UI_H_
 
 #include "absl/time/time.h"
-#include "hierarchy.h"
+#include "design_tree_panel.h"
 #include "source.h"
 #include "text_input.h"
 #include "waves.h"
@@ -28,7 +28,7 @@ class UI {
   std::vector<int> tmp_ch; // TODO: remove
   absl::Time last_ch;
 
-  std::unique_ptr<Hierarchy> hierarchy_;
+  std::unique_ptr<DesignTreePanel> design_tree_;
   std::unique_ptr<Source> source_;
   std::unique_ptr<Waves> waves_;
   Panel *focused_panel_ = nullptr;

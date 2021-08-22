@@ -492,7 +492,7 @@ std::pair<int, int> Source::ScrollArea() {
   return {h - 1, w};
 }
 
-std::optional<const UHDM::any *> Source::ItemForHierarchy() {
+std::optional<const UHDM::any *> Source::ItemForDesignTree() {
   if (item_for_hier_ == nullptr) return std::nullopt;
   auto item = item_for_hier_;
   item_for_hier_ = nullptr;
