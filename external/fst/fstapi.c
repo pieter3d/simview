@@ -90,6 +90,8 @@ typedef int64_t fst_off_t;
 typedef off_t fst_off_t;
 #endif
 
+#define FST_DEBUG
+
 /* note that Judy versus Jenkins requires more experimentation: they are  */
 /* functionally equivalent though it appears Jenkins is slightly faster.  */
 /* in addition, Jenkins is not bound by the LGPL.                         */

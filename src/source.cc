@@ -376,7 +376,7 @@ void Source::UIChar(int ch) {
   case 'f': {
     // Helper function to restore a state.
     auto load_state = [&](State s) {
-      if (s.scope != scope_) {
+      if (s.scope != scope_ || s.show_def != showing_def_) {
         SetItem(s.scope, s.show_def, false);
       }
       line_idx_ = s.line_idx;
@@ -387,7 +387,6 @@ void Source::UIChar(int ch) {
       item_for_hier_ = s.scope;
     };
     if (ch == 'f') {
-
       // Can't go forward past the end.
       if (stack_idx_ >= state_stack_.size() - 1) break;
       auto &s = state_stack_[++stack_idx_];

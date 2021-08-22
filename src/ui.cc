@@ -15,7 +15,8 @@ UI::UI() : search_box_("/") {
   raw(); // Capture ctrl-c etc.
   keypad(stdscr, true);
   noecho();
-  nonl(); // don't translate the enter key
+  nonl();       // don't translate the enter key
+  halfdelay(3); // Update async things every 300ms.
   SetupColors();
 
   // Default splits on startup.
@@ -25,7 +26,8 @@ UI::UI() : search_box_("/") {
   search_box_.SetDims(term_h_ - 1, 0, term_w_);
 
   // Create all UI panels.
-  design_tree_ = std::make_unique<DesignTreePanel>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
+  design_tree_ =
+      std::make_unique<DesignTreePanel>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
   source_ = std::make_unique<Source>(wave_pos_y_, term_w_ - src_pos_x_, 0,
                                      src_pos_x_ + 1);
   waves_ = std::make_unique<Waves>(term_h_ - wave_pos_y_ - 2, term_w_,
@@ -49,14 +51,18 @@ void UI::EventLoop() {
     bool quit = false;
 
     // TODO: remove
-    auto now = absl::Now();
-    if (now - last_ch > absl::Milliseconds(50)) {
-      tmp_ch.clear();
+    if (ch != ERR) {
+      auto now = absl::Now();
+      if (now - last_ch > absl::Milliseconds(50)) {
+        tmp_ch.clear();
+      }
+      tmp_ch.push_back(ch);
+      last_ch = now;
     }
-    tmp_ch.push_back(ch);
-    last_ch = now;
 
-    if (ch == KEY_RESIZE) {
+    if (ch == ERR) {
+      // TODO: Update async things?
+    } else if (ch == KEY_RESIZE) {
       float x = (float)src_pos_x_ / term_w_;
       float y = (float)wave_pos_y_ / term_h_;
       getmaxyx(stdscr, term_h_, term_w_);
