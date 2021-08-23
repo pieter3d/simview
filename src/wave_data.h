@@ -7,6 +7,8 @@ namespace sv {
 
 class WaveData {
  public:
+  static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name);
+
   struct Signal {
     enum class Direction {
       kUnknown,
@@ -40,7 +42,5 @@ class WaveData {
   WaveData() = default;
   HierarchyLevel root_;
 };
-
-std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name);
 
 } // namespace sv

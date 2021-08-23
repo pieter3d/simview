@@ -18,6 +18,8 @@ class Workspace {
   // Parse the design using command line arguments for Surelog.
   // Return true on success.
   bool ParseDesign(int argc, const char *argv[]);
+  // Attempt to parse wave file. Return true on success.
+  bool ReadWaves(const std::string &wave_file);
   const UHDM::design *Design() const { return design_; }
   // Find the definition of the module that contains the given item.
   const UHDM::module *GetDefinition(const UHDM::module *m);

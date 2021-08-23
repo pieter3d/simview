@@ -10,30 +10,29 @@ FstWaveData::FstWaveData(const std::string &file_name) {
     throw std::runtime_error("Unable to read wave file.");
   }
   std::stack<HierarchyLevel *> stack;
-  stack.push(&root_);
   fstHier *h;
   while ((h = fstReaderIterateHier(reader_))) {
-    auto &current_level = stack.top();
     switch (h->htyp) {
     case FST_HT_SCOPE: {
       std::string name(h->u.scope.name, h->u.scope.name_length);
-      if (stack.size() == 1) {
+      if (stack.empty()) {
         // Root node just needs the name.
         root_.name = name;
+        stack.push(&root_);
       } else {
-        current_level->children.push_back({});
-        current_level->children.back().name = name;
-        stack.push(&current_level->children.back());
+        stack.top()->children.push_back({});
+        stack.top()->children.back().name = name;
+        stack.push(&stack.top()->children.back());
       }
     } break;
     case FST_HT_UPSCOPE: stack.pop(); break;
     case FST_HT_VAR: {
-      current_level->signals.push_back({
+      stack.top()->signals.push_back({
           .name = std::string(h->u.var.name, h->u.var.name_length),
           .width = h->u.var.length,
           .id = h->u.var.handle,
       });
-      auto &signal = current_level->signals.back();
+      auto &signal = stack.top()->signals.back();
       switch (h->u.var.direction) {
       case FST_VD_IMPLICIT:
         signal.direction = Signal::Direction::kInternal;

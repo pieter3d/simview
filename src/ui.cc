@@ -28,7 +28,7 @@ UI::UI() : search_box_("/") {
   const bool has_design = Workspace::Get().Design() != nullptr;
   const bool has_waves = Workspace::Get().Waves() != nullptr;
   if (has_design && has_waves) {
-    wave_pos_y_ = term_h_ /2;
+    wave_pos_y_ = term_h_ / 2;
   } else if (has_design) {
     // Leave room for the tooltip
     wave_pos_y_ = term_h_ - 1;
@@ -223,14 +223,6 @@ void UI::DrawPanes(bool resize) {
     hline(ACS_HLINE, term_w_ - src_pos_x_ - 1);
   }
 
-  // Display most recent key codes for development ease. TODO: remove
-  std::string s;
-  for (int code : tmp_ch) {
-    s.append(absl::StrFormat("0x%x ", code));
-  }
-  SetColor(stdscr, kFocusBorderPair);
-  mvprintw(term_h_ - 2, 0, "codes: %s", s.c_str());
-
   if (searching_) {
     search_box_.Draw(stdscr);
   } else {
@@ -251,6 +243,14 @@ void UI::DrawPanes(bool resize) {
       SetColor(stdscr, is_key ? kTooltipKeyPair : kTooltipPair);
       mvaddch(term_h_ - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
     }
+
+    // Display most recent key codes for development ease. TODO: remove
+    std::string s;
+    for (int code : tmp_ch) {
+      s.append(absl::StrFormat("0x%x ", code));
+    }
+    SetColor(stdscr, kFocusBorderPair);
+    mvprintw(term_h_ - 1, 2 * term_w_ / 3, "codes: %s", s.c_str());
   }
 
   wnoutrefresh(stdscr);

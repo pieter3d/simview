@@ -1,4 +1,5 @@
 #include "workspace.h"
+#include <stdexcept>
 #include <surelog/surelog.h>
 #include <uhdm/headers/ElaboratorListener.h>
 #include <uhdm/headers/module.h>
@@ -78,6 +79,15 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
     AddIncludeDir(symbol_table_.getSymbol(id));
   }
 
+  return true;
+}
+
+bool Workspace::ReadWaves(const std::string &wave_file) {
+  try {
+    wave_data_ = WaveData::ReadWaveFile(wave_file);
+  } catch (std::runtime_error &e) {
+    return false;
+  }
   return true;
 }
 
