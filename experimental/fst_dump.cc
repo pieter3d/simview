@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
   fstReaderGetValueFromHandleAtTime(r, 100000, h_wr_ptr, buf);
   printf("wr_ptr at 100000: %s\n", buf);
 
-  fstReaderSetLimitTimeRange(r, 0, 200'000);
+  fstReaderSetLimitTimeRange(r, 1, 4'000'000'000);
   fstReaderSetFacProcessMask(r, h_reset);
   fstReaderSetFacProcessMask(r, h_wr_ptr);
   fstReaderIterBlocks(

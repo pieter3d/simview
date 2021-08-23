@@ -55,6 +55,7 @@ std::optional<std::pair<int, int>> Source::CursorLocation() const {
 }
 
 void Source::BuildHeader() {
+  if (scope_ == nullptr) return;
   std::string type;
   switch (scope_->VpiType()) {
   case vpiModule: {
