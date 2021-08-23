@@ -152,15 +152,17 @@ void UI::EventLoop() {
         }
         break;
       case '/':
-        searching_ = true;
-        search_box_.SetReceiver(focused_panel_);
-        search_box_.Reset();
+        if (focused_panel_->Searchable()) {
+          searching_ = true;
+          search_box_.SetReceiver(focused_panel_);
+          search_box_.Reset();
+        }
         break;
       case 'n': focused_panel_->Search(/*search_down*/ true); break;
       case 'N': focused_panel_->Search(/*search_down*/ false); break;
       case 0x3:  // Ctrl-C
       case 0x11: // Ctrl-Q
-      case 'q':  // TODO For now, remove eventuall.
+      case 'q':  // TODO For now, remove eventually.
         quit = true;
         break;
       default: focused_panel_->UIChar(ch); break;

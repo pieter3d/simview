@@ -1,5 +1,4 @@
-#ifndef _SRC_TREE_PANEL_H_
-#define _SRC_TREE_PANEL_H_
+#pragma once
 
 #include "panel.h"
 #include "tree_data.h"
@@ -23,4 +22,3 @@ class TreePanel : public Panel {
 };
 
 } // namespace sv
-#endif // _SRC_TREE_PANEL_H_

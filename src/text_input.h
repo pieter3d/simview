@@ -1,5 +1,4 @@
-#ifndef _SRC_TEXT_INPUT_H_
-#define _SRC_TEXT_INPUT_H_
+#pragma once
 
 #include <deque>
 #include <functional>
@@ -57,4 +56,3 @@ class TextInput {
 };
 
 } // namespace sv
-#endif // _SRC_TEXT_INPUT_H_

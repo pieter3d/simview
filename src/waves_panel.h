@@ -1,5 +1,4 @@
-#ifndef _SRC_WAVES_PANEL_H_
-#define _SRC_WAVES_PANEL_H_
+#pragma once
 
 #include "panel.h"
 
@@ -17,4 +16,3 @@ class WavesPanel : public Panel {
 };
 
 } // namespace sv
-#endif // _SRC_WAVES_PANEL_H_

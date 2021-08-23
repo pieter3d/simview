@@ -1,5 +1,4 @@
-#ifndef _SRC_TREE_ITEM_H_
-#define _SRC_TREE_ITEM_H_
+#pragma once
 
 #include <string>
 
@@ -34,4 +33,3 @@ class TreeItem {
 };
 
 } // namespace sv
-#endif // _SRC_TREE_ITEM_H_

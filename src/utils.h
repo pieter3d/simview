@@ -1,5 +1,4 @@
-#ifndef _SRC_UTILS_H_
-#define _SRC_UTILS_H_
+#pragma once
 
 #include <functional>
 #include <string>
@@ -20,4 +19,3 @@ const UHDM::any *GetScopeForUI(const UHDM::any *item);
 bool EquivalentNet(const UHDM::any *a, const UHDM::any *b);
 
 } // namespace sv
-#endif // _SRC_UTILS_H_

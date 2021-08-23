@@ -1,5 +1,4 @@
-#ifndef _SRC_SIMPLE_TOKENIZER_H_
-#define _SRC_SIMPLE_TOKENIZER_H_
+#pragma once
 
 #include <string>
 #include <unordered_map>
@@ -40,4 +39,3 @@ class SimpleTokenizer {
 };
 
 } // namespace sv
-#endif // _SRC_SIMPLE_TOKENIZER_H_

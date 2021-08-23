@@ -1,5 +1,4 @@
-#ifndef _SRC_PANEL_H_
-#define _SRC_PANEL_H_
+#pragma once
 
 #include "text_input.h"
 #include <ncurses.h>
@@ -27,6 +26,7 @@ class Panel : public TextReceiver {
   // from the the current line_idx_ and search_start_col_ should be set
   // accordingly.
   virtual bool Search(bool search_down) { return false; }
+  virtual bool Searchable() { return false; }
 
  protected:
   virtual int NumLines() const = 0;
@@ -44,6 +44,5 @@ class Panel : public TextReceiver {
   int search_orig_line_idx_ = -1;
   int search_orig_col_idx_ = -1;
 };
-} // namespace sv
 
-#endif // _SRC_PANEL_H_
+} // namespace sv

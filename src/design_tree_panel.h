@@ -1,8 +1,7 @@
-#ifndef _SRC_DESIGN_TREE_PANEL_H_
-#define _SRC_DESIGN_TREE_PANEL_H_
+#pragma once
 
-#include "tree_panel.h"
 #include "design_tree_item.h"
+#include "tree_panel.h"
 #include <memory>
 #include <uhdm/headers/uhdm_types.h>
 
@@ -18,6 +17,7 @@ class DesignTreePanel : public TreePanel {
   std::optional<std::pair<const UHDM::any *, bool>> ItemForSource();
   // Opens the tree to the selected item.
   void SetItem(const UHDM::any *item);
+  bool Searchable() override { return true; }
 
  private:
   std::vector<std::unique_ptr<DesignTreeItem>> roots_;
@@ -26,4 +26,3 @@ class DesignTreePanel : public TreePanel {
 };
 
 } // namespace sv
-#endif // _SRC_DESIGN_TREE_PANEL_H_

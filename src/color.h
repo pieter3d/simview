@@ -1,5 +1,4 @@
-#ifndef _SRC_COLOR_H_
-#define _SRC_COLOR_H_
+#pragma once
 
 #include <ncurses.h>
 
@@ -33,4 +32,3 @@ void SetupColors();
 void SetColor(WINDOW *w, int n);
 
 } // namespace sv
-#endif // _SRC_COLOR_H_

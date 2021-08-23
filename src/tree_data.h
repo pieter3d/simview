@@ -1,5 +1,4 @@
-#ifndef _SRC_TREE_DATA_H_
-#define _SRC_TREE_DATA_H_
+#pragma once
 
 #include "tree_item.h"
 #include <vector>
@@ -22,4 +21,3 @@ class TreeData {
 };
 
 } // namespace sv
-#endif // _SRC_TREE_DATA_H_

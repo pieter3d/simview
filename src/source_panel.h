@@ -1,5 +1,4 @@
-#ifndef _SRC_SOURCE_PANEL_H_
-#define _SRC_SOURCE_PANEL_H_
+#pragma once
 
 #include "panel.h"
 #include "simple_tokenizer.h"
@@ -22,6 +21,7 @@ class SourcePanel : public Panel {
   std::pair<int, int> ScrollArea() override;
   std::optional<const UHDM::any *> ItemForDesignTree();
   bool Search(bool search_down) override;
+  bool Searchable() override { return true; }
   // Need to look for stuff under the cursor when changing lines.
   void SetLineAndScroll(int l) override;
   void Resized() override;
@@ -104,4 +104,3 @@ class SourcePanel : public Panel {
 };
 
 } // namespace sv
-#endif // _SRC_SOURCE_PANEL_H_

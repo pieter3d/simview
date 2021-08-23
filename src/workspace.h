@@ -1,5 +1,4 @@
-#ifndef _SRC_WORKSPACE_H_
-#define _SRC_WORKSPACE_H_
+#pragma once
 
 #include <uhdm/headers/design.h>
 #include <surelog/surelog.h>
@@ -40,4 +39,3 @@ class Workspace {
 };
 
 } // namespace sv
-#endif // _SRC_WORKSPACE_H_

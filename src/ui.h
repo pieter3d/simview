@@ -1,5 +1,4 @@
-#ifndef _SRC_UI_H_
-#define _SRC_UI_H_
+#pragma once
 
 #include "absl/time/time.h"
 #include "design_tree_panel.h"
@@ -39,4 +38,3 @@ class UI {
 };
 
 } // namespace sv
-#endif // _SRC_UI_H_

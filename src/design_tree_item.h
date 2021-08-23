@@ -1,5 +1,4 @@
-#ifndef _SRC_DESIGN_TREE_ITEM_H_
-#define _SRC_DESIGN_TREE_ITEM_H_
+#pragma once
 
 #include "tree_item.h"
 #include <uhdm/headers/uhdm_types.h>
@@ -30,4 +29,3 @@ class DesignTreeItem : public TreeItem {
 };
 
 } // namespace sv
-#endif // _SRC_DESIGN_TREE_ITEM_H_
