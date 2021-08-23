@@ -24,11 +24,11 @@ add_executable(simview
   tree_panel.cc
   main.cc
   panel.cc
-  source.cc
+  source_panel.cc
   text_input.cc
   ui.cc
   utils.cc
-  waves.cc
+  waves_panel.cc
   workspace.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})

@@ -3,9 +3,9 @@
 
 #include "absl/time/time.h"
 #include "design_tree_panel.h"
-#include "source.h"
+#include "source_panel.h"
 #include "text_input.h"
-#include "waves.h"
+#include "waves_panel.h"
 #include "workspace.h"
 #include <memory>
 
@@ -29,8 +29,8 @@ class UI {
   absl::Time last_ch;
 
   std::unique_ptr<DesignTreePanel> design_tree_;
-  std::unique_ptr<Source> source_;
-  std::unique_ptr<Waves> waves_;
+  std::unique_ptr<SourcePanel> source_;
+  std::unique_ptr<WavesPanel> waves_;
   Panel *focused_panel_ = nullptr;
   Panel *prev_focused_panel_ = nullptr;
 

@@ -1,13 +1,13 @@
-#include "waves.h"
+#include "waves_panel.h"
 
 namespace sv {
 
-void Waves::Draw() {
+void WavesPanel::Draw() {
   werase(w_);
   // test
   mvwprintw(w_, 0, 0, "Braap!");
 }
 
-void Waves::UIChar(int ch) {}
+void WavesPanel::UIChar(int ch) {}
 
 } // namespace sv

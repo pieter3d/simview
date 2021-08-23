@@ -1,4 +1,4 @@
-#include "source.h"
+#include "source_panel.h"
 #include "color.h"
 #include "utils.h"
 #include <curses.h>
@@ -44,7 +44,7 @@ int num_decimal_digits(int n) {
 
 } // namespace
 
-std::optional<std::pair<int, int>> Source::CursorLocation() const {
+std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
   if (scope_ == nullptr) return std::nullopt;
   // Compute width of the line numbers. Minus 1 to account for the header, but
   // plus one since line numbers start at 1. Add one to the final width to
@@ -54,7 +54,7 @@ std::optional<std::pair<int, int>> Source::CursorLocation() const {
                    col_idx_ - scroll_col_ + linenum_width);
 }
 
-void Source::BuildHeader() {
+void SourcePanel::BuildHeader() {
   if (scope_ == nullptr) return;
   std::string type;
   switch (scope_->VpiType()) {
@@ -97,7 +97,7 @@ void Source::BuildHeader() {
   }
 }
 
-void Source::Draw() {
+void SourcePanel::Draw() {
   werase(w_);
   wattrset(w_, A_NORMAL);
   if (scope_ == nullptr) {
@@ -287,7 +287,7 @@ void Source::Draw() {
   }
 }
 
-void Source::UIChar(int ch) {
+void SourcePanel::UIChar(int ch) {
   if (scope_ == nullptr) return;
   int prev_line_idx = line_idx_;
   int prev_col_idx = col_idx_;
@@ -464,7 +464,7 @@ void Source::UIChar(int ch) {
   }
 }
 
-void Source::SelectItem() {
+void SourcePanel::SelectItem() {
   sel_ = nullptr;
   sel_param_.clear();
   if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
@@ -485,32 +485,32 @@ void Source::SelectItem() {
   }
 }
 
-std::pair<int, int> Source::ScrollArea() {
+std::pair<int, int> SourcePanel::ScrollArea() {
   // Account for the header.
   int h, w;
   getmaxyx(w_, h, w);
   return {h - 1, w};
 }
 
-std::optional<const UHDM::any *> Source::ItemForDesignTree() {
+std::optional<const UHDM::any *> SourcePanel::ItemForDesignTree() {
   if (item_for_hier_ == nullptr) return std::nullopt;
   auto item = item_for_hier_;
   item_for_hier_ = nullptr;
   return item;
 }
 
-void Source::SetItem(const UHDM::any *item, bool show_def) {
+void SourcePanel::SetItem(const UHDM::any *item, bool show_def) {
   SetItem(item, show_def, /*save_state*/ true);
 }
 
-void Source::SetLocation(const UHDM::any *item) {
+void SourcePanel::SetLocation(const UHDM::any *item) {
   if (line_idx_ != item->VpiLineNo()) SaveState();
   col_idx_ = item->VpiColumnNo() - 1;
   max_col_idx_ = col_idx_;
   SetLineAndScroll(item->VpiLineNo() - 1);
 }
 
-void Source::SaveState() {
+void SourcePanel::SaveState() {
   if (stack_idx_ < state_stack_.size()) {
     state_stack_.erase(state_stack_.begin() + stack_idx_, state_stack_.end());
   }
@@ -529,7 +529,8 @@ void Source::SaveState() {
   }
 }
 
-void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
+void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
+                          bool save_state) {
   if (item == nullptr) return;
   if (save_state && scope_ != nullptr) SaveState();
 
@@ -702,7 +703,7 @@ void Source::SetItem(const UHDM::any *item, bool show_def, bool save_state) {
   BuildHeader();
 }
 
-bool Source::Search(bool search_down) {
+bool SourcePanel::Search(bool search_down) {
   if (lines_.empty()) return false;
   if (search_text_.empty()) return false;
   int row = line_idx_;
@@ -754,15 +755,15 @@ bool Source::Search(bool search_down) {
   }
 }
 
-void Source::Resized() { BuildHeader(); }
+void SourcePanel::Resized() { BuildHeader(); }
 
-void Source::SetLineAndScroll(int l) {
+void SourcePanel::SetLineAndScroll(int l) {
   Panel::SetLineAndScroll(l);
   max_col_idx_ = col_idx_;
   SelectItem();
 }
 
-std::string Source ::Tooltip() const {
+std::string SourcePanel ::Tooltip() const {
   std::string tt = "u:up scope";
   tt += "  d:goto def";
   tt += "  D:drivers";

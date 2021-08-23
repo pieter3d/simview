@@ -28,10 +28,10 @@ UI::UI() : search_box_("/") {
   // Create all UI panels.
   design_tree_ =
       std::make_unique<DesignTreePanel>(wave_pos_y_, src_pos_x_ - 1, 0, 0);
-  source_ = std::make_unique<Source>(wave_pos_y_, term_w_ - src_pos_x_, 0,
-                                     src_pos_x_ + 1);
-  waves_ = std::make_unique<Waves>(term_h_ - wave_pos_y_ - 2, term_w_,
-                                   wave_pos_y_ + 1, 0);
+  source_ = std::make_unique<SourcePanel>(wave_pos_y_, term_w_ - src_pos_x_, 0,
+                                          src_pos_x_ + 1);
+  waves_ = std::make_unique<WavesPanel>(term_h_ - wave_pos_y_ - 2, term_w_,
+                                        wave_pos_y_ + 1, 0);
   focused_panel_ = design_tree_.get();
   prev_focused_panel_ = focused_panel_;
   focused_panel_->SetFocus(true);

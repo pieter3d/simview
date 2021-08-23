@@ -1,5 +1,5 @@
-#ifndef _SRC_SOURCE_H_
-#define _SRC_SOURCE_H_
+#ifndef _SRC_SOURCE_PANEL_H_
+#define _SRC_SOURCE_PANEL_H_
 
 #include "panel.h"
 #include "simple_tokenizer.h"
@@ -10,9 +10,9 @@
 
 namespace sv {
 
-class Source : public Panel {
+class SourcePanel : public Panel {
  public:
-  Source(int h, int w, int row, int col) : Panel(h, w, row, col) {}
+  SourcePanel(int h, int w, int row, int col) : Panel(h, w, row, col) {}
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }
@@ -104,4 +104,4 @@ class Source : public Panel {
 };
 
 } // namespace sv
-#endif // _SRC_SOURCE_H_
+#endif // _SRC_SOURCE_PANEL_H_
