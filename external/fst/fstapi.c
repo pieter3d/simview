@@ -40,9 +40,6 @@
  *
  */
 
-// Modification by Pieter Kapsenberg:
-// - Code formatted with clang-format
-
 #ifndef FST_CONFIG_INCLUDE
 #define FST_CONFIG_INCLUDE <fst_config.h>
 #endif
@@ -89,8 +86,6 @@ typedef int64_t fst_off_t;
 #else
 typedef off_t fst_off_t;
 #endif
-
-#define FST_DEBUG
 
 /* note that Judy versus Jenkins requires more experimentation: they are  */
 /* functionally equivalent though it appears Jenkins is slightly faster.  */
@@ -4675,9 +4670,7 @@ int fstReaderIterBlocks2(
   int blocks_skipped = 0;
   fst_off_t blkpos = 0;
   uint64_t seclen, beg_tim;
-#ifdef FST_DEBUG
   uint64_t end_tim;
-#endif
   uint64_t frame_uclen, frame_clen, frame_maxhandle, vc_maxhandle;
   fst_off_t vc_start;
   fst_off_t indx_pntr, indx_pos;
@@ -4744,13 +4737,10 @@ int fstReaderIterBlocks2(
     if (!seclen) break;
 
     beg_tim = fstReaderUint64(xc->f);
-#ifdef FST_DEBUG
-    end_tim =
-#endif
-        fstReaderUint64(xc->f);
+    end_tim = fstReaderUint64(xc->f);
 
     if (xc->limit_range_valid) {
-      if (beg_tim < xc->limit_range_start) {
+      if (end_tim < xc->limit_range_start) {
         blocks_skipped++;
         blkpos += seclen;
         continue;
