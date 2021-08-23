@@ -84,10 +84,19 @@ void TreePanel::UIChar(int ch) {
     }
     break;
   }
-  case 0x20: // space
-  case 0xd:  // enter
+  case 0x20:  // space
+  case 0xd: { // enter
     data_.ToggleExpand(line_idx_);
-    break;
+    // If the expanded data is all below, scroll up a ways.
+    if (data_[line_idx_]->Expanded()) {
+      const int win_h = getmaxy(w_);
+      if (line_idx_ - scroll_row_ == win_h - 1) {
+        const int lines_below = data_.ListSize() - scroll_row_ - win_h;
+        const int scroll_amt = std::min(lines_below, win_h / 3);
+        scroll_row_ += scroll_amt;
+      }
+    }
+  } break;
   case 'h':
   case 0x104: // left
     if (ui_col_scroll_ > 0) ui_col_scroll_--;
