@@ -28,7 +28,7 @@ void TreeData::ToggleExpand(int idx) {
     int stopped_pos = item->MoreIdx();
     item->SetMoreIdx(0); // Indicate it isn't a more-expander anymore.
     std::vector<TreeItem *> new_entries;
-    const auto *parent = list_[get_parent_idx(idx)];
+    auto *parent = list_[get_parent_idx(idx)];
     for (int i = stopped_pos + 1; i < parent->NumChildren(); ++i) {
       const int more_idx = (i - stopped_pos) >= kMaxExpandInstances ? i : 0;
       new_entries.push_back(parent->Child(i));

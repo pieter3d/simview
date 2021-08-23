@@ -7,12 +7,13 @@ namespace sv {
 // Single item in a tree structure.
 class TreeItem {
  public:
-  virtual std::string Name() const = 0;
-  virtual std::string Type() const = 0;
+  virtual ~TreeItem() {}
+  virtual const std::string &Name() const = 0;
+  virtual const std::string &Type() const = 0;
   virtual bool AltType() const = 0;
   virtual bool Expandable() const = 0;
   virtual int NumChildren() const = 0;
-  virtual TreeItem *Child(int idx) const = 0;
+  virtual TreeItem *Child(int idx) = 0;
 
   // State update.
   void SetDepth(int d) { depth_ = d; }

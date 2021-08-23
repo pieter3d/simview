@@ -21,6 +21,7 @@ int main(int argc, char *argv[]) {
   fstHier *h;
   fstHandle h_reset;
   fstHandle h_wr_ptr;
+  fstHandle h_int;
   while ((h = fstReaderIterateHier(r))) {
     switch (h->htyp) {
     case FST_HT_SCOPE: {
@@ -37,12 +38,14 @@ int main(int argc, char *argv[]) {
       std::string name(h->u.var.name, h->u.var.name_length);
       std::string scope(fstReaderGetCurrentFlatScope(r),
                         fstReaderGetCurrentScopeLen(r));
-      std::cout << absl::StrFormat(
-          "%s%s(%d)%c len = %d\n", indent_str, name, h->u.var.direction,
-          h->u.var.is_alias ? 'a' : ' ', h->u.var.length);
+      std::cout << absl::StrFormat("%s%s(%d)%c len = %d, type = %d\n",
+                                   indent_str, name, h->u.var.direction,
+                                   h->u.var.is_alias ? 'a' : ' ',
+                                   h->u.var.length, h->u.var.typ);
       if (!h->u.var.is_alias) {
         if (name == "rd_arst_n") h_reset = h->u.var.handle;
         if (name == "wr_ptr") h_wr_ptr = h->u.var.handle;
+        if (name == "silly_int") h_int = h->u.var.handle;
       }
       break;
     }
@@ -62,6 +65,8 @@ int main(int argc, char *argv[]) {
   printf("rst at 100000: %s\n", buf);
   fstReaderGetValueFromHandleAtTime(r, 100000, h_wr_ptr, buf);
   printf("wr_ptr at 100000: %s\n", buf);
+  fstReaderGetValueFromHandleAtTime(r, 1000, h_int, buf);
+  printf("silly_int at 1000: %s\n", buf);
 
   fstReaderSetLimitTimeRange(r, 80'000, 400'000);
   fstReaderSetFacProcessMask(r, h_reset);

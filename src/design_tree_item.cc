@@ -8,22 +8,18 @@
 
 namespace sv {
 
-std::string DesignTreeItem::Name() const {
-  return StripWorklib(item_->VpiName());
-}
-
-std::string DesignTreeItem::Type() const {
-  std::string s = StripWorklib(item_->VpiDefName());
+DesignTreeItem::DesignTreeItem(UHDM::any *item) : item_(item) {
+  name_ = StripWorklib(item_->VpiName());
+  type_ = StripWorklib(item_->VpiDefName());
   if (item_->VpiType() == vpiGenScopeArray) {
-    s = "[generate]";
+    type_ = "[generate]";
   } else if (item_->VpiType() == vpiFunction) {
-    s = "[function]";
+    type_ = "[function]";
   } else if (item_->VpiType() == vpiTask) {
-    s = "[task]";
+    type_ = "[task]";
   } else if (item_->VpiType() != vpiModule) {
-    s = absl::StrFormat("[%d]", item_->VpiType());
+    type_ = absl::StrFormat("[%d]", item_->VpiType());
   }
-  return s;
 }
 
 bool DesignTreeItem::AltType() const { return item_->VpiType() != vpiModule; }
@@ -38,7 +34,7 @@ int DesignTreeItem::NumChildren() const {
   return children_.size();
 }
 
-TreeItem *DesignTreeItem::Child(int idx) const {
+TreeItem *DesignTreeItem::Child(int idx) {
   if (!children_built_) BuildChildren();
   return &children_[idx];
 }

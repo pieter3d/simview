@@ -20,15 +20,18 @@ add_executable(simview
   color.cc
   design_tree_item.cc
   design_tree_panel.cc
-  tree_data.cc
-  tree_panel.cc
+  fst_wave_data.cc
   main.cc
   panel.cc
   source_panel.cc
   text_input.cc
+  tree_data.cc
+  tree_panel.cc
   ui.cc
   utils.cc
+  wave_data.cc
   waves_panel.cc
+  wave_tree_item.cc
   workspace.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
@@ -36,6 +39,7 @@ target_link_libraries(simview PRIVATE
   simple_tokenizer
   absl::str_format
   absl::time
+  fst
   surelog
   ${CURSES_LIBRARIES}
 )

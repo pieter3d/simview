@@ -1,7 +1,8 @@
 #pragma once
 
-#include <uhdm/headers/design.h>
+#include "wave_data.h"
 #include <surelog/surelog.h>
+#include <uhdm/headers/design.h>
 #include <unordered_map>
 #include <vector>
 
@@ -23,6 +24,7 @@ class Workspace {
 
   void AddIncludeDir(std::string d) { include_paths_.push_back(d); }
   const auto &IncludeDirs() const { return include_paths_; }
+  const WaveData *Waves() const { return wave_data_.get(); }
 
  private:
   // Singleton
@@ -36,6 +38,7 @@ class Workspace {
   SURELOG::SymbolTable symbol_table_;
   SURELOG::scompiler *compiler_ = nullptr;
   std::vector<std::string> include_paths_;
+  std::unique_ptr<WaveData> wave_data_;
 };
 
 } // namespace sv
