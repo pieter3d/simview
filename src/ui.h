@@ -4,6 +4,7 @@
 #include "design_tree_panel.h"
 #include "source_panel.h"
 #include "text_input.h"
+#include "wave_tree_panel.h"
 #include "waves_panel.h"
 #include "workspace.h"
 #include <memory>
@@ -18,18 +19,34 @@ class UI {
   void EventLoop();
 
  private:
-  void DrawPanes(bool resize);
+  void CalcLayout(bool update_frac = false);
+  void LayoutPanels();
+  void Draw();
+  void CycleFocus(bool fwd);
 
-  int wave_pos_y_ = -1;
-  int src_pos_x_ = -1;
-  int term_w_;
-  int term_h_;
   std::vector<int> tmp_ch; // TODO: remove
   absl::Time last_ch;
 
-  std::unique_ptr<DesignTreePanel> design_tree_;
-  std::unique_ptr<SourcePanel> source_;
-  std::unique_ptr<WavesPanel> waves_;
+  std::unique_ptr<DesignTreePanel> design_tree_panel_;
+  std::unique_ptr<SourcePanel> source_panel_;
+  std::unique_ptr<WaveTreePanel> wave_tree_panel_;
+  std::unique_ptr<WavesPanel> wave_signals_panel_; // TODO: need proper class
+  std::unique_ptr<WavesPanel> waves_panel_;
+  struct {
+    bool has_waves = false;
+    bool has_design = false;
+    float f_wave_y = 0.5;
+    float f_src_x = 0.3;
+    float f_signals_x = 0.2;
+    float f_waves_x = 0.35;
+    // The wave hierarchy picker panels can be hidden.
+    bool show_wave_picker = true;
+    // This is calculated from the ratio's above.
+    int wave_y;
+    int src_x;
+    int signals_x;
+    int waves_x;
+  } layout_;
   // A list of all panels makes it easy to cycle focus.
   std::vector<Panel *> panels_;
   int focused_panel_idx_ = 0;

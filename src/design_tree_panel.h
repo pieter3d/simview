@@ -9,7 +9,7 @@ namespace sv {
 
 class DesignTreePanel : public TreePanel {
  public:
-  DesignTreePanel(int h, int w, int row, int col);
+  DesignTreePanel();
   void UIChar(int ch) override;
   std::string Tooltip() const override;
   // Get the item that should be shown in the source panel, if any.

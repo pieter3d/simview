@@ -2,7 +2,7 @@
 
 namespace sv {
 
-Panel::Panel(int h, int w, int row, int col) { w_ = newwin(h, w, row, col); }
+Panel::Panel() { w_ = newwin(1, 1, 0, 0); }
 
 std::pair<int, int> Panel::ScrollArea() {
   int h, w;

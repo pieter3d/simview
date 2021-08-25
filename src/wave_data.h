@@ -35,7 +35,7 @@ class WaveData {
     std::vector<Signal> signals;
   };
   virtual ~WaveData() {}
-  const HierarchyLevel *Root() { return &root_; }
+  const HierarchyLevel &Root() const { return root_; }
 
  protected:
   // Not directly constructable.

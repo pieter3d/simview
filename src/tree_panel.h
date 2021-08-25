@@ -7,7 +7,6 @@ namespace sv {
 
 class TreePanel : public Panel {
  public:
-  TreePanel(int h, int w, int row, int col) : Panel(h, w, row, col) {}
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return data_.ListSize(); }

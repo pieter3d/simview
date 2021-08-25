@@ -9,7 +9,8 @@ namespace sv {
 
 class Panel : public TextReceiver {
  public:
-  Panel(int h, int w, int row, int col);
+  // The NCurses window is created with a size of 1x1 at 0,0 initially.
+  Panel();
   virtual ~Panel() { delwin(w_); }
   virtual void Draw() = 0;
   // Row,Col of the cursor position, if it should be shown.

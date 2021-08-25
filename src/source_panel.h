@@ -11,7 +11,6 @@ namespace sv {
 
 class SourcePanel : public Panel {
  public:
-  SourcePanel(int h, int w, int row, int col) : Panel(h, w, row, col) {}
   void Draw() override;
   void UIChar(int ch) override;
   int NumLines() const override { return lines_.size(); }

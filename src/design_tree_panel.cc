@@ -6,8 +6,7 @@
 
 namespace sv {
 
-DesignTreePanel::DesignTreePanel(int h, int w, int row, int col)
-    : TreePanel(h, w, row, col) {
+DesignTreePanel::DesignTreePanel() {
   // Populate an intial list of instances, top modules really.
   for (auto &top : *Workspace::Get().Design()->TopModules()) {
     roots_.push_back(std::make_unique<DesignTreeItem>(top));
