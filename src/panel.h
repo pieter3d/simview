@@ -27,7 +27,7 @@ class Panel : public TextReceiver {
   // from the the current line_idx_ and search_start_col_ should be set
   // accordingly.
   virtual bool Search(bool search_down) { return false; }
-  virtual bool Searchable() { return false; }
+  virtual bool Searchable() const { return false; }
 
  protected:
   virtual int NumLines() const = 0;

@@ -20,7 +20,7 @@ class SourcePanel : public Panel {
   std::pair<int, int> ScrollArea() override;
   std::optional<const UHDM::any *> ItemForDesignTree();
   bool Search(bool search_down) override;
-  bool Searchable() override { return true; }
+  bool Searchable() const override { return true; }
   // Need to look for stuff under the cursor when changing lines.
   void SetLineAndScroll(int l) override;
   void Resized() override;

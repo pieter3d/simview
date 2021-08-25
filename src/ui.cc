@@ -343,12 +343,13 @@ void UI::Draw() {
     search_box_.Draw(stdscr);
   } else {
     // Render the tooltip when not searching.
-    std::string tooltip = "C-q:quit  /nN:search  ";
+    std::string tooltip = "C-q:quit  ";
     if (layout_.has_waves) {
       tooltip += "g:";
       tooltip += layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE";
       tooltip += " signals  ";
     }
+    if (focused_panel->Searchable()) tooltip += "/nN:search  ";
     tooltip += focused_panel->Tooltip();
     for (int x = 0; x < term_w; ++x) {
       // Look for a key (indicated by colon following).

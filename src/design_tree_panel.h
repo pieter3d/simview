@@ -17,7 +17,7 @@ class DesignTreePanel : public TreePanel {
   std::optional<std::pair<const UHDM::any *, bool>> ItemForSource();
   // Opens the tree to the selected item.
   void SetItem(const UHDM::any *item);
-  bool Searchable() override { return true; }
+  bool Searchable() const override { return true; }
 
  private:
   std::vector<std::unique_ptr<DesignTreeItem>> roots_;
