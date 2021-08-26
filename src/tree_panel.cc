@@ -10,8 +10,8 @@ void TreePanel::Draw() {
   // If the window was resized and the ui line position is now hidden, move it
   // up.
   int max_string_len = 0;
-  for (int y = 0; y < win_h; ++y) {
-    const int list_idx = y + scroll_row_;
+  for (int y = header_lines_; y < win_h; ++y) {
+    const int list_idx = y + scroll_row_ - header_lines_;
     if (list_idx >= data_.ListSize()) break;
     if (list_idx == line_idx_ && !search_preview_) {
       wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
@@ -25,11 +25,25 @@ void TreePanel::Draw() {
       std::string type_name = item->Type();
       std::string name = item->Name();
       char exp = item->Expandable() ? (item->Expanded() ? '-' : '+') : ' ';
-      std::string s = indent + exp + name + ' ' + type_name;
+      std::string s = indent;
+      if (show_expanders_) s += exp;
+      if (prepend_type_) {
+        if (type_name.empty()) {
+          s += name;
+        } else {
+          s += type_name + ' ' + name;
+        }
+      } else {
+        s += name + ' ' + type_name;
+      }
       max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
       int expand_pos = indent.size();
-      int inst_pos = expand_pos + 1;
-      int type_pos = inst_pos + name.size() + 1;
+      int text_pos = expand_pos + show_expanders_;
+      int inst_pos =
+          text_pos + (prepend_type_
+                          ? (type_name.empty() ? 0 : (type_name.size() + 1))
+                          : 0);
+      int type_pos = text_pos + (prepend_type_ ? 0 : (name.size() + 1));
       const bool show_search =
           search_preview_ && list_idx == line_idx_ && search_start_col_ >= 0;
       const int search_pos = search_start_col_ + inst_pos;
@@ -48,7 +62,7 @@ void TreePanel::Draw() {
           SetColor(w_, kOverflowTextPair);
           mvwaddch(w_, y, x, '>');
         } else {
-          if (j >= type_pos) {
+          if (j >= type_pos && j < type_pos + type_name.size()) {
             SetColor(w_, item->AltType() ? kHierOtherPair : kHierTypePair);
           } else if (j >= inst_pos) {
             if (show_search && j == search_pos) {

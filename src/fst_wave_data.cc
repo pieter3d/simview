@@ -9,7 +9,7 @@ FstWaveData::FstWaveData(const std::string &file_name) {
   if (reader_ == nullptr) {
     throw std::runtime_error("Unable to read wave file.");
   }
-  std::stack<HierarchyLevel *> stack;
+  std::stack<SignalScope *> stack;
   fstHier *h;
   while ((h = fstReaderIterateHier(reader_))) {
     switch (h->htyp) {

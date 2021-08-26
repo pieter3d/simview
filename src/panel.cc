@@ -4,7 +4,7 @@ namespace sv {
 
 Panel::Panel() { w_ = newwin(1, 1, 0, 0); }
 
-std::pair<int, int> Panel::ScrollArea() {
+std::pair<int, int> Panel::ScrollArea() const {
   int h, w;
   getmaxyx(w_, h, w);
   return {h, w};

@@ -31,7 +31,7 @@ class Panel : public TextReceiver {
 
  protected:
   virtual int NumLines() const = 0;
-  virtual std::pair<int, int> ScrollArea();
+  virtual std::pair<int, int> ScrollArea() const;
   virtual void SetLineAndScroll(int l);
   WINDOW *w_;
   int line_idx_ = 0;

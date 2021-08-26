@@ -23,6 +23,7 @@ add_executable(simview
   fst_wave_data.cc
   main.cc
   panel.cc
+  signal_tree_item.cc
   source_panel.cc
   text_input.cc
   tree_data.cc
@@ -31,6 +32,7 @@ add_executable(simview
   utils.cc
   wave_data.cc
   waves_panel.cc
+  wave_signals_panel.cc
   wave_tree_item.cc
   wave_tree_panel.cc
   workspace.cc

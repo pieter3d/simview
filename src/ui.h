@@ -4,6 +4,7 @@
 #include "design_tree_panel.h"
 #include "source_panel.h"
 #include "text_input.h"
+#include "wave_signals_panel.h"
 #include "wave_tree_panel.h"
 #include "waves_panel.h"
 #include "workspace.h"
@@ -30,7 +31,7 @@ class UI {
   std::unique_ptr<DesignTreePanel> design_tree_panel_;
   std::unique_ptr<SourcePanel> source_panel_;
   std::unique_ptr<WaveTreePanel> wave_tree_panel_;
-  std::unique_ptr<WavesPanel> wave_signals_panel_; // TODO: need proper class
+  std::unique_ptr<WaveSignalsPanel> wave_signals_panel_;
   std::unique_ptr<WavesPanel> waves_panel_;
   struct {
     bool has_waves = false;

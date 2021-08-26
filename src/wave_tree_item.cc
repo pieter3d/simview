@@ -2,7 +2,7 @@
 
 namespace sv {
 
-WaveTreeItem::WaveTreeItem(const WaveData::HierarchyLevel &hl)
+WaveTreeItem::WaveTreeItem(const WaveData::SignalScope &hl)
     : hierarchy_level_(hl) {
   for (const auto &c : hierarchy_level_.children) {
     children_.push_back(WaveTreeItem(c));

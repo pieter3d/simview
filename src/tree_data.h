@@ -14,6 +14,7 @@ class TreeData {
   const TreeItem *operator[](int idx) const { return list_[idx]; }
   TreeItem *operator[](int idx) { return list_[idx]; }
   void AddRoot(TreeItem *r) { list_.push_back(r); }
+  void Clear() { list_.clear(); }
 
  private:
   // TreeItem is an abstract class, so gotta use pointers.

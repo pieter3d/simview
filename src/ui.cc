@@ -97,7 +97,7 @@ UI::UI() : search_box_("/") {
   }
   if (layout_.has_waves) {
     wave_tree_panel_ = std::make_unique<WaveTreePanel>();
-    wave_signals_panel_ = std::make_unique<WavesPanel>();
+    wave_signals_panel_ = std::make_unique<WaveSignalsPanel>();
     waves_panel_ = std::make_unique<WavesPanel>();
     panels_.push_back(wave_tree_panel_.get());
     panels_.push_back(wave_signals_panel_.get());
@@ -213,7 +213,7 @@ void UI::EventLoop() {
         }
         break;
         break;
-      case 'g':
+      case 0x7: // ctrl-G
         layout_.show_wave_picker = !layout_.show_wave_picker;
         // If one of those panels was selected, move focus to the wave panel.
         if (focused_panel == wave_tree_panel_.get() ||
@@ -253,6 +253,10 @@ void UI::EventLoop() {
       } else if (focused_panel == source_panel_.get()) {
         if (const auto item = source_panel_->ItemForDesignTree()) {
           design_tree_panel_->SetItem(*item);
+        }
+      } else if (focused_panel == wave_tree_panel_.get()) {
+        if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
+          wave_signals_panel_->SetScope(*scope);
         }
       }
     }
@@ -345,7 +349,7 @@ void UI::Draw() {
     // Render the tooltip when not searching.
     std::string tooltip = "C-q:quit  ";
     if (layout_.has_waves) {
-      tooltip += "g:";
+      tooltip += "C-g:";
       tooltip += layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE";
       tooltip += " signals  ";
     }

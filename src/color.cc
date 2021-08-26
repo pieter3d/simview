@@ -31,7 +31,10 @@ void SetupColors() {
     init_pair(kSourceInactivePair, 8, kBackground);   // Grey
     init_pair(kSourceParamPair, 5, kBackground);      // Purple
     init_pair(kSourceInstancePair, COLOR_CYAN, kBackground);
-    init_pair(kSourceValuePair, 10, kBackground); // Bright green
+    init_pair(kSourceValuePair, 10, kBackground);    // Bright green
+    init_pair(kSignalToggleOnPair, 2, kBackground);  // Green
+    init_pair(kSignalToggleOffPair, 1, kBackground); // Red
+    init_pair(kSignalFilterPair, 12, kBackground); // Bright blue
     use_default_colors();
   }
 }

@@ -29,18 +29,18 @@ class WaveData {
     // various wave database formats use different ways to look up signal data.
     uint32_t id;
   };
-  struct HierarchyLevel {
+  struct SignalScope {
     std::string name;
-    std::vector<HierarchyLevel> children;
+    std::vector<SignalScope> children;
     std::vector<Signal> signals;
   };
   virtual ~WaveData() {}
-  const HierarchyLevel &Root() const { return root_; }
+  const SignalScope &Root() const { return root_; }
 
  protected:
   // Not directly constructable.
   WaveData() = default;
-  HierarchyLevel root_;
+  SignalScope root_;
 };
 
 } // namespace sv

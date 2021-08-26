@@ -17,7 +17,7 @@ class SourcePanel : public Panel {
   std::optional<std::pair<int, int>> CursorLocation() const override;
   std::string Tooltip() const override;
   void SetItem(const UHDM::any *item, bool show_def = false);
-  std::pair<int, int> ScrollArea() override;
+  std::pair<int, int> ScrollArea() const override;
   std::optional<const UHDM::any *> ItemForDesignTree();
   bool Search(bool search_down) override;
   bool Searchable() const override { return true; }

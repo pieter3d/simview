@@ -27,6 +27,9 @@ constexpr int kSourceInactivePair = 20;
 constexpr int kSourceInstancePair = 21;
 constexpr int kSourceParamPair = 22;
 constexpr int kSourceValuePair = 23;
+constexpr int kSignalToggleOnPair = 24;
+constexpr int kSignalToggleOffPair = 25;
+constexpr int kSignalFilterPair = 26;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);

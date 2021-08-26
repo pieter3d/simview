@@ -485,7 +485,7 @@ void SourcePanel::SelectItem() {
   }
 }
 
-std::pair<int, int> SourcePanel::ScrollArea() {
+std::pair<int, int> SourcePanel::ScrollArea() const {
   // Account for the header.
   int h, w;
   getmaxyx(w_, h, w);
