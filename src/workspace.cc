@@ -33,6 +33,7 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   clp.setElabUhdm(true);
   clp.setCompile(true);
   clp.setwritePpOutput(true);
+  clp.setWriteUhdm(false);
   bool success = clp.parseCommandLine(argc, argv);
   vpiHandle design = nullptr;
   if (!success || clp.help()) {
