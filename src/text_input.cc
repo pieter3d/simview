@@ -23,15 +23,16 @@ void TextInput::Reset() {
 }
 
 void TextInput::Draw(WINDOW *w) const {
-  SetColor(stdscr, (text_.empty() || rx_reject_) ? kTextInputPair
-                                                 : kTextInputRejectPair);
+  SetColor(w, (text_.empty() || rx_reject_ || receiver_ == nullptr)
+                  ? kTextInputPair
+                  : kTextInputRejectPair);
   wmove(w, row_, col_);
   for (int x = 0; x < width_; ++x) {
     if (x < prompt_.size()) {
       waddch(w, prompt_[x]);
     } else {
       const int pos = x - prompt_.size() + scroll_;
-      addch(pos < text_.size() ? text_[pos] : ' ');
+      waddch(w, pos < text_.size() ? text_[pos] : ' ');
     }
   }
 }
@@ -109,19 +110,18 @@ TextInput::InputState TextInput::HandleKey(int key) {
       text_changed = true;
     }
     break;
-  case 0x3:  // Ctrl-C
-  case 0x1b: // Escape
-    text_ = "";
-    [[fallthrough]];
-  case 0xd: // Enter
-    state = text_.empty() ? kCancelled : kDone;
-    if (!text_.empty()) {
+  case 0x3:   // Ctrl-C
+  case 0x1b:  // Escape
+  case 0xd: { // Enter
+    const bool cancelled = key != 0xd;
+    state = cancelled ? kCancelled : kDone;
+    if (!cancelled) {
       history_.push_front(text_);
       if (history_.size() > kMaxSeachHistorySize) {
         history_.pop_back();
       }
     }
-    break;
+  } break;
   default:
     if (key <= 0xff) {
       text_.insert(cursor_pos_, 1, static_cast<char>(key));

@@ -37,6 +37,7 @@ class TextInput {
   std::pair<int, int> CursorPos() const;
   // Returns current state after the keypress.
   InputState HandleKey(int key);
+  const std::string &Text() const { return text_; }
 
  private:
   void FixScroll();

@@ -145,105 +145,109 @@ void UI::EventLoop() {
       getmaxyx(stdscr, term_h, term_w);
       // Normal mode. Top UI only really handles pane resizing and some search.
       auto *focused_panel = panels_[focused_panel_idx_];
-      switch (ch) {
-      case 0x8:   // ctrl-H
-      case 0x221: // ctrl-left
-        if (focused_panel == design_tree_panel_.get() ||
-            focused_panel == source_panel_.get()) {
-          // Keep some reasonable minimum size.
-          if (layout_.src_x > 5) {
-            layout_.src_x--;
-          }
-        } else if (layout_.show_wave_picker) {
-          if (focused_panel == waves_panel_.get()) {
-            if (layout_.waves_x > 10) {
-              if (layout_.waves_x - layout_.signals_x <= 5) {
+      if (focused_panel->Modal()) {
+        focused_panel->UIChar(ch);
+      } else {
+        switch (ch) {
+        case 0x8:   // ctrl-H
+        case 0x221: // ctrl-left
+          if (focused_panel == design_tree_panel_.get() ||
+              focused_panel == source_panel_.get()) {
+            // Keep some reasonable minimum size.
+            if (layout_.src_x > 5) {
+              layout_.src_x--;
+            }
+          } else if (layout_.show_wave_picker) {
+            if (focused_panel == waves_panel_.get()) {
+              if (layout_.waves_x > 10) {
+                if (layout_.waves_x - layout_.signals_x <= 5) {
+                  layout_.signals_x--;
+                }
+                layout_.waves_x--;
+              }
+            } else {
+              if (layout_.signals_x > 5) {
                 layout_.signals_x--;
               }
-              layout_.waves_x--;
-            }
-          } else {
-            if (layout_.signals_x > 5) {
-              layout_.signals_x--;
             }
           }
-        }
-        CalcLayout(true);
-        LayoutPanels();
-        break;
-      case 0xc:   // ctrl-L
-      case 0x230: // ctrl-right
-        if (focused_panel == design_tree_panel_.get() ||
-            focused_panel == source_panel_.get()) {
-          if (layout_.src_x < term_w - 5) {
-            layout_.src_x++;
-          }
-        } else if (layout_.show_wave_picker) {
-          if (focused_panel == wave_tree_panel_.get() ||
-              focused_panel == wave_signals_panel_.get()) {
-            if (layout_.signals_x < term_w - 10) {
-              if (layout_.waves_x - layout_.signals_x <= 5) {
+          CalcLayout(true);
+          LayoutPanels();
+          break;
+        case 0xc:   // ctrl-L
+        case 0x230: // ctrl-right
+          if (focused_panel == design_tree_panel_.get() ||
+              focused_panel == source_panel_.get()) {
+            if (layout_.src_x < term_w - 5) {
+              layout_.src_x++;
+            }
+          } else if (layout_.show_wave_picker) {
+            if (focused_panel == wave_tree_panel_.get() ||
+                focused_panel == wave_signals_panel_.get()) {
+              if (layout_.signals_x < term_w - 10) {
+                if (layout_.waves_x - layout_.signals_x <= 5) {
+                  layout_.waves_x++;
+                }
+                layout_.signals_x++;
+              }
+            } else {
+              if (layout_.waves_x < term_w - 5) {
                 layout_.waves_x++;
               }
-              layout_.signals_x++;
-            }
-          } else {
-            if (layout_.waves_x < term_w - 5) {
-              layout_.waves_x++;
             }
           }
-        }
-        CalcLayout(true);
-        LayoutPanels();
-        break;
-      case 0xb:   // ctrl-K
-      case 0x236: // ctrl-up
-        if (layout_.wave_y > 5) {
-          layout_.wave_y--;
           CalcLayout(true);
           LayoutPanels();
-        }
-        break;
-      case 0xa:   // ctrl-J
-      case 0x20d: // ctrl-down
-        if (layout_.wave_y < term_h - 5) {
-          layout_.wave_y++;
-          CalcLayout(true);
+          break;
+        case 0xb:   // ctrl-K
+        case 0x236: // ctrl-up
+          if (layout_.wave_y > 5) {
+            layout_.wave_y--;
+            CalcLayout(true);
+            LayoutPanels();
+          }
+          break;
+        case 0xa:   // ctrl-J
+        case 0x20d: // ctrl-down
+          if (layout_.wave_y < term_h - 5) {
+            layout_.wave_y++;
+            CalcLayout(true);
+            LayoutPanels();
+          }
+          break;
+          break;
+        case 0x7: // ctrl-G
+          layout_.show_wave_picker = !layout_.show_wave_picker;
+          // If one of those panels was selected, move focus to the wave panel.
+          if (focused_panel == wave_tree_panel_.get() ||
+              wave_signals_panel_.get()) {
+            focused_panel->SetFocus(false);
+            waves_panel_->SetFocus(true);
+            focused_panel_idx_ = panels_.size() - 1;
+          }
           LayoutPanels();
+          break;
+        case 0x9:     // tab
+        case 0x161: { // shift-tab
+          const bool fwd = ch == 0x9;
+          CycleFocus(fwd);
+        } break;
+        case '/':
+          if (focused_panel->Searchable()) {
+            searching_ = true;
+            search_box_.SetReceiver(focused_panel);
+            search_box_.Reset();
+          }
+          break;
+        case 'n': focused_panel->Search(/*search_down*/ true); break;
+        case 'N': focused_panel->Search(/*search_down*/ false); break;
+        case 0x3:  // Ctrl-C
+        case 0x11: // Ctrl-Q
+        case 'q':  // TODO For now, remove eventually.
+          quit = true;
+          break;
+        default: focused_panel->UIChar(ch); break;
         }
-        break;
-        break;
-      case 0x7: // ctrl-G
-        layout_.show_wave_picker = !layout_.show_wave_picker;
-        // If one of those panels was selected, move focus to the wave panel.
-        if (focused_panel == wave_tree_panel_.get() ||
-            wave_signals_panel_.get()) {
-          focused_panel->SetFocus(false);
-          waves_panel_->SetFocus(true);
-          focused_panel_idx_ = panels_.size() - 1;
-        }
-        LayoutPanels();
-        break;
-      case 0x9:     // tab
-      case 0x161: { // shift-tab
-        const bool fwd = ch == 0x9;
-        CycleFocus(fwd);
-      } break;
-      case '/':
-        if (focused_panel->Searchable()) {
-          searching_ = true;
-          search_box_.SetReceiver(focused_panel);
-          search_box_.Reset();
-        }
-        break;
-      case 'n': focused_panel->Search(/*search_down*/ true); break;
-      case 'N': focused_panel->Search(/*search_down*/ false); break;
-      case 0x3:  // Ctrl-C
-      case 0x11: // Ctrl-Q
-      case 'q':  // TODO For now, remove eventually.
-        quit = true;
-        break;
-      default: focused_panel->UIChar(ch); break;
       }
       // Look for transfers between panels
       if (focused_panel == design_tree_panel_.get()) {

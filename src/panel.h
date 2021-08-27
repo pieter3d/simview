@@ -28,6 +28,9 @@ class Panel : public TextReceiver {
   // accordingly.
   virtual bool Search(bool search_down) { return false; }
   virtual bool Searchable() const { return false; }
+  // When this returns true and this panel has focus, it recieves all keyboard
+  // input, global shortcuts are bypassed.
+  virtual bool Modal() const { return false; }
 
  protected:
   virtual int NumLines() const = 0;
