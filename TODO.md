@@ -19,3 +19,5 @@ Stuff that is still pending to be fixed or implemented.
 * Expose nets in functions and tasks
 * Expose local variables in always blocks?
 * tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`
+* Time multiplier for waves (e.g. wave 1 unit is really X us/ns/ps/)
+* Cursor snap to value in waves

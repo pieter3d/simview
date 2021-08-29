@@ -81,8 +81,9 @@ UI::UI() : search_box_("/") {
   keypad(stdscr, true);
   noecho();
   nonl();       // don't translate the enter key
-  halfdelay(3); // Update async things every 300ms.
   SetupColors();
+  // TODO - async needed?
+  //halfdelay(3); // Update async things every 300ms.
 
   // Create all UI panels.
   layout_.has_design = Workspace::Get().Design() != nullptr;

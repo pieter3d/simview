@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "absl/strings/str_format.h"
 #include "event_control.h"
 #include "gen_scope.h"
 #include "gen_scope_array.h"
@@ -251,4 +252,24 @@ bool EquivalentNet(const UHDM::any *a, const UHDM::any *b) {
   return a->VpiName() == b->VpiName() && mod_a == mod_b;
 }
 
+int NumDecimalDigits(int n) {
+  int ret = 0;
+  do {
+    ret++;
+    n /= 10;
+  } while (n != 0);
+  return ret;
+}
+
+std::string AddDigitSeparators(uint64_t val) {
+  std::string val_digits = absl::StrFormat("%ld", val);
+  std::string val_with_separators;
+  for (int i = 0; i < val_digits.size(); ++i) {
+    val_with_separators += val_digits[i];
+    if (i < (val_digits.size() - 1) && (val_digits.size() - 1 - i) % 3 == 0) {
+      val_with_separators += '_';
+    }
+  }
+  return val_with_separators;
+}
 } // namespace sv

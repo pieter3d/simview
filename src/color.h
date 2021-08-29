@@ -30,6 +30,11 @@ constexpr int kSourceValuePair = 23;
 constexpr int kSignalToggleOnPair = 24;
 constexpr int kSignalToggleOffPair = 25;
 constexpr int kSignalFilterPair = 26;
+constexpr int kWavesTimeTickPair = 27;
+constexpr int kWavesTimeValuePair = 28;
+constexpr int kWavesCursorPair = 29;
+constexpr int kWavesMarkerPair = 30;
+constexpr int kWavesDeltaPair = 31;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);

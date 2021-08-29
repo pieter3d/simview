@@ -10,7 +10,7 @@ void SetupColors() {
   if (has_colors()) {
     start_color();
     init_pair(kBorderPair, 8, kBackground);       // gray
-    init_pair(kFocusBorderPair, 11, kBackground); // yellow
+    init_pair(kFocusBorderPair, 13, kBackground); // magenta
     init_pair(kOverflowTextPair, 9, kBackground); // bright red
     init_pair(kTextInputPair, 15, 5);             // white on purple
     init_pair(kTextInputRejectPair, 15, 1);       // white on red
@@ -32,9 +32,14 @@ void SetupColors() {
     init_pair(kSourceParamPair, 5, kBackground);      // Purple
     init_pair(kSourceInstancePair, COLOR_CYAN, kBackground);
     init_pair(kSourceValuePair, 10, kBackground);    // Bright green
-    init_pair(kSignalToggleOnPair, 2, kBackground);  // Green
-    init_pair(kSignalToggleOffPair, 1, kBackground); // Red
-    init_pair(kSignalFilterPair, 12, kBackground); // Bright blue
+    init_pair(kSignalToggleOnPair, 12, kBackground); // Bright blue
+    init_pair(kSignalToggleOffPair, 8, kBackground); // Grey
+    init_pair(kSignalFilterPair, 12, kBackground);   // Bright blue
+    init_pair(kWavesTimeTickPair, 12, kBackground);  // Bright blue
+    init_pair(kWavesTimeValuePair, 8, kBackground);  // Grey
+    init_pair(kWavesCursorPair, 11, kBackground);    // Yellow
+    init_pair(kWavesMarkerPair, 15, kBackground);    // White
+    init_pair(kWavesDeltaPair, 6, kBackground);      // Cyan
     use_default_colors();
   }
 }

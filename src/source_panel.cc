@@ -33,15 +33,6 @@ void trim_string(std::string &s) {
   if (s[s.size() - 1] == '\n') s.erase(s.size() - 1, 1);
 }
 
-int num_decimal_digits(int n) {
-  int ret = 0;
-  do {
-    ret++;
-    n /= 10;
-  } while (n != 0);
-  return ret;
-}
-
 } // namespace
 
 std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
@@ -49,7 +40,7 @@ std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
   // Compute width of the line numbers. Minus 1 to account for the header, but
   // plus one since line numbers start at 1. Add one to the final width to
   // account for the line number margin.
-  int linenum_width = 1 + num_decimal_digits(scroll_row_ + getmaxy(w_) - 1);
+  int linenum_width = 1 + NumDecimalDigits(scroll_row_ + getmaxy(w_) - 1);
   return std::pair(line_idx_ - scroll_row_ + 1,
                    col_idx_ - scroll_col_ + linenum_width);
 }
@@ -106,7 +97,7 @@ void SourcePanel::Draw() {
   }
   const int win_h = getmaxy(w_);
   const int win_w = getmaxx(w_);
-  const int max_digits = num_decimal_digits(scroll_row_ + win_h - 1);
+  const int max_digits = NumDecimalDigits(scroll_row_ + win_h - 1);
   SetColor(w_, kSourceHeaderPair);
   mvwaddnstr(w_, 0, 0, header_.c_str(), win_w);
 
@@ -129,7 +120,7 @@ void SourcePanel::Draw() {
     int line_idx = y - 1 + scroll_row_;
     if (line_idx >= lines_.size()) break;
     const int line_num = line_idx + 1;
-    const int line_num_size = num_decimal_digits(line_num);
+    const int line_num_size = NumDecimalDigits(line_num);
     const bool active = line_num >= start_line_ && line_num <= end_line_;
     const int text_color = active ? kSourceTextPair : kSourceInactivePair;
     SetColor(w_, line_idx == line_idx_ ? kSourceCurrentLineNrPair

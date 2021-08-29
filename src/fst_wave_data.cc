@@ -51,4 +51,15 @@ FstWaveData::FstWaveData(const std::string &file_name) {
 
 FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
 
+int FstWaveData::Log10TimeUnits() const {
+  return fstReaderGetTimescale(reader_);
+}
+
+std::pair<uint64_t, uint64_t> FstWaveData::TimeRange() const {
+  std::pair<uint64_t, uint64_t> range;
+  range.first = fstReaderGetStartTime(reader_);
+  range.second = fstReaderGetEndTime(reader_);
+  return range;
+}
+
 } // namespace sv

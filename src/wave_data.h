@@ -35,6 +35,9 @@ class WaveData {
     std::vector<Signal> signals;
   };
   virtual ~WaveData() {}
+  // returns -9 for nanoseconds, -6 for microseconds, etc.
+  virtual int Log10TimeUnits() const = 0;
+  virtual std::pair<uint64_t, uint64_t> TimeRange() const = 0;
   const SignalScope &Root() const { return root_; }
 
  protected:

@@ -10,7 +10,10 @@ namespace sv {
 
 // Removes the work@ prefix from a string.
 std::string StripWorklib(const std::string &s);
+int NumDecimalDigits(int n);
+std::string AddDigitSeparators(uint64_t val);
 
+// ------------- UHDM Utilities --------------
 bool IsTraceable(const UHDM::any *item);
 void GetDriversOrLoads(const UHDM::any *item, bool drivers,
                        std::vector<const UHDM::any *> &list);
