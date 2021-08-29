@@ -1,7 +1,7 @@
 #pragma once
 
 #include "tree_panel.h"
-#include "wave_tree_item.h"
+#include "wavedata_tree_item.h"
 #include <memory>
 
 namespace sv {

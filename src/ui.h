@@ -5,9 +5,8 @@
 #include "source_panel.h"
 #include "text_input.h"
 #include "wave_signals_panel.h"
-#include "wave_tree_panel.h"
+#include "wavedata_tree_panel.h"
 #include "waves_panel.h"
-#include "workspace.h"
 #include <memory>
 
 namespace sv {
