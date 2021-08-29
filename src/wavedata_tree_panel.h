@@ -6,6 +6,9 @@
 
 namespace sv {
 
+// Holds and presents the wave data from the workspace in a browseable tree. The
+// actual signals at each hierarchy level are not shown here, those are
+// displayed using the WaveSignalsPanel.
 class WaveTreePanel : public TreePanel {
  public:
   WaveTreePanel();

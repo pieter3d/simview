@@ -7,6 +7,9 @@
 
 namespace sv {
 
+// Lists all signals from a single hierarchy level out of the workspace wave
+// data. The TreePanel class is used for nice drawing and scrolling, but there
+// is no actual tree type data here, it's just a flat list.
 class WaveSignalsPanel : public TreePanel {
  public:
   WaveSignalsPanel();
