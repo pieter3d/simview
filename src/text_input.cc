@@ -19,11 +19,12 @@ void TextInput::Reset() {
   scroll_ = 0;
   history_idx_ = -1;
   text_ = "";
-  rx_reject_ = false;
+  rx_okay_ = false;
 }
 
 void TextInput::Draw(WINDOW *w) const {
-  SetColor(w, (text_.empty() || rx_reject_ || receiver_ == nullptr)
+  SetColor(w, (text_.empty() || rx_okay_ ||
+               (receiver_ == nullptr && validator_ == nullptr))
                   ? kTextInputPair
                   : kTextInputRejectPair);
   wmove(w, row_, col_);
@@ -133,13 +134,13 @@ TextInput::InputState TextInput::HandleKey(int key) {
   }
   if (receiver_ != nullptr) {
     if (state == kTyping && text_changed) {
-      rx_reject_ = receiver_->ReceiveText(text_, /*preview*/ true);
+      rx_okay_ = receiver_->ReceiveText(text_, /*preview*/ true);
     } else if (state != kTyping) {
       receiver_->ReceiveText(text_, /*preview*/ false);
       Reset();
     }
   } else if (validator_ != nullptr && state == kTyping && text_changed) {
-    rx_reject_ = validator_(text_);
+    rx_okay_ = validator_(text_);
   }
   return state;
 }

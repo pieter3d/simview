@@ -51,7 +51,7 @@ class TextInput {
   int width_ = 0;
   TextReceiver *receiver_ = nullptr;
   Validator validator_ = nullptr;
-  bool rx_reject_ = false;
+  bool rx_okay_ = false;
   std::string text_;
   std::string saved_text_;
   int cursor_pos_ = 0;

@@ -14,8 +14,7 @@ int NumDecimalDigits(int n);
 std::string AddDigitSeparators(uint64_t val);
 // Attempt to parse time. If successful, returns the time and the log10 units.
 // If the string doesn't contain any specific units, the default units are used.
-std::optional<std::pair<uint64_t, int>> ParseTime(const std::string &s,
-                                                  int default_unit);
+std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit);
 
 // ------------- UHDM Utilities --------------
 bool IsTraceable(const UHDM::any *item);

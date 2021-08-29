@@ -6,6 +6,7 @@
 #include "module.h"
 #include "ref_obj.h"
 #include <cwctype>
+#include <optional>
 #include <uhdm/headers/assignment.h>
 #include <uhdm/headers/begin.h>
 #include <uhdm/headers/bit_select.h>
@@ -274,8 +275,7 @@ std::string AddDigitSeparators(uint64_t val) {
   return val_with_separators;
 }
 
-std::optional<std::pair<uint64_t, int>> ParseTime(const std::string &s,
-                                                  int default_unit) {
+std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit) {
   if (s.empty()) return std::nullopt;
   std::string t;
   // First strip any underscores or apostrophe's.
@@ -288,7 +288,7 @@ std::optional<std::pair<uint64_t, int>> ParseTime(const std::string &s,
          (t[suffix_pos - 1] < '0' || t[suffix_pos - 1] > '9')) {
     suffix_pos--;
   }
-  int units = default_unit;
+  int units = smallest_unit;
   if (suffix_pos > 0 && suffix_pos < t.size()) {
     const std::string suffix = t.substr(suffix_pos);
     if (suffix == "as") {
@@ -311,7 +311,12 @@ std::optional<std::pair<uint64_t, int>> ParseTime(const std::string &s,
       return std::nullopt;
     }
   }
-  return std::pair(std::stol(t.substr(0, suffix_pos)), units);
+  try {
+    const uint64_t val = std::stol(t.substr(0, suffix_pos));
+    return pow(10, units - smallest_unit) * val;
+  } catch (std::exception &e) {
+  }
+  return std::nullopt;
 }
 
 } // namespace sv

@@ -20,9 +20,16 @@ WavesPanel::WavesPanel() : time_input_("goto time:") {
   for (int i = 0; i < 10; ++i) {
     numbered_marker_times_[i] = 0;
   }
-  time_input_.SetDims(1, 0, getmaxx(w_));
   time_unit_ = wave_data_->Log10TimeUnits();
   time_unit_ -= time_unit_ % 3; // Align to an SI unit.
+  time_input_.SetDims(1, 0, getmaxx(w_));
+  time_input_.SetValdiator([&](const std::string &s) {
+    auto parsed = ParseTime(s, time_unit_);
+    if (!parsed) return false;
+    const uint64_t new_time = *parsed;
+    return new_time >= wave_data_->TimeRange().first &&
+           new_time <= wave_data_->TimeRange().second;
+  });
 }
 
 void WavesPanel::CycleTimeUnits() {
@@ -149,7 +156,7 @@ void WavesPanel::Draw() {
       const int row = vline_row(wave_x + marker_pos);
       mvwvline(w_, row, col, ACS_VLINE, max_h - row);
       if (marker_pos + marker_label.size() < max_w) {
-        mvwaddstr(w_, row, col + 1, marker_label.c_str());
+        mvwaddstr(w_, row, col, marker_label.c_str());
       }
     }
   }
@@ -168,7 +175,7 @@ void WavesPanel::Draw() {
 }
 
 void WavesPanel::UIChar(int ch) {
-  // Conveniene.
+  // Convenience.
   double time_per_char = std::max(1.0, TimePerChar());
   if (marker_selection_) {
     if (ch >= '0' && ch <= '9') {
@@ -181,13 +188,15 @@ void WavesPanel::UIChar(int ch) {
       inputting_time_ = false;
       if (state == TextInput::kDone) {
         if (auto parsed = ParseTime(time_input_.Text(), time_unit_)) {
-          uint64_t new_time =
-              parsed->first *
-              pow(10, parsed->second - wave_data_->Log10TimeUnits());
+          const uint64_t new_time = *parsed;
+          // Make sure the parsed time actually is inside the wave data.
           if (new_time >= wave_data_->TimeRange().first &&
               new_time <= wave_data_->TimeRange().second) {
             cursor_time_ = new_time;
             const uint64_t current_time_span = right_time_ - left_time_;
+            // Ajust left and right bounds if the new time is outside the
+            // currently displaye range. Attempt to keep the same zoom scale by
+            // keep the time difference between left and right the same.
             if (cursor_time_ > right_time_) {
               right_time_ = cursor_time_;
               left_time_ = right_time_ - current_time_span;
@@ -195,7 +204,11 @@ void WavesPanel::UIChar(int ch) {
               left_time_ = cursor_time_;
               right_time_ = left_time_ + current_time_span;
             }
-            cursor_pos_ = (cursor_time_ - left_time_) / time_per_char;
+            // Don't let the cursor go off the screen.
+            const int max_cursor_pos =
+                getmaxx(w_) - 1 - (name_size_ + value_size_);
+            cursor_pos_ = std::min((double)max_cursor_pos,
+                                   (cursor_time_ - left_time_) / time_per_char);
           }
         }
       }
@@ -231,8 +244,8 @@ void WavesPanel::UIChar(int ch) {
     case 'l':
     case 0x105: { // right
       const int step = (ch == 'L' || ch == 0x192) ? 10 : 1;
-      int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
-      int max_time = wave_data_->TimeRange().second;
+      const int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
+      const int max_time = wave_data_->TimeRange().second;
       if (cursor_pos_ == max_cursor_pos && right_time_ < max_time) {
         left_time_ =
             std::min((double)max_time, left_time_ + step * time_per_char);
@@ -249,7 +262,7 @@ void WavesPanel::UIChar(int ch) {
     case 'z':
     case 'Z': {
       // No point in going further than this.
-      double scale = ch == 'z' ? kZoomStep : (1.0 / kZoomStep);
+      const double scale = ch == 'z' ? kZoomStep : (1.0 / kZoomStep);
       if (scale < 1 && right_time_ - left_time_ < 10) break;
       left_time_ =
           std::max(0.0, cursor_time_ - scale * (cursor_time_ - left_time_));
@@ -276,7 +289,7 @@ void WavesPanel::UIChar(int ch) {
           "Go to time (%s):", kTimeUnits[(time_unit_ - kSmallestUnit) / 3]));
       inputting_time_ = true;
       break;
-    case 'u': CycleTimeUnits(); break;
+    case 't': CycleTimeUnits(); break;
     default: Panel::UIChar(ch);
     }
   }
@@ -294,14 +307,15 @@ std::string WavesPanel::Tooltip() const {
   tt += "vV:values  ";
   tt += "h:hierarchy  "; // TODO
   tt += "g:goto  ";
-  tt += "u:units  ";
+  tt += "t:units  ";
   tt += "eE:edge  "; // TODO
   tt += "mM:marker  ";
-  tt += "i:insert  ";  // TODO
-  tt += "b:blank  ";   // TODO
-  tt += "c:color  ";   // TODO
-  tt += "r:radix  ";   // TODO
-  tt += "aA:analog  "; // TODO
+  tt += "i:insert  ";   // TODO
+  tt += "ud:up/down  "; // TODO
+  tt += "b:blank  ";    // TODO
+  tt += "c:color  ";    // TODO
+  tt += "r:radix  ";    // TODO
+  tt += "aA:analog  ";  // TODO
   return tt;
 }
 } // namespace sv
