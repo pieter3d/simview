@@ -24,14 +24,17 @@ class TextReceiver {
 // notified.
 class TextInput {
  public:
+  using Validator = std::function<bool(const std::string &)>;
   enum InputState {
     kTyping,
     kCancelled,
     kDone,
   };
   TextInput(const std::string &prompt) : prompt_(prompt) {}
+  void SetPrompt(const std::string &prompt) { prompt_ = prompt; }
   void SetDims(int row, int col, int width);
   void SetReceiver(TextReceiver *receiver) { receiver_ = receiver; };
+  void SetValdiator(Validator v) { validator_ = v; };
   void Reset();
   void Draw(WINDOW *w) const;
   std::pair<int, int> CursorPos() const;
@@ -42,11 +45,12 @@ class TextInput {
  private:
   void FixScroll();
 
-  const std::string prompt_;
+  std::string prompt_;
   int row_ = 0;
   int col_ = 0;
   int width_ = 0;
   TextReceiver *receiver_ = nullptr;
+  Validator validator_ = nullptr;
   bool rx_reject_ = false;
   std::string text_;
   std::string saved_text_;

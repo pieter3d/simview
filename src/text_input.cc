@@ -138,6 +138,8 @@ TextInput::InputState TextInput::HandleKey(int key) {
       receiver_->ReceiveText(text_, /*preview*/ false);
       Reset();
     }
+  } else if (validator_ != nullptr && state == kTyping && text_changed) {
+    rx_reject_ = validator_(text_);
   }
   return state;
 }

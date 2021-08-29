@@ -38,8 +38,8 @@ class UI {
     bool has_design = false;
     float f_wave_y = 0.5;
     float f_src_x = 0.3;
-    float f_signals_x = 0.2;
-    float f_waves_x = 0.35;
+    float f_signals_x = 0.15;
+    float f_waves_x = 0.28;
     // The wave hierarchy picker panels can be hidden.
     bool show_wave_picker = true;
     // This is calculated from the ratio's above.

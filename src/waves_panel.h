@@ -1,6 +1,7 @@
 #pragma once
 
 #include "panel.h"
+#include "text_input.h"
 #include "wave_data.h"
 
 namespace sv {
@@ -14,8 +15,13 @@ class WavesPanel : public Panel {
   void UIChar(int ch) final;
   int NumLines() const final { return 0; }
   std::string Tooltip() const final;
+  void Resized() final;
+  std::optional<std::pair<int, int>> CursorLocation() const final;
+  bool Modal() const final { return inputting_time_; }
 
  private:
+  double TimePerChar() const;
+  void CycleTimeUnits();
   int cursor_pos_ = 0;
   uint64_t cursor_time_ = 0;
   uint64_t marker_time_ = 0;
@@ -23,12 +29,15 @@ class WavesPanel : public Panel {
   uint64_t left_time_ = 0;
   uint64_t right_time_ = 0;
   bool marker_selection_ = false;
+  TextInput time_input_;
+  bool inputting_time_ = false;
+  int time_unit_ = -9; // nanoseconds.
+
   // Charachters reserved for the signal name and value.
   int name_size_ = 15;
   int value_size_ = 12;
   // Convenience to avoid repeated workspace Get() calls.
   const WaveData *wave_data_;
-  double TimePerChar() const;
 };
 
 } // namespace sv
