@@ -290,7 +290,7 @@ void WavesPanel::UIChar(int ch) {
       inputting_time_ = true;
       break;
     case 't': CycleTimeUnits(); break;
-    default: Panel::UIChar(ch);
+    default: TreePanel::UIChar(ch);
     }
   }
 }

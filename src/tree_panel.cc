@@ -7,8 +7,6 @@ void TreePanel::Draw() {
   werase(w_);
   int win_w, win_h;
   getmaxyx(w_, win_h, win_w);
-  // If the window was resized and the ui line position is now hidden, move it
-  // up.
   int max_string_len = 0;
   for (int y = header_lines_; y < win_h; ++y) {
     const int list_idx = y + scroll_row_ - header_lines_;
@@ -119,7 +117,6 @@ void TreePanel::UIChar(int ch) {
   case 0x105: // right
     if (ui_col_scroll_ < ui_max_col_scroll_) ui_col_scroll_++;
     break;
-  case 'k':
   default: Panel::UIChar(ch);
   }
 }

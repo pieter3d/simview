@@ -1,6 +1,7 @@
 #include "source_panel.h"
 #include "color.h"
 #include "utils.h"
+#include "uhdm_utils.h"
 #include <curses.h>
 #include <filesystem>
 #include <fstream>

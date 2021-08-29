@@ -1,6 +1,6 @@
 #pragma once
 
-#include "panel.h"
+#include "tree_panel.h"
 #include "text_input.h"
 #include "wave_data.h"
 
@@ -8,12 +8,11 @@ namespace sv {
 
 // The constructor pulls data from the Workspace wave data. Bad things happen if
 // there is none.
-class WavesPanel : public Panel {
+class WavesPanel : public TreePanel {
  public:
   WavesPanel();
   void Draw() final;
   void UIChar(int ch) final;
-  int NumLines() const final { return 0; }
   std::string Tooltip() const final;
   void Resized() final;
   std::optional<std::pair<int, int>> CursorLocation() const final;

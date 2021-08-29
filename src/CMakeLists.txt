@@ -28,6 +28,7 @@ add_executable(simview
   text_input.cc
   tree_data.cc
   tree_panel.cc
+  uhdm_utils.cc
   ui.cc
   utils.cc
   wave_data.cc
