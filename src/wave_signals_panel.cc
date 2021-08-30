@@ -9,10 +9,10 @@ void WaveSignalsPanel::Draw() {
   TreePanel::Draw();
   // Draw the header.
   wmove(w_, 0, 0);
-  const std::string toggles = " [sig] [out] [in] [bidir]";
-  const bool flags[] = {hide_signals_, hide_outputs_, hide_inputs_,
+  const std::string toggles = " [net] [in] [out] [inout]";
+  const bool flags[] = {hide_signals_, hide_inputs_, hide_outputs_,
                         hide_inouts_};
-  const int pos[] = {1, 7, 13, 18};
+  const int pos[] = {1, 7, 12, 18};
   int idx = 0;
   int max = std::min((int)toggles.size(), getmaxx(w_));
   for (int x = 0; x < max; ++x) {
@@ -86,6 +86,13 @@ void WaveSignalsPanel::SetScope(const WaveData::SignalScope *s) {
   SetLineAndScroll(0);
 }
 
+std::optional<const WaveData::Signal *> WaveSignalsPanel ::SignalForWaves() {
+  if (signal_for_waves_ == nullptr) return std::nullopt;
+  auto ret = signal_for_waves_;
+  signal_for_waves_ = nullptr;
+  return ret;
+}
+
 void WaveSignalsPanel::UIChar(int ch) {
   if (editing_filter_) {
     const auto state = filter_input_.HandleKey(ch);
@@ -99,22 +106,22 @@ void WaveSignalsPanel::UIChar(int ch) {
     }
   } else {
     switch (ch) {
-    case 'w': /* TODO */ break;
+    case 'w': signal_for_waves_ = signals_[line_idx_].Signal(); break;
     case 'W': /* TODO */ break;
     case 'f': editing_filter_ = true; break;
-    case 's':
+    case '1':
       hide_signals_ = !hide_signals_;
       SetScope(scope_);
       break;
-    case 'o':
-      hide_outputs_ = !hide_outputs_;
-      SetScope(scope_);
-      break;
-    case 'i':
+    case '2':
       hide_inputs_ = !hide_inputs_;
       SetScope(scope_);
       break;
-    case 'b':
+    case '3':
+      hide_outputs_ = !hide_outputs_;
+      SetScope(scope_);
+      break;
+    case '4':
       hide_inouts_ = !hide_inouts_;
       SetScope(scope_);
       break;
@@ -127,7 +134,8 @@ std::string WaveSignalsPanel::Tooltip() const {
   std::string tt = "w:add to waves  ";
   tt += "W:add all to waves  ";
   tt += "f:filter  ";
-  tt += "soib:toggle types  ";
+  tt += "1234:toggle types  ";
+  if (Workspace::Get().Design() != nullptr) tt += "d:source  "; // TODO
   return tt;
 }
 

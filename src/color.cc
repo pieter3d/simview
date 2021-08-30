@@ -31,15 +31,18 @@ void SetupColors() {
     init_pair(kSourceInactivePair, 8, kBackground);   // Grey
     init_pair(kSourceParamPair, 5, kBackground);      // Purple
     init_pair(kSourceInstancePair, COLOR_CYAN, kBackground);
-    init_pair(kSourceValuePair, 10, kBackground);    // Bright green
-    init_pair(kSignalToggleOnPair, 12, kBackground); // Bright blue
-    init_pair(kSignalToggleOffPair, 8, kBackground); // Grey
-    init_pair(kSignalFilterPair, 12, kBackground);   // Bright blue
-    init_pair(kWavesTimeTickPair, 12, kBackground);  // Bright blue
-    init_pair(kWavesTimeValuePair, 8, kBackground);  // Grey
-    init_pair(kWavesCursorPair, 11, kBackground);    // Yellow
-    init_pair(kWavesMarkerPair, 15, kBackground);    // White
-    init_pair(kWavesDeltaPair, 6, kBackground);      // Cyan
+    init_pair(kSourceValuePair, 10, kBackground);     // Bright green
+    init_pair(kSignalToggleOnPair, 12, kBackground);  // Bright blue
+    init_pair(kSignalToggleOffPair, 8, kBackground);  // Grey
+    init_pair(kSignalFilterPair, 12, kBackground);    // Bright blue
+    init_pair(kWavesTimeTickPair, 12, kBackground);   // Bright blue
+    init_pair(kWavesTimeValuePair, 8, kBackground);   // Grey
+    init_pair(kWavesCursorPair, 11, kBackground);     // Yellow
+    init_pair(kWavesMarkerPair, 15, kBackground);     // White
+    init_pair(kWavesDeltaPair, 6, kBackground);       // Cyan
+    init_pair(kWavesSignalNamePair, 15, kBackground); // White
+    init_pair(kWavesSignalValuePair, 6, kBackground); // Cyan
+    init_pair(kWavesGroupPair, 10, kBackground);      // Bright green
     use_default_colors();
   }
 }

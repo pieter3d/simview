@@ -263,6 +263,10 @@ void UI::EventLoop() {
         if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
           wave_signals_panel_->SetScope(*scope);
         }
+      } else if (focused_panel == wave_signals_panel_.get()) {
+        if (const auto signal = wave_signals_panel_->SignalForWaves()) {
+          waves_panel_->AddSignal(*signal);
+        }
       }
     }
     if (quit) break;

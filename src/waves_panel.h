@@ -44,6 +44,7 @@ class WavesPanel : public TreePanel {
   bool inputting_name_ = false;
   bool inputting_time_ = false;
   int time_unit_ = -9; // nanoseconds.
+  int insert_pos_ = 0;
 
   // Charachters reserved for the signal name and value.
   int name_size_ = 15;

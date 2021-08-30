@@ -11,6 +11,7 @@ class SignalTreeItem : public TreeItem {
   const std::string &Name() const final;
   const std::string &Type() const final;
   bool AltType() const final;
+  const WaveData::Signal *Signal() const { return &signal_; }
   // Flat data, no tree stuff.
   virtual bool Expandable() const final { return false; }
   virtual int NumChildren() const final { return 0; }

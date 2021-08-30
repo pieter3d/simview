@@ -21,6 +21,7 @@ class WaveTreeItem : public TreeItem {
   // Accessors
   const WaveData::Signal *Signal() const { return signal_; }
   const std::string &GroupName() const { return group_name_; }
+  bool IsGroup() const { return !group_name_.empty(); }
   void SetGroupName(const std::string &s) { group_name_ = s; }
   int AnalogSize() const { return analog_size_; }
   void SetAnalogSize(int a) { analog_size_ = a; }

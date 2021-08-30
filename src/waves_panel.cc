@@ -172,8 +172,32 @@ void WavesPanel::Draw() {
   mvwvline(w_, cursor_row, cursor_col, ACS_VLINE, max_h - cursor_row);
 
   // Render signal name list. Using the the TreePanel data here since it has the
-  // flattened list with proper tree configuration etc.
+  // flattened list with proper tree state etc.
   for (int i = 0; i < data_.ListSize(); ++i) {
+    if (i == line_idx_) {
+      wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
+    }
+    auto item = dynamic_cast<WaveTreeItem *>(data_[i]);
+    const int len = item->Name().size();
+
+    if (item->IsGroup()) {
+      // TODO
+    } else {
+      wmove(w_, i + 1, item->Depth());
+      SetColor(w_, kWavesSignalNamePair);
+      for (int j = 0; j < len; ++j) {
+        const int xpos = item->Depth() + j;
+        if (xpos > name_size_) break;
+        // Show an overflow indicator if too narrow.
+        if (xpos == name_size_ - 1 && j < len - 1) {
+          SetColor(w_, kOverflowTextPair);
+          waddch(w_, '>');
+        } else {
+          waddch(w_, item->Name()[j]);
+        }
+      }
+    }
+    wattrset(w_, A_NORMAL);
   }
 }
 
@@ -326,7 +350,7 @@ std::string WavesPanel::Tooltip() const {
   if (marker_selection_) {
     return "0-9:marker selection";
   }
-  if (Workspace::Get().Design() != nullptr) tt += "s:source  "; // TODO
+  if (Workspace::Get().Design() != nullptr) tt += "d:source  "; // TODO
   tt += "F:zoom full  ";
   tt += "zZ:zoom  ";
   tt += "sS:signals  ";
@@ -337,7 +361,7 @@ std::string WavesPanel::Tooltip() const {
   tt += "eE:edge  "; // TODO
   tt += "mM:marker  ";
   tt += "i:insert  ";   // TODO
-  tt += "ud:up/down  "; // TODO
+  tt += "UD:up/down  "; // TODO
   tt += "b:blank  ";    // TODO
   tt += "c:color  ";    // TODO
   tt += "r:radix  ";    // TODO
