@@ -30,8 +30,6 @@ WavesPanel::WavesPanel() : time_input_("goto time:"), name_input_("") {
     return new_time >= wave_data_->TimeRange().first &&
            new_time <= wave_data_->TimeRange().second;
   });
-  // No more-expanders in data the user has specifically added.
-  data_.SetMoreEnable(false);
 }
 
 void WavesPanel::CycleTimeUnits() {
@@ -64,6 +62,26 @@ std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
   return time_input_.CursorPos();
 }
 
+std::pair<int, int> WavesPanel::ScrollArea() const {
+  // Account for the ruler.
+  int h, w;
+  getmaxyx(w_, h, w);
+  return {h - 1, w};
+}
+
+void WavesPanel::UpdateVisibleSignals() {
+  visible_signals_.clear();
+  int trim_depth = 0;
+  for (const auto &item : signals_) {
+    if (trim_depth != 0 && item.depth > trim_depth) continue;
+    // Stop trimming when reaching an item that is back at legal depth.
+    if (item.depth <= trim_depth) trim_depth = 0;
+    visible_signals_.push_back(&item);
+    // Set a trimming depth if the current item is a collapsed group.
+    if (!item.group_name.empty() && item.collapsed) trim_depth = item.depth + 1;
+  }
+}
+
 void WavesPanel::Draw() {
   werase(w_);
   const int wave_x = name_size_ + value_size_;
@@ -94,8 +112,8 @@ void WavesPanel::Draw() {
 
   // Fill the ruler with dots first.
   SetColor(w_, kWavesTimeTickPair);
-  wmove(w_, 0, 0);
-  for (int i = 0; i < max_w; ++i) {
+  wmove(w_, 0, wave_x);
+  for (int i = wave_x; i < max_w; ++i) {
     waddch(w_, '.');
   }
   // Draw as many ticks as possible, forming the time ruler.
@@ -173,21 +191,24 @@ void WavesPanel::Draw() {
 
   // Render signal name list. Using the the TreePanel data here since it has the
   // flattened list with proper tree state etc.
-  for (int i = 0; i < data_.ListSize(); ++i) {
-    if (i == line_idx_) {
+  for (int row = 1; row < max_h; ++row) {
+    const int list_idx = row - 1 + scroll_row_;
+    if (list_idx >= visible_signals_.size()) break;
+    if (list_idx == line_idx_) {
       wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
     }
-    auto item = dynamic_cast<WaveTreeItem *>(data_[i]);
+    const auto &item = visible_signals_[list_idx];
     const int len = item->Name().size();
 
-    if (item->IsGroup()) {
+    if (!item->group_name.empty()) {
       // TODO
     } else {
-      wmove(w_, i + 1, item->Depth());
+      // Left edge, +1 to leave room for the insert marker.
+      wmove(w_, row, item->depth + 1);
       SetColor(w_, kWavesSignalNamePair);
       for (int j = 0; j < len; ++j) {
-        const int xpos = item->Depth() + j;
-        if (xpos > name_size_) break;
+        const int xpos = item->depth + j + 1;
+        if (xpos >= name_size_) break;
         // Show an overflow indicator if too narrow.
         if (xpos == name_size_ - 1 && j < len - 1) {
           SetColor(w_, kOverflowTextPair);
@@ -198,6 +219,13 @@ void WavesPanel::Draw() {
       }
     }
     wattrset(w_, A_NORMAL);
+  }
+  // Add the insert position marker
+  const int insert_marker_row = insert_pos_ - scroll_row_ + 1;
+  if (insert_marker_row >= 1 && insert_marker_row < max_h) {
+    SetColor(w_, kWavesInsertPair);
+    wmove(w_, insert_marker_row, 0);
+    waddch(w_, '>');
   }
 }
 
@@ -330,7 +358,7 @@ void WavesPanel::UIChar(int ch) {
       inputting_time_ = true;
       break;
     case 't': CycleTimeUnits(); break;
-    default: TreePanel::UIChar(ch);
+    default: Panel::UIChar(ch);
     }
   }
   if (time_changed) UpdateValues();
@@ -338,7 +366,9 @@ void WavesPanel::UIChar(int ch) {
 }
 
 void WavesPanel::AddSignal(const WaveData::Signal *signal) {
+  // TODO, add this at the proper insert point, with proper depth.
   signals_.emplace_back(signal);
+  UpdateVisibleSignals();
 }
 
 void WavesPanel::UpdateValues() {}
@@ -363,9 +393,32 @@ std::string WavesPanel::Tooltip() const {
   tt += "i:insert  ";   // TODO
   tt += "UD:up/down  "; // TODO
   tt += "b:blank  ";    // TODO
+  tt += "x:delete  ";   // TODO
   tt += "c:color  ";    // TODO
   tt += "r:radix  ";    // TODO
   tt += "aA:analog  ";  // TODO
   return tt;
+}
+
+const std::string &WavesPanel::ListItem::Name() const {
+  if (!group_name.empty()) return group_name;
+  return signal->name;
+}
+
+void WavesPanel::ListItem::CycleRadix() {
+  switch (radix) {
+  case Radix::kHex: radix = Radix::kBinary; break;
+  case Radix::kBinary:
+    // Don't bother with decimal or float on huge values.
+    radix = signal->width > 64 ? Radix::kHex : Radix::kSignedDecimal;
+    break;
+  case Radix::kSignedDecimal: radix = Radix::kUnsignedDecimal; break;
+  case Radix::kUnsignedDecimal:
+    // Float only makes sense for fp32/fp64 formats.
+    radix = signal->width == 32 || signal->width == 64 ? Radix::kFloat
+                                                       : Radix::kHex;
+    break;
+  case Radix::kFloat: radix = Radix::kHex; break;
+  }
 }
 } // namespace sv

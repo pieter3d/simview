@@ -43,6 +43,7 @@ void SetupColors() {
     init_pair(kWavesSignalNamePair, 15, kBackground); // White
     init_pair(kWavesSignalValuePair, 6, kBackground); // Cyan
     init_pair(kWavesGroupPair, 10, kBackground);      // Bright green
+    init_pair(kWavesInsertPair, 11, kBackground);     // Yellow
     use_default_colors();
   }
 }

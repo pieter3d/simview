@@ -37,7 +37,6 @@ add_executable(simview
   wavedata_tree_panel.cc
   wave_signals_panel.cc
   waves_panel.cc
-  wave_tree_item.cc
   workspace.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})

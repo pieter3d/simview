@@ -38,6 +38,7 @@ constexpr int kWavesDeltaPair = 31;
 constexpr int kWavesSignalNamePair = 32;
 constexpr int kWavesSignalValuePair = 33;
 constexpr int kWavesGroupPair = 34;
+constexpr int kWavesInsertPair = 35;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);
