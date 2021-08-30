@@ -30,7 +30,8 @@ void TreeData::ToggleExpand(int idx) {
     std::vector<TreeItem *> new_entries;
     auto *parent = list_[get_parent_idx(idx)];
     for (int i = stopped_pos + 1; i < parent->NumChildren(); ++i) {
-      const int more_idx = (i - stopped_pos) >= kMaxExpandInstances ? i : 0;
+      const int more_idx =
+          (more_enabled_ && (i - stopped_pos) >= kMaxExpandInstances) ? i : 0;
       new_entries.push_back(parent->Child(i));
       new_entries.back()->SetDepth(item->Depth());
       new_entries.back()->SetMoreIdx(more_idx);
@@ -59,7 +60,7 @@ void TreeData::ToggleExpand(int idx) {
             list.push_back(child);
             child->SetDepth(item->Depth() + 1);
             // Expand anyway if there are only limited items to go.
-            if (i >= kMaxExpandInstances &&
+            if (more_enabled_ && i >= kMaxExpandInstances &&
                 (item->NumChildren() - 1) < kMaxExpandInstances) {
               child->SetMoreIdx(i);
               break;

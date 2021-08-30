@@ -12,17 +12,17 @@ std::string kParameterString = "[P]";
 const std::string &SignalTreeItem::Name() const { return signal_.name; }
 
 bool SignalTreeItem::AltType() const {
-  return signal_.type == WaveData::Signal::Type::kParameter;
+  return signal_.type == WaveData::Signal::kParameter;
 }
 
 const std::string &SignalTreeItem::Type() const {
-  if (signal_.type == WaveData::Signal::Type::kParameter) {
+  if (signal_.type == WaveData::Signal::kParameter) {
     return kParameterString;
   }
   switch (signal_.direction) {
-  case WaveData::Signal::Direction::kInput: return kInputString; break;
-  case WaveData::Signal::Direction::kOutput: return kOutputString; break;
-  case WaveData::Signal::Direction::kInout: return kInoutString; break;
+  case WaveData::Signal::kInput: return kInputString; break;
+  case WaveData::Signal::kOutput: return kOutputString; break;
+  case WaveData::Signal::kInout: return kInoutString; break;
   default: return kNetString;
   }
 }

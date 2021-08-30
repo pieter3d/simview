@@ -1,8 +1,9 @@
 #pragma once
 
-#include "tree_panel.h"
 #include "text_input.h"
+#include "tree_panel.h"
 #include "wave_data.h"
+#include "wave_tree_item.h"
 
 namespace sv {
 
@@ -17,10 +18,20 @@ class WavesPanel : public TreePanel {
   void Resized() final;
   std::optional<std::pair<int, int>> CursorLocation() const final;
   bool Modal() const final { return inputting_time_; }
+  void AddSignal(const WaveData::Signal *signal);
 
  private:
   double TimePerChar() const;
   void CycleTimeUnits();
+  void UpdateValues();
+  void UpdateWaves();
+  // List of root nodes. Either waves or groups of waves.
+  std::vector<WaveTreeItem> signals_;
+  // This is used to save the values, since deriving it from the wave database
+  // is potentially expensive.
+  std::unordered_map<const WaveData::Signal *, std::string> cached_values_;
+  std::unordered_map<const WaveData::Signal *, std::vector<WaveData::Sample>>
+      cached_waves_;
   int cursor_pos_ = 0;
   uint64_t cursor_time_ = 0;
   uint64_t marker_time_ = 0;
@@ -29,6 +40,8 @@ class WavesPanel : public TreePanel {
   uint64_t right_time_ = 0;
   bool marker_selection_ = false;
   TextInput time_input_;
+  TextInput name_input_;
+  bool inputting_name_ = false;
   bool inputting_time_ = false;
   int time_unit_ = -9; // nanoseconds.
 

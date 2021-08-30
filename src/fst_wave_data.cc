@@ -1,6 +1,7 @@
 #include "fst_wave_data.h"
 #include <stack>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace sv {
 
@@ -20,8 +21,10 @@ FstWaveData::FstWaveData(const std::string &file_name) {
         root_.name = name;
         stack.push(&root_);
       } else {
+        auto parent = stack.top();
         stack.top()->children.push_back({});
         stack.top()->children.back().name = name;
+        stack.top()->children.back().parent = parent;
         stack.push(&stack.top()->children.back());
       }
     } break;
@@ -31,18 +34,17 @@ FstWaveData::FstWaveData(const std::string &file_name) {
           .name = std::string(h->u.var.name, h->u.var.name_length),
           .width = h->u.var.length,
           .id = h->u.var.handle,
+          .scope = stack.top(),
       });
       auto &signal = stack.top()->signals.back();
       switch (h->u.var.direction) {
-      case FST_VD_IMPLICIT:
-        signal.direction = Signal::Direction::kInternal;
-        break;
-      case FST_VD_INOUT: signal.direction = Signal::Direction::kInout; break;
-      case FST_VD_INPUT: signal.direction = Signal::Direction::kInput; break;
-      case FST_VD_OUTPUT: signal.direction = Signal::Direction::kOutput; break;
+      case FST_VD_IMPLICIT: signal.direction = Signal::kInternal; break;
+      case FST_VD_INOUT: signal.direction = Signal::kInout; break;
+      case FST_VD_INPUT: signal.direction = Signal::kInput; break;
+      case FST_VD_OUTPUT: signal.direction = Signal::kOutput; break;
       }
       if (h->u.var.typ == FST_VT_VCD_PARAMETER) {
-        signal.type = Signal::Type::kParameter;
+        signal.type = Signal::kParameter;
       }
     } break;
     }
@@ -60,6 +62,64 @@ std::pair<uint64_t, uint64_t> FstWaveData::TimeRange() const {
   range.first = fstReaderGetStartTime(reader_);
   range.second = fstReaderGetEndTime(reader_);
   return range;
+}
+
+std::string FstWaveData::SignalValue(const Signal *signal,
+                                     uint64_t time) const {
+  // Allocated space for a null terminated string is required
+  std::string val(signal->width + 1, '\0');
+  fstReaderGetValueFromHandleAtTime(reader_, time, signal->id, val.data());
+  return val;
+}
+
+std::vector<WaveData::Sample>
+FstWaveData::SignalSamples(const Signal *signal, uint64_t start_time,
+                           uint64_t end_time) const {
+  // Use the batch version.
+  std::vector<const Signal *> sigs({signal});
+  return SignalSamples(sigs, start_time, end_time)[0];
+}
+
+std::vector<std::vector<WaveData::Sample>>
+FstWaveData::SignalSamples(const std::vector<const Signal *> &signals,
+                           uint64_t start_time, uint64_t end_time) const {
+  std::vector<std::vector<Sample>> samples(signals.size());
+  // Build a map to know where each result goes during the unpredictable order
+  // in callbacks.
+  std::unordered_map<uint32_t, uint32_t> id_map;
+  fstReaderClrFacProcessMaskAll(reader_);
+  int signal_index = 0;
+  for (const auto &s : signals) {
+    fstReaderSetFacProcessMask(reader_, s->id);
+    id_map[s->id] = signal_index++;
+  }
+  fstReaderSetLimitTimeRange(reader_, start_time, end_time);
+  // Wrap the locals in an object that can be passed to the callback.
+  struct Locals {
+    decltype(id_map) *wrapped_id_map;
+    decltype(samples) *wrapped_samples;
+    uint64_t wrapped_start_time;
+    uint64_t wrapped_end_time;
+  } locals;
+  locals.wrapped_id_map = &id_map;
+  locals.wrapped_samples = &samples;
+  locals.wrapped_start_time = start_time;
+  locals.wrapped_end_time = end_time;
+
+  fstReaderIterBlocks(
+      reader_,
+      +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,
+          const unsigned char *value) {
+        auto locals = reinterpret_cast<Locals *>(user_callback_data_pointer);
+        if (time < locals->wrapped_start_time ||
+            time > locals->wrapped_end_time) {
+          return;
+        }
+        (*locals->wrapped_samples)[(*locals->wrapped_id_map)[facidx]].push_back(
+            {.time = time, .value = reinterpret_cast<const char *>(value)});
+      },
+      &locals, nullptr);
+  return samples;
 }
 
 } // namespace sv

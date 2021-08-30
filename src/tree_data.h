@@ -13,12 +13,16 @@ class TreeData {
   void ToggleExpand(int idx);
   const TreeItem *operator[](int idx) const { return list_[idx]; }
   TreeItem *operator[](int idx) { return list_[idx]; }
+  void DeleteItem(int idx) { list_.erase(list_.begin() + idx); }
   void AddRoot(TreeItem *r) { list_.push_back(r); }
   void Clear() { list_.clear(); }
+  void SetMoreEnable(bool b) { more_enabled_ = b; }
 
  private:
   // TreeItem is an abstract class, so gotta use pointers.
   std::vector<TreeItem *> list_;
+  // Limit number of children expanded at any one time.
+  bool more_enabled_ = true;
 };
 
 } // namespace sv

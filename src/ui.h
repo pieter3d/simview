@@ -29,7 +29,7 @@ class UI {
 
   std::unique_ptr<DesignTreePanel> design_tree_panel_;
   std::unique_ptr<SourcePanel> source_panel_;
-  std::unique_ptr<WaveTreePanel> wave_tree_panel_;
+  std::unique_ptr<WaveDataTreePanel> wave_tree_panel_;
   std::unique_ptr<WaveSignalsPanel> wave_signals_panel_;
   std::unique_ptr<WavesPanel> waves_panel_;
   struct {

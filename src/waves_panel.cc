@@ -14,7 +14,7 @@ constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
 } // namespace
 
-WavesPanel::WavesPanel() : time_input_("goto time:") {
+WavesPanel::WavesPanel() : time_input_("goto time:"), name_input_("") {
   wave_data_ = Workspace::Get().Waves();
   std::tie(left_time_, right_time_) = wave_data_->TimeRange();
   for (int i = 0; i < 10; ++i) {
@@ -30,6 +30,8 @@ WavesPanel::WavesPanel() : time_input_("goto time:") {
     return new_time >= wave_data_->TimeRange().first &&
            new_time <= wave_data_->TimeRange().second;
   });
+  // No more-expanders in data the user has specifically added.
+  data_.SetMoreEnable(false);
 }
 
 void WavesPanel::CycleTimeUnits() {
@@ -52,7 +54,10 @@ double WavesPanel::TimePerChar() const {
   return (right_time_ - left_time_) / (double)wave_width;
 }
 
-void WavesPanel::Resized() { time_input_.SetDims(0, 0, getmaxx(w_)); }
+void WavesPanel::Resized() {
+  name_input_.SetDims(line_idx_ + 1, 0, name_size_);
+  time_input_.SetDims(0, 0, getmaxx(w_));
+}
 
 std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
   if (!inputting_time_) return std::nullopt;
@@ -166,17 +171,17 @@ void WavesPanel::Draw() {
   SetColor(w_, kWavesCursorPair);
   mvwvline(w_, cursor_row, cursor_col, ACS_VLINE, max_h - cursor_row);
 
-  // TODO: debug stuff.
-  //  mvwprintw(w_, 0, 0,
-  //            "time_per_tick: %ld, lr: [%ld %ld], time per char: %f"
-  //            " n/v: %d %d, marker: %ld",
-  //            time_per_tick, left_time_, right_time_, time_per_char,
-  //            name_size_, value_size_, marker_time_);
+  // Render signal name list. Using the the TreePanel data here since it has the
+  // flattened list with proper tree configuration etc.
+  for (int i = 0; i < data_.ListSize(); ++i) {
+  }
 }
 
 void WavesPanel::UIChar(int ch) {
   // Convenience.
   double time_per_char = std::max(1.0, TimePerChar());
+  bool time_changed = false;
+  bool range_changed = false;
   if (marker_selection_) {
     if (ch >= '0' && ch <= '9') {
       numbered_marker_times_[ch - '0'] = cursor_time_;
@@ -193,6 +198,7 @@ void WavesPanel::UIChar(int ch) {
           if (new_time >= wave_data_->TimeRange().first &&
               new_time <= wave_data_->TimeRange().second) {
             cursor_time_ = new_time;
+            time_changed = true;
             const uint64_t current_time_span = right_time_ - left_time_;
             // Ajust left and right bounds if the new time is outside the
             // currently displaye range. Attempt to keep the same zoom scale by
@@ -200,9 +206,11 @@ void WavesPanel::UIChar(int ch) {
             if (cursor_time_ > right_time_) {
               right_time_ = cursor_time_;
               left_time_ = right_time_ - current_time_span;
+              range_changed = true;
             } else if (cursor_time_ < left_time_) {
               left_time_ = cursor_time_;
               right_time_ = left_time_ + current_time_span;
+              range_changed = true;
             }
             // Don't let the cursor go off the screen.
             const int max_cursor_pos =
@@ -220,11 +228,13 @@ void WavesPanel::UIChar(int ch) {
     case '^':
       cursor_pos_ = 0;
       cursor_time_ = left_time_ + cursor_pos_ * TimePerChar();
+      time_changed = true;
       break;
     case 0x168: // End
     case '$':
       cursor_pos_ = getmaxx(w_) - 1 - (name_size_ + value_size_);
       cursor_time_ = left_time_ + cursor_pos_ * TimePerChar();
+      time_changed = true;
       break;
     case 'H':
     case 0x189: // shift-left
@@ -234,10 +244,12 @@ void WavesPanel::UIChar(int ch) {
       if (cursor_pos_ == 0 && left_time_ > 0) {
         left_time_ = std::max(0.0, left_time_ - step * time_per_char);
         right_time_ = std::max(0.0, right_time_ - step * time_per_char);
+        range_changed = true;
       } else if (cursor_pos_ > 0) {
         cursor_pos_ = std::max(0, cursor_pos_ - step);
       }
       cursor_time_ = left_time_ + cursor_pos_ * TimePerChar();
+      time_changed = true;
     } break;
     case 'L':
     case 0x192: // shift-right
@@ -251,13 +263,16 @@ void WavesPanel::UIChar(int ch) {
             std::min((double)max_time, left_time_ + step * time_per_char);
         right_time_ =
             std::min((double)max_time, right_time_ + step * time_per_char);
+        range_changed = true;
       } else if (cursor_pos_ < max_cursor_pos) {
         cursor_pos_ = std::min(max_cursor_pos, cursor_pos_ + step);
       }
       cursor_time_ = left_time_ + cursor_pos_ * TimePerChar();
+      time_changed = true;
     } break;
     case 'F': {
       std::tie(left_time_, right_time_) = wave_data_->TimeRange();
+      range_changed = true;
     } break;
     case 'z':
     case 'Z': {
@@ -269,6 +284,7 @@ void WavesPanel::UIChar(int ch) {
       right_time_ = std::min(
           wave_data_->TimeRange().second,
           (uint64_t)(cursor_time_ + scale * (right_time_ - cursor_time_)));
+      range_changed = true;
     } break;
     case 's':
       if (name_size_ + value_size_ < getmaxx(w_) - 20) name_size_++;
@@ -293,7 +309,17 @@ void WavesPanel::UIChar(int ch) {
     default: TreePanel::UIChar(ch);
     }
   }
+  if (time_changed) UpdateValues();
+  if (range_changed) UpdateWaves();
 }
+
+void WavesPanel::AddSignal(const WaveData::Signal *signal) {
+  signals_.emplace_back(signal);
+}
+
+void WavesPanel::UpdateValues() {}
+
+void WavesPanel::UpdateWaves() {}
 
 std::string WavesPanel::Tooltip() const {
   std::string tt;
@@ -305,7 +331,7 @@ std::string WavesPanel::Tooltip() const {
   tt += "zZ:zoom  ";
   tt += "sS:signals  ";
   tt += "vV:values  ";
-  tt += "h:hierarchy  "; // TODO
+  tt += "p:path  "; // TODO draw full path over wave temporarily.
   tt += "g:goto  ";
   tt += "t:units  ";
   tt += "eE:edge  "; // TODO

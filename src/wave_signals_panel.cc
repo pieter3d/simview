@@ -62,14 +62,10 @@ void WaveSignalsPanel::SetScope(const WaveData::SignalScope *s) {
   data_.Clear();
   signals_.clear();
   for (auto &sig : s->signals) {
-    if ((hide_signals_ &&
-         sig.direction == WaveData::Signal::Direction::kInternal) ||
-        (hide_outputs_ &&
-         sig.direction == WaveData::Signal::Direction::kOutput) ||
-        (hide_inputs_ &&
-         sig.direction == WaveData::Signal::Direction::kInput) ||
-        (hide_inouts_ &&
-         sig.direction == WaveData::Signal::Direction::kInout)) {
+    if ((hide_signals_ && sig.direction == WaveData::Signal::kInternal) ||
+        (hide_outputs_ && sig.direction == WaveData::Signal::kOutput) ||
+        (hide_inputs_ && sig.direction == WaveData::Signal::kInput) ||
+        (hide_inouts_ && sig.direction == WaveData::Signal::kInout)) {
       continue;
     }
     if (!filter_text_.empty()) {

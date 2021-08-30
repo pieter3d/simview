@@ -21,6 +21,7 @@ int main(int argc, char *argv[]) {
   fstHier *h;
   fstHandle h_reset;
   fstHandle h_wr_ptr;
+  fstHandle h_clk;
   fstHandle h_int;
   while ((h = fstReaderIterateHier(r))) {
     switch (h->htyp) {
@@ -45,6 +46,7 @@ int main(int argc, char *argv[]) {
       if (!h->u.var.is_alias) {
         if (name == "rd_arst_n") h_reset = h->u.var.handle;
         if (name == "wr_ptr") h_wr_ptr = h->u.var.handle;
+        if (name == "rd_clk") h_clk = h->u.var.handle;
         if (name == "silly_int") h_int = h->u.var.handle;
       }
       break;
@@ -68,9 +70,10 @@ int main(int argc, char *argv[]) {
   fstReaderGetValueFromHandleAtTime(r, 1000, h_int, buf);
   printf("silly_int at 1000: %s\n", buf);
 
-  fstReaderSetLimitTimeRange(r, 80'000, 400'000);
+  fstReaderSetLimitTimeRange(r, 0, 400'000);
   fstReaderSetFacProcessMask(r, h_reset);
   fstReaderSetFacProcessMask(r, h_wr_ptr);
+  fstReaderSetFacProcessMask(r, h_clk);
   fstReaderIterBlocks(
       r,
       +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,

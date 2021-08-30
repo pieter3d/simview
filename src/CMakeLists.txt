@@ -23,6 +23,7 @@ add_executable(simview
   fst_wave_data.cc
   main.cc
   panel.cc
+  radix.cc
   signal_tree_item.cc
   source_panel.cc
   text_input.cc
@@ -32,10 +33,11 @@ add_executable(simview
   ui.cc
   utils.cc
   wave_data.cc
-  waves_panel.cc
-  wave_signals_panel.cc
   wavedata_tree_item.cc
   wavedata_tree_panel.cc
+  wave_signals_panel.cc
+  waves_panel.cc
+  wave_tree_item.cc
   workspace.cc
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})

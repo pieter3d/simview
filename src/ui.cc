@@ -80,10 +80,10 @@ UI::UI() : search_box_("/") {
   raw(); // Capture ctrl-c etc.
   keypad(stdscr, true);
   noecho();
-  nonl();       // don't translate the enter key
+  nonl(); // don't translate the enter key
   SetupColors();
   // TODO - async needed?
-  //halfdelay(3); // Update async things every 300ms.
+  // halfdelay(3); // Update async things every 300ms.
 
   // Create all UI panels.
   layout_.has_design = Workspace::Get().Design() != nullptr;
@@ -97,7 +97,7 @@ UI::UI() : search_box_("/") {
     panels_.push_back(source_panel_.get());
   }
   if (layout_.has_waves) {
-    wave_tree_panel_ = std::make_unique<WaveTreePanel>();
+    wave_tree_panel_ = std::make_unique<WaveDataTreePanel>();
     wave_signals_panel_ = std::make_unique<WaveSignalsPanel>();
     waves_panel_ = std::make_unique<WavesPanel>();
     panels_.push_back(wave_tree_panel_.get());

@@ -5,15 +5,15 @@
 
 namespace sv {
 
-class WaveTreeItem : public TreeItem {
+class WaveDataTreeItem : public TreeItem {
  public:
-  explicit WaveTreeItem(const WaveData::SignalScope &hl);
-  virtual const std::string &Name() const override;
-  virtual const std::string &Type() const override;
-  virtual bool AltType() const override;
-  virtual bool Expandable() const override;
-  virtual int NumChildren() const override;
-  virtual TreeItem *Child(int idx) override;
+  explicit WaveDataTreeItem(const WaveData::SignalScope &hl);
+  const std::string &Name() const final;
+  const std::string &Type() const final;
+  bool AltType() const final;
+  bool Expandable() const final;
+  int NumChildren() const final;
+  TreeItem *Child(int idx) final;
 
   const WaveData::SignalScope *SignalScope() const {
     return &hierarchy_level_;
@@ -21,7 +21,7 @@ class WaveTreeItem : public TreeItem {
 
  private:
   const WaveData::SignalScope &hierarchy_level_;
-  std::vector<WaveTreeItem> children_;
+  std::vector<WaveDataTreeItem> children_;
 };
 
 } // namespace sv

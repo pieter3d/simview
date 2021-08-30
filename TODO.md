@@ -19,3 +19,4 @@ Stuff that is still pending to be fixed or implemented.
 * Cursor snap to value in waves
 * Wave + source should be able to figure out enums in waves.
 * waveform color chooser.
+* Reload waves, and possibly live updates.
