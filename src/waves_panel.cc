@@ -91,6 +91,10 @@ void WavesPanel::UpdateVisibleSignals() {
 }
 
 void WavesPanel::Draw() {
+  if (showing_help_) {
+    DrawHelp();
+    return;
+  }
   werase(w_);
   const int wave_x = name_size_ + value_size_;
   const int max_w = getmaxx(w_);
@@ -245,7 +249,9 @@ void WavesPanel::UIChar(int ch) {
   double time_per_char = std::max(1.0, TimePerChar());
   bool time_changed = false;
   bool range_changed = false;
-  if (marker_selection_) {
+  if (showing_help_) {
+    showing_help_ = false;
+  } else if (marker_selection_) {
     if (ch >= '0' && ch <= '9') {
       numbered_marker_times_[ch - '0'] = cursor_time_;
     }
@@ -378,6 +384,7 @@ void WavesPanel::UIChar(int ch) {
     case 0x20: // space
     case 0xd:  // enter
       break;
+    case '?': showing_help_ = true; break;
     default: Panel::UIChar(ch);
     }
   }
@@ -407,29 +414,57 @@ void WavesPanel::UpdateValues() {}
 
 void WavesPanel::UpdateWaves() {}
 
+bool WavesPanel::Modal() const {
+  return inputting_name_ || inputting_time_ || showing_help_;
+}
+
 std::string WavesPanel::Tooltip() const {
-  std::string tt;
   if (marker_selection_) {
     return "0-9:marker selection";
   }
-  if (Workspace::Get().Design() != nullptr) tt += "d:source  "; // TODO
-  tt += "F:zoom full  ";
-  tt += "zZ:zoom  ";
-  tt += "sS:signals  ";
-  tt += "vV:values  ";
-  tt += "p:path  "; // TODO draw full path over wave temporarily.
-  tt += "g:goto  ";
-  tt += "t:units  ";
-  tt += "eE:edge  "; // TODO
-  tt += "mM:marker  ";
-  tt += "i:insert  ";   // TODO
-  tt += "UD:up/down  "; // TODO
-  tt += "b:blank  ";    // TODO
-  tt += "x:delete  ";   // TODO
-  tt += "c:color  ";    // TODO
-  tt += "r:radix  ";    // TODO
-  tt += "aA:analog  ";  // TODO
-  return tt;
+  return "?:show help  ";
+}
+
+void WavesPanel::DrawHelp() const {
+  std::vector<std::string> keys({
+      "zZ: Zoom about the cursor", "F:  Zoom full range",
+      "sS: Adjust signal name size", "vV: Adjust value size",
+      "p: Show full signal path", // TODO draw full path over wave temporarily.
+      "g:  Go to time", "t:  Cycle time units",
+      "eE: Previous / next signal edge", // TODO
+      "m:  Place marker", "M:  Place numbered marker",
+      "i:  Set signal insert location",
+      "UD: Move signal up / down",     // TODO
+      "b:  Insert blank signal",       // TODO
+      "x:  Delete highlighted signal", // TODO
+      "c:  Change signal color",       // TODO
+      "r:  Cycle signal radix",
+      "aA: Adjust analog signal height",      // TODO
+      "d:  Show signal declaration in source" // TODO
+  });
+  // Find the widest signal.
+  int widest_text = 0;
+  for (auto s : keys) {
+    widest_text = std::max(widest_text, (int)s.size());
+  }
+  widest_text += 2; // margin around the help box.
+  const int max_w = getmaxx(w_);
+  const int max_h = getmaxy(w_);
+  const int x_start = std::max(0, max_w / 2 - widest_text / 2);
+  const int x_stop = std::min(max_w - 1, max_w / 2 + widest_text / 2);
+  const int y_start = std::max(0, max_h / 2 - (int)keys.size() / 2);
+  const int y_stop = std::min(max_h - 1, max_h / 2 + (int)keys.size() / 2);
+  for (int y = 0; y <= std::min((int)keys.size() - 1, y_stop - y_start); ++y) {
+    wmove(w_, y_start + y, x_start);
+    SetColor(w_, kTooltipPair);
+    waddch(w_, ' ');
+    SetColor(w_, kTooltipKeyPair);
+    const auto &s = keys[y];
+    for (int x = 0; x <= x_stop - x_start; ++x) {
+      if (s[x] == ':') SetColor(w_, kTooltipPair);
+      waddch(w_, x < s.size() ? s[x] : ' ');
+    }
+  }
 }
 
 const std::string &WavesPanel::ListItem::Name() const {

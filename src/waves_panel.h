@@ -17,13 +17,14 @@ class WavesPanel : public Panel {
   std::string Tooltip() const final;
   void Resized() final;
   std::optional<std::pair<int, int>> CursorLocation() const final;
-  bool Modal() const final { return inputting_time_; }
+  bool Modal() const final;
   int NumLines() const final { return visible_signals_.size(); }
   std::pair<int, int> ScrollArea() const final;
   void AddSignal(const WaveData::Signal *signal);
 
  private:
   double TimePerChar() const;
+  void DrawHelp() const;
   void CycleTimeUnits();
   void UpdateValues();
   void UpdateWaves();
@@ -75,6 +76,7 @@ class WavesPanel : public Panel {
   TextInput name_input_;
   bool inputting_name_ = false;
   bool inputting_time_ = false;
+  bool showing_help_ = false;
   int time_unit_ = -9; // nanoseconds.
   int insert_pos_ = 0;
 
