@@ -4,6 +4,7 @@
 #include "color.h"
 #include "utils.h"
 #include "workspace.h"
+#include <optional>
 
 namespace sv {
 
@@ -14,7 +15,7 @@ constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
 } // namespace
 
-WavesPanel::WavesPanel() : time_input_("goto time:"), name_input_("") {
+WavesPanel::WavesPanel() : time_input_("goto time:"), rename_input_("") {
   wave_data_ = Workspace::Get().Waves();
   std::tie(left_time_, right_time_) = wave_data_->TimeRange();
   for (int i = 0; i < 10; ++i) {
@@ -32,7 +33,7 @@ WavesPanel::WavesPanel() : time_input_("goto time:"), name_input_("") {
   });
   // Populate the list with a trailing blank signal so that inserts can happen
   // at the end of the list.
-  signals_.push_back(ListItem(true));
+  signals_.push_back(ListItem(nullptr));
   UpdateVisibleSignals();
 }
 
@@ -57,13 +58,15 @@ double WavesPanel::TimePerChar() const {
 }
 
 void WavesPanel::Resized() {
-  name_input_.SetDims(line_idx_ + 1, 0, name_size_);
+  rename_input_.SetDims(line_idx_, visible_signals_[line_idx_]->depth,
+                        name_size_);
   time_input_.SetDims(0, 0, getmaxx(w_));
 }
 
 std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
-  if (!inputting_time_) return std::nullopt;
-  return time_input_.CursorPos();
+  if (inputting_time_) return time_input_.CursorPos();
+  if (rename_item_ != nullptr) return rename_input_.CursorPos();
+  return std::nullopt;
 }
 
 std::pair<int, int> WavesPanel::ScrollArea() const {
@@ -78,15 +81,15 @@ void WavesPanel::UpdateVisibleSignals() {
   visible_to_full_lookup_.clear();
   int trim_depth = 0;
   int idx = -1;
-  for (const auto &item : signals_) {
+  for (auto &item : signals_) {
     idx++;
-    if (trim_depth != 0 && item.depth > trim_depth) continue;
+    if (trim_depth != 0 && item.depth >= trim_depth) continue;
     // Stop trimming when reaching an item that is back at legal depth.
     if (item.depth <= trim_depth) trim_depth = 0;
     visible_signals_.push_back(&item);
     visible_to_full_lookup_.push_back(idx);
     // Set a trimming depth if the current item is a collapsed group.
-    if (!item.group_name.empty() && item.collapsed) trim_depth = item.depth + 1;
+    if (item.is_group && item.collapsed) trim_depth = item.depth + 1;
   }
 }
 
@@ -206,41 +209,45 @@ void WavesPanel::Draw() {
   for (int row = 1; row < max_h; ++row) {
     const int list_idx = row - 1 + scroll_row_;
     if (list_idx >= visible_signals_.size()) break;
-    const auto &item = visible_signals_[list_idx];
-    // Don't highlight blanks if the window isn't focused. Looks ugly.
-    if (list_idx == line_idx_ && !(item->blank && !has_focus_)) {
-      wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
+    const auto *item = visible_signals_[list_idx];
+    if (list_idx == line_idx_) {
+      if (rename_item_ != nullptr) {
+        rename_input_.Draw(w_);
+        continue;
+      } else {
+        wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
+      }
     }
     // Treat a blank as a full line of spaces. The -1 accounts for the insert
     // position marker.
-    const int len = item->blank ? (name_size_ - 1) : item->Name().size();
+    const int len =
+        item->signal == nullptr ? (name_size_ - 1) : item->Name().size();
 
-    if (!item->group_name.empty()) {
-      // TODO
+    wmove(w_, row, item->depth);
+    if (item->is_group) {
+      SetColor(w_, kWavesGroupPair);
+      waddch(w_, item->collapsed ? '+' : '-');
+      for (int i = 0; i < item->group_name.size(); ++i) {
+        // Expander takes up a charachter too.
+        const int xpos = item->depth + i + 1;
+        if (xpos >= name_size_) break;
+        waddch(w_, item->group_name[i]);
+      }
     } else {
-      // Left edge, +1 to leave room for the insert marker.
-      wmove(w_, row, item->depth + 1);
       SetColor(w_, kWavesSignalNamePair);
-      for (int j = 0; j < len; ++j) {
-        const int xpos = item->depth + j + 1;
+      for (int i = 0; i < len; ++i) {
+        const int xpos = item->depth + i;
         if (xpos >= name_size_) break;
         // Show an overflow indicator if too narrow.
-        if (xpos == name_size_ - 1 && j < len - 1) {
+        if (xpos == name_size_ - 1 && i < len - 1) {
           SetColor(w_, kOverflowTextPair);
           waddch(w_, '>');
         } else {
-          waddch(w_, item->blank ? ' ' : item->Name()[j]);
+          waddch(w_, item->signal == nullptr ? ' ' : item->Name()[i]);
         }
       }
     }
     wattrset(w_, A_NORMAL);
-  }
-  // Add the insert position marker
-  const int insert_marker_row = insert_pos_ - scroll_row_ + 1;
-  if (insert_marker_row >= 1 && insert_marker_row < max_h) {
-    SetColor(w_, kWavesInsertPair);
-    wmove(w_, insert_marker_row, 0);
-    waddch(w_, '>');
   }
 }
 
@@ -256,6 +263,15 @@ void WavesPanel::UIChar(int ch) {
       numbered_marker_times_[ch - '0'] = cursor_time_;
     }
     marker_selection_ = false;
+  } else if (rename_item_ != nullptr) {
+    const auto state = rename_input_.HandleKey(ch);
+    if (state != TextInput::kTyping) {
+      if (state == TextInput::kDone) {
+        rename_item_->group_name = rename_input_.Text();
+      }
+      rename_item_ = nullptr;
+      rename_input_.Reset();
+    }
   } else if (inputting_time_) {
     const auto state = time_input_.HandleKey(ch);
     if (state != TextInput::kTyping) {
@@ -369,22 +385,33 @@ void WavesPanel::UIChar(int ch) {
       break;
     case 'm': marker_time_ = cursor_time_; break;
     case 'M': marker_selection_ = true; break;
-    case 'g':
+    case 'T':
       time_input_.SetPrompt(absl::StrFormat(
           "Go to time (%s):", kTimeUnits[(time_unit_ - kSmallestUnit) / 3]));
       inputting_time_ = true;
       break;
     case 't': CycleTimeUnits(); break;
-    case 'i': insert_pos_ = line_idx_; break;
-    case 'x':
-      if (line_idx_ != visible_signals_.size()) {
-        UpdateVisibleSignals();
+    case 0x14a: // Delete
+    case 'x': DeleteItem(); break;
+    case 0x7: // Ctrl-g
+      AddGroup();
+      break;
+    case 'r':
+      if (visible_signals_[line_idx_]->is_group) {
+        rename_item_ = visible_signals_[line_idx_];
+        rename_input_.SetText(visible_signals_[line_idx_]->group_name);
       }
       break;
     case 0x20: // space
     case 0xd:  // enter
+      if (visible_signals_[line_idx_]->is_group) {
+        visible_signals_[line_idx_]->collapsed =
+            !visible_signals_[line_idx_]->collapsed;
+        UpdateVisibleSignals();
+      }
       break;
     case '?': showing_help_ = true; break;
+    case 'b': AddSignal(nullptr); break;
     default: Panel::UIChar(ch);
     }
   }
@@ -393,29 +420,57 @@ void WavesPanel::UIChar(int ch) {
 }
 
 void WavesPanel::AddSignal(const WaveData::Signal *signal) {
-  const int pos = visible_to_full_lookup_[insert_pos_];
-  const int new_depth = signals_[pos].depth;
+  // By default, insert at the same depth as the current signal.
+  int new_depth = visible_signals_[line_idx_]->depth;
+  if (line_idx_ > 0) {
+    // Try to match the depth of the item above.
+    auto *prev = visible_signals_[line_idx_ - 1];
+    // If that item is an uncollapsed group, increase the depth.
+    new_depth =
+        prev->is_group && !prev->collapsed ? prev->depth + 1 : prev->depth;
+  }
+  const int pos = visible_to_full_lookup_[line_idx_];
   signals_.insert(signals_.begin() + pos, ListItem(signal));
-  // The new signal is inserted at the same depth as the previous signal at that
-  // location.
   signals_[pos].depth = new_depth;
   UpdateVisibleSignals();
   // Move the insert position down, so things generally just nicely append.
-  insert_pos_++;
+  // Only if this isn't a new blank/group.
+  if (signal != nullptr) {
+    SetLineAndScroll(line_idx_ + 1);
+  }
 }
 
-void WavesPanel::DeleteSignal() {}
+void WavesPanel::DeleteItem() {
+  // Last line is immutable
+  if (line_idx_ == visible_signals_.size() - 1) return;
+}
 
-void WavesPanel::MoveSignalUp() {}
+void WavesPanel::MoveSignalUp() {
+  // Last line is immutable
+  if (line_idx_ == visible_signals_.size() - 1) return;
+}
 
-void WavesPanel::MoveSignalDown() {}
+void WavesPanel::MoveSignalDown() {
+  // Last line is immutable. Don't move into it.
+  if (line_idx_ >= visible_signals_.size() - 2) return;
+}
 
 void WavesPanel::UpdateValues() {}
 
 void WavesPanel::UpdateWaves() {}
 
+void WavesPanel::AddGroup() {
+  AddSignal(nullptr);
+  // Mark the newly added item as needing rename.
+  rename_item_ = visible_signals_[line_idx_];
+  rename_item_->is_group = true;
+  rename_input_.SetDims(line_idx_ + 1 - scroll_row_, rename_item_->depth,
+                        name_size_);
+  rename_input_.SetText("NewGroup");
+}
+
 bool WavesPanel::Modal() const {
-  return inputting_name_ || inputting_time_ || showing_help_;
+  return rename_item_ != nullptr || inputting_time_ || showing_help_;
 }
 
 std::string WavesPanel::Tooltip() const {
@@ -427,20 +482,25 @@ std::string WavesPanel::Tooltip() const {
 
 void WavesPanel::DrawHelp() const {
   std::vector<std::string> keys({
-      "zZ: Zoom about the cursor", "F:  Zoom full range",
-      "sS: Adjust signal name size", "vV: Adjust value size",
-      "p: Show full signal path", // TODO draw full path over wave temporarily.
-      "g:  Go to time", "t:  Cycle time units",
-      "eE: Previous / next signal edge", // TODO
-      "m:  Place marker", "M:  Place numbered marker",
-      "i:  Set signal insert location",
-      "UD: Move signal up / down",     // TODO
-      "b:  Insert blank signal",       // TODO
-      "x:  Delete highlighted signal", // TODO
-      "c:  Change signal color",       // TODO
-      "r:  Cycle signal radix",
-      "aA: Adjust analog signal height",      // TODO
-      "d:  Show signal declaration in source" // TODO
+      "zZ:  Zoom about the cursor",
+      "F:   Zoom full range",
+      "sS:  Adjust signal name size",
+      "vV:  Adjust value size",
+      "p:   Show full signal path",
+      "T:   Go to time",
+      "t:   Cycle time units",
+      "eE:  Previous / next signal edge",
+      "m:   Place marker",
+      "M:   Place numbered marker",
+      "C-g: Create group",
+      "r:   Rename group",
+      "UD:  Move signal up / down",
+      "b:   Insert blank signal",
+      "x:   Delete highlighted signal",
+      "c:   Change signal color",
+      "r:   Cycle signal radix",
+      "aA:  Adjust analog signal height",
+      "d:   Show signal declaration in source",
   });
   // Find the widest signal.
   int widest_text = 0;
@@ -469,7 +529,7 @@ void WavesPanel::DrawHelp() const {
 
 const std::string &WavesPanel::ListItem::Name() const {
   static std::string blank_string;
-  if (!group_name.empty()) return group_name;
+  if (is_group) return group_name;
   if (signal == nullptr) return blank_string;
   return signal->name;
 }

@@ -41,6 +41,7 @@ class TextInput {
   // Returns current state after the keypress.
   InputState HandleKey(int key);
   const std::string &Text() const { return text_; }
+  void SetText(const std::string &s);
 
  private:
   void FixScroll();

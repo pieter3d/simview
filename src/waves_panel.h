@@ -28,57 +28,54 @@ class WavesPanel : public Panel {
   void CycleTimeUnits();
   void UpdateValues();
   void UpdateWaves();
-  void DeleteSignal();
+  void DeleteItem();
   void MoveSignalUp();
   void MoveSignalDown();
+  void AddGroup();
   struct ListItem {
     // Helper constructors
     explicit ListItem(const WaveData::Signal *s) : signal(s) {}
     explicit ListItem(const std::string &s) : group_name(s) {}
-    explicit ListItem(bool b) : blank(b) {}
     // Helpers
     const std::string &Name() const;
     void CycleRadix();
-
     // Member data.
     Radix radix = Radix::kHex;
     const WaveData::Signal *signal = nullptr;
     int analog_size = 1;
-    bool blank = false;
     // Members when this item represents a group container.
     std::string group_name;
+    bool is_group = false;
     bool collapsed = false;
     int depth = 0;
+    std::vector<WaveData::Sample> wave;
   };
 
   std::vector<ListItem> signals_;
   // Flattened list of all signals, accounting for collapsed groups.
-  std::vector<const ListItem *> visible_signals_;
+  std::vector<ListItem *> visible_signals_;
   // Lookup table, mapping a line number in the signal list (with potentially
   // collapsed groups) to indicies in the full signals_ list.
   std::vector<int> visible_to_full_lookup_;
   // Build the flat list and lookup table. Must be called when manipulating the
   // tree.
   void UpdateVisibleSignals();
-  // This is used to save the values, since deriving it from the wave database
-  // is potentially expensive.
-  std::unordered_map<const WaveData::Signal *, std::string> cached_values_;
-  std::unordered_map<const WaveData::Signal *, std::vector<WaveData::Sample>>
-      cached_waves_;
   int cursor_pos_ = 0;
   uint64_t cursor_time_ = 0;
   uint64_t marker_time_ = 0;
   uint64_t numbered_marker_times_[10];
   uint64_t left_time_ = 0;
   uint64_t right_time_ = 0;
+  // Keep track of the time range for which signals have all their wave data.
+  uint64_t samples_left_time_ = 0;
+  uint64_t samples_right_time_ = 0;
   bool marker_selection_ = false;
   TextInput time_input_;
-  TextInput name_input_;
-  bool inputting_name_ = false;
+  TextInput rename_input_;
+  ListItem *rename_item_ = nullptr;
   bool inputting_time_ = false;
   bool showing_help_ = false;
   int time_unit_ = -9; // nanoseconds.
-  int insert_pos_ = 0;
 
   // Charachters reserved for the signal name and value.
   int name_size_ = 20;

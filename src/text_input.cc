@@ -22,6 +22,12 @@ void TextInput::Reset() {
   rx_okay_ = false;
 }
 
+void TextInput::SetText(const std::string &s) {
+  text_ = s;
+  cursor_pos_ = text_.size();
+  FixScroll();
+}
+
 void TextInput::Draw(WINDOW *w) const {
   SetColor(w, (text_.empty() || rx_okay_ ||
                (receiver_ == nullptr && validator_ == nullptr))
@@ -45,7 +51,7 @@ std::pair<int, int> TextInput::CursorPos() const {
 void TextInput::FixScroll() {
   // Scroll the search box so that the cursor is inside.
   if (cursor_pos_ < scroll_) {
-    scroll_ = cursor_pos_;
+    scroll_ = cursor_pos_ - std::min(width_ / 3, 8);
   } else if (cursor_pos_ - scroll_ >= width_ - prompt_.size()) {
     scroll_ = cursor_pos_ - width_ + 1 + prompt_.size();
   }
@@ -98,6 +104,7 @@ TextInput::InputState TextInput::HandleKey(int key) {
   case 0x107: // backspace
     if (cursor_pos_ > 0) {
       cursor_pos_--;
+      FixScroll();
       text_.erase(cursor_pos_, 1);
       text_changed = true;
     } else {
