@@ -20,3 +20,4 @@ Stuff that is still pending to be fixed or implemented.
 * Wave + source should be able to figure out enums in waves.
 * waveform color chooser.
 * Reload waves, and possibly live updates.
+* wave panel, help popup. tooltip too full

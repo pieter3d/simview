@@ -27,11 +27,14 @@ class WavesPanel : public Panel {
   void CycleTimeUnits();
   void UpdateValues();
   void UpdateWaves();
+  void DeleteSignal();
+  void MoveSignalUp();
+  void MoveSignalDown();
   struct ListItem {
     // Helper constructors
-    ListItem(const WaveData::Signal *s) : signal(s) {}
-    ListItem(const std::string &s) : group_name(s) {}
-    ListItem(bool b) : blank(b) {}
+    explicit ListItem(const WaveData::Signal *s) : signal(s) {}
+    explicit ListItem(const std::string &s) : group_name(s) {}
+    explicit ListItem(bool b) : blank(b) {}
     // Helpers
     const std::string &Name() const;
     void CycleRadix();
@@ -40,7 +43,7 @@ class WavesPanel : public Panel {
     Radix radix = Radix::kHex;
     const WaveData::Signal *signal = nullptr;
     int analog_size = 1;
-    const bool blank = false;
+    bool blank = false;
     // Members when this item represents a group container.
     std::string group_name;
     bool collapsed = false;
@@ -48,7 +51,13 @@ class WavesPanel : public Panel {
   };
 
   std::vector<ListItem> signals_;
+  // Flattened list of all signals, accounting for collapsed groups.
   std::vector<const ListItem *> visible_signals_;
+  // Lookup table, mapping a line number in the signal list (with potentially
+  // collapsed groups) to indicies in the full signals_ list.
+  std::vector<int> visible_to_full_lookup_;
+  // Build the flat list and lookup table. Must be called when manipulating the
+  // tree.
   void UpdateVisibleSignals();
   // This is used to save the values, since deriving it from the wave database
   // is potentially expensive.
