@@ -45,7 +45,7 @@ void TextInput::Draw(WINDOW *w) const {
 }
 
 std::pair<int, int> TextInput::CursorPos() const {
-  return {row_, prompt_.size() + cursor_pos_ - scroll_};
+  return {row_, col_ + prompt_.size() + cursor_pos_ - scroll_};
 }
 
 void TextInput::FixScroll() {

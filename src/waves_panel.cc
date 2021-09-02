@@ -59,7 +59,7 @@ double WavesPanel::TimePerChar() const {
 
 void WavesPanel::Resized() {
   rename_input_.SetDims(line_idx_, visible_signals_[line_idx_]->depth,
-                        name_size_);
+                        name_size_ - visible_signals_[line_idx_]->depth);
   time_input_.SetDims(0, 0, getmaxx(w_));
 }
 
@@ -443,6 +443,17 @@ void WavesPanel::AddSignal(const WaveData::Signal *signal) {
 void WavesPanel::DeleteItem() {
   // Last line is immutable
   if (line_idx_ == visible_signals_.size() - 1) return;
+  const int pos = visible_to_full_lookup_[line_idx_];
+  int end_pos = pos + 1; // [a, b) style range
+  // Delete the group and everying under it with greater depth.
+  if (signals_[pos].is_group) {
+    while (end_pos != signals_.size() &&
+           signals_[end_pos].depth > signals_[pos].depth) {
+      end_pos++;
+    }
+  }
+  signals_.erase(signals_.begin() + pos, signals_.begin() + end_pos);
+  UpdateVisibleSignals();
 }
 
 void WavesPanel::MoveSignalUp() {
@@ -465,7 +476,7 @@ void WavesPanel::AddGroup() {
   rename_item_ = visible_signals_[line_idx_];
   rename_item_->is_group = true;
   rename_input_.SetDims(line_idx_ + 1 - scroll_row_, rename_item_->depth,
-                        name_size_);
+                        name_size_ - rename_item_->depth);
   rename_input_.SetText("NewGroup");
 }
 
