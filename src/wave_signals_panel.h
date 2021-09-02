@@ -22,12 +22,13 @@ class WaveSignalsPanel : public TreePanel {
   std::optional<std::pair<int, int>> CursorLocation() const final;
   void Resized() final;
   bool Modal() const final { return editing_filter_; }
-  std::optional<const WaveData::Signal *> SignalForWaves();
+  std::optional<std::vector<const WaveData::Signal *>> SignalsForWaves();
 
  private:
   const WaveData::SignalScope *scope_;
-  std::vector<SignalTreeItem> signals_;
+  std::vector<SignalTreeItem> items_;
   const WaveData::Signal *signal_for_waves_ = nullptr;
+  bool all_signals_for_waves_ = false;
 
   // Signal type filter toggles.
   bool hide_inputs_ = false;

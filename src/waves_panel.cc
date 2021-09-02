@@ -35,7 +35,7 @@ WavesPanel::WavesPanel() : time_input_("goto time:"), rename_input_("") {
   });
   // Populate the list with a trailing blank signal so that inserts can happen
   // at the end of the list.
-  signals_.push_back(std::make_unique<ListItem>(nullptr));
+  items_.push_back(std::make_unique<ListItem>(nullptr));
   UpdateVisibleSignals();
 }
 
@@ -60,8 +60,8 @@ double WavesPanel::TimePerChar() const {
 }
 
 void WavesPanel::Resized() {
-  rename_input_.SetDims(line_idx_, visible_signals_[line_idx_]->depth,
-                        name_size_ - visible_signals_[line_idx_]->depth);
+  rename_input_.SetDims(line_idx_, visible_items_[line_idx_]->depth,
+                        name_size_ - visible_items_[line_idx_]->depth);
   time_input_.SetDims(0, 0, getmaxx(w_));
 }
 
@@ -79,16 +79,16 @@ std::pair<int, int> WavesPanel::ScrollArea() const {
 }
 
 void WavesPanel::UpdateVisibleSignals() {
-  visible_signals_.clear();
+  visible_items_.clear();
   visible_to_full_lookup_.clear();
   int trim_depth = 0;
   int idx = -1;
-  for (auto &item : signals_) {
+  for (auto &item : items_) {
     idx++;
     if (trim_depth != 0 && item->depth >= trim_depth) continue;
     // Stop trimming when reaching an item that is back at legal depth.
     if (item->depth <= trim_depth) trim_depth = 0;
-    visible_signals_.push_back(item.get());
+    visible_items_.push_back(item.get());
     visible_to_full_lookup_.push_back(idx);
     // Set a trimming depth if the current item is a collapsed group.
     if (item->is_group && item->collapsed) trim_depth = item->depth + 1;
@@ -210,8 +210,8 @@ void WavesPanel::Draw() {
   // flattened list with proper tree state etc.
   for (int row = 1; row < max_h; ++row) {
     const int list_idx = row - 1 + scroll_row_;
-    if (list_idx >= visible_signals_.size()) break;
-    const auto *item = visible_signals_[list_idx];
+    if (list_idx >= visible_items_.size()) break;
+    const auto *item = visible_items_[list_idx];
     if (list_idx == line_idx_) {
       if (rename_item_ != nullptr) {
         rename_input_.Draw(w_);
@@ -401,16 +401,16 @@ void WavesPanel::UIChar(int ch) {
       AddGroup();
       break;
     case 'r':
-      if (visible_signals_[line_idx_]->is_group) {
-        rename_item_ = visible_signals_[line_idx_];
-        rename_input_.SetText(visible_signals_[line_idx_]->group_name);
+      if (visible_items_[line_idx_]->is_group) {
+        rename_item_ = visible_items_[line_idx_];
+        rename_input_.SetText(visible_items_[line_idx_]->group_name);
       }
       break;
     case 0x20: // space
     case 0xd:  // enter
-      if (visible_signals_[line_idx_]->is_group) {
-        visible_signals_[line_idx_]->collapsed =
-            !visible_signals_[line_idx_]->collapsed;
+      if (visible_items_[line_idx_]->is_group) {
+        visible_items_[line_idx_]->collapsed =
+            !visible_items_[line_idx_]->collapsed;
         UpdateVisibleSignals();
       }
       break;
@@ -424,72 +424,81 @@ void WavesPanel::UIChar(int ch) {
 }
 
 void WavesPanel::AddSignal(const WaveData::Signal *signal) {
+  std::vector<const WaveData::Signal *> one_signal;
+  one_signal.push_back(signal);
+  AddSignals(one_signal);
+}
+
+void WavesPanel::AddSignals(
+    const std::vector<const WaveData::Signal *> &signals) {
   // By default, insert at the same depth as the current signal.
-  int new_depth = visible_signals_[line_idx_]->depth;
-  if (line_idx_ > 0 && line_idx_ == signals_.size() - 1) {
+  int new_depth = visible_items_[line_idx_]->depth;
+  if (line_idx_ > 0 && line_idx_ == items_.size() - 1) {
     // Try to match the depth of the item above when appending at the end.
-    auto *prev = visible_signals_[line_idx_ - 1];
+    auto *prev = visible_items_[line_idx_ - 1];
     // If that item is an uncollapsed group, increase the depth.
     new_depth =
         prev->is_group && !prev->collapsed ? prev->depth + 1 : prev->depth;
   }
-  const int pos = visible_to_full_lookup_[line_idx_];
-  signals_.insert(signals_.begin() + pos, std::make_unique<ListItem>(signal));
-  signals_[pos]->depth = new_depth;
+  int pos = visible_to_full_lookup_[line_idx_];
+  for (const auto *signal : signals) {
+    items_.insert(items_.begin() + pos, std::make_unique<ListItem>(signal));
+    items_[pos]->depth = new_depth;
+    pos++;
+  }
   UpdateVisibleSignals();
   // Move the insert position down, so things generally just nicely append.
   // Only if this isn't a new blank/group.
-  if (signal != nullptr) {
-    SetLineAndScroll(line_idx_ + 1);
+  if (signals.size() > 1 || signals[0] != nullptr) {
+    SetLineAndScroll(line_idx_ + signals.size());
   }
 }
 
 void WavesPanel::DeleteItem() {
   // Last line is immutable
-  if (line_idx_ == visible_signals_.size() - 1) return;
+  if (line_idx_ == visible_items_.size() - 1) return;
   const int pos = visible_to_full_lookup_[line_idx_];
   int end_pos = pos + 1; // [a, b) style range
   // Delete the group and everying under it with greater depth.
-  if (signals_[pos]->is_group) {
-    while (end_pos != signals_.size() &&
-           signals_[end_pos]->depth > signals_[pos]->depth) {
+  if (items_[pos]->is_group) {
+    while (end_pos != items_.size() &&
+           items_[end_pos]->depth > items_[pos]->depth) {
       end_pos++;
     }
   }
-  signals_.erase(signals_.begin() + pos, signals_.begin() + end_pos);
+  items_.erase(items_.begin() + pos, items_.begin() + end_pos);
   UpdateVisibleSignals();
 }
 
 void WavesPanel::MoveSignal(bool up) {
   // Last line is immutable
-  if (line_idx_ == visible_signals_.size() - 1) return;
+  if (line_idx_ == visible_items_.size() - 1) return;
   // First line can't move up.
   if (up && line_idx_ == 0) return;
-  auto *item = visible_signals_[line_idx_];
+  auto *item = visible_items_[line_idx_];
   // Second to last line can't move down unless it's not at the lowest depth.
-  if (!up && line_idx_ == visible_signals_.size() - 2 && item->depth == 0) {
+  if (!up && line_idx_ == visible_items_.size() - 2 && item->depth == 0) {
     return;
   }
   // Find the range of things to move.
   const int start_pos = visible_to_full_lookup_[line_idx_];
   int end_pos = start_pos + 1; // [a, b) style range
-  if (signals_[start_pos]->is_group) {
-    while (end_pos != signals_.size() &&
-           signals_[end_pos]->depth > item->depth) {
+  if (items_[start_pos]->is_group) {
+    while (end_pos != items_.size() && items_[end_pos]->depth > item->depth) {
       end_pos++;
     }
   }
   // If the last thing to move is the end of the list, nothing else to do.
-  if (!up && end_pos >= visible_signals_.size() - 1) return;
+  if (!up && end_pos >= visible_items_.size() - 1) return;
   auto adjust_depth = [&](bool deeper) {
     for (int i = start_pos; i < end_pos; ++i) {
-      signals_[i]->depth += deeper ? 1 : -1;
+      items_[i]->depth += deeper ? 1 : -1;
     }
   };
   int destination = start_pos;
   if (up) {
     // Move into the above group without moving.
-    const auto *above_item = visible_signals_[line_idx_ - 1];
+    const auto *above_item = visible_items_[line_idx_ - 1];
     if (above_item->depth > item->depth ||
         (above_item->depth == item->depth && above_item->is_group &&
          !above_item->collapsed)) {
@@ -504,17 +513,17 @@ void WavesPanel::MoveSignal(bool up) {
     // Find the real index of whatever the visible item below the current one
     // is.
     int below_pos = line_idx_ + 1;
-    while (visible_signals_[below_pos]->depth > item->depth) {
+    while (visible_items_[below_pos]->depth > item->depth) {
       below_pos++;
     }
     // If the depth is less, decrease depth without moving.
-    if (item->depth > visible_signals_[below_pos]->depth) {
+    if (item->depth > visible_items_[below_pos]->depth) {
       adjust_depth(false);
     } else {
       destination = visible_to_full_lookup_[below_pos];
       // If the below item is a group, move deeper.
-      if (visible_signals_[below_pos]->is_group &&
-          !visible_signals_[below_pos]->collapsed) {
+      if (visible_items_[below_pos]->is_group &&
+          !visible_items_[below_pos]->collapsed) {
         adjust_depth(true);
       }
     }
@@ -525,15 +534,15 @@ void WavesPanel::MoveSignal(bool up) {
     // old range.
     std::vector<std::unique_ptr<ListItem>> temp_list;
     for (int i = start_pos; i < end_pos; ++i) {
-      temp_list.emplace_back(std::move(signals_[i]));
+      temp_list.emplace_back(std::move(items_[i]));
     }
-    signals_.erase(signals_.begin() + start_pos, signals_.begin() + end_pos);
+    items_.erase(items_.begin() + start_pos, items_.begin() + end_pos);
     // Insert them at the new spot, accounting for the additional range that was
     // just deleted when moving down.
     const int insert_pos = destination - (up ? 0 : (end_pos - start_pos - 1));
-    signals_.insert(signals_.begin() + insert_pos,
-                    std::make_move_iterator(temp_list.begin()),
-                    std::make_move_iterator(temp_list.end()));
+    items_.insert(items_.begin() + insert_pos,
+                  std::make_move_iterator(temp_list.begin()),
+                  std::make_move_iterator(temp_list.end()));
     // Also move the selected line down.
     line_idx_ += up ? -1 : 1;
   }
@@ -547,7 +556,7 @@ void WavesPanel::UpdateWaves() {}
 void WavesPanel::AddGroup() {
   AddSignal(nullptr);
   // Mark the newly added item as needing rename.
-  rename_item_ = visible_signals_[line_idx_];
+  rename_item_ = visible_items_[line_idx_];
   rename_item_->is_group = true;
   rename_input_.SetDims(line_idx_ + 1 - scroll_row_, rename_item_->depth,
                         name_size_ - rename_item_->depth);

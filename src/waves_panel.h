@@ -19,9 +19,10 @@ class WavesPanel : public Panel {
   void Resized() final;
   std::optional<std::pair<int, int>> CursorLocation() const final;
   bool Modal() const final;
-  int NumLines() const final { return visible_signals_.size(); }
+  int NumLines() const final { return visible_items_.size(); }
   std::pair<int, int> ScrollArea() const final;
   void AddSignal(const WaveData::Signal *signal);
+  void AddSignals(const std::vector<const WaveData::Signal *> &signals);
 
  private:
   double TimePerChar() const;
@@ -53,11 +54,11 @@ class WavesPanel : public Panel {
 
   // Owned pointers here makes reordering the contents of the list a lot faster
   // if the user adds groups etc. Otherwise there are copies of large datasets.
-  std::vector<std::unique_ptr<ListItem>> signals_;
+  std::vector<std::unique_ptr<ListItem>> items_;
   // Flattened list of all signals, accounting for collapsed groups.
-  std::vector<ListItem *> visible_signals_;
+  std::vector<ListItem *> visible_items_;
   // Lookup table, mapping a line number in the signal list (with potentially
-  // collapsed groups) to indicies in the full signals_ list.
+  // collapsed groups) to indicies in the full items_ list.
   std::vector<int> visible_to_full_lookup_;
   // Build the flat list and lookup table. Must be called when manipulating the
   // tree.

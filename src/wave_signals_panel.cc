@@ -60,7 +60,7 @@ std::optional<std::pair<int, int>> WaveSignalsPanel::CursorLocation() const {
 void WaveSignalsPanel::SetScope(const WaveData::SignalScope *s) {
   scope_ = s;
   data_.Clear();
-  signals_.clear();
+  items_.clear();
   for (auto &sig : s->signals) {
     if ((hide_signals_ && sig.direction == WaveData::Signal::kInternal) ||
         (hide_outputs_ && sig.direction == WaveData::Signal::kOutput) ||
@@ -78,18 +78,29 @@ void WaveSignalsPanel::SetScope(const WaveData::SignalScope *s) {
         if (sig.name.find(filter_text_) == std::string::npos) continue;
       }
     }
-    signals_.push_back(SignalTreeItem(sig));
+    items_.push_back(SignalTreeItem(sig));
   }
-  for (auto &item : signals_) {
+  for (auto &item : items_) {
     data_.AddRoot(&item);
   }
   SetLineAndScroll(0);
 }
 
-std::optional<const WaveData::Signal *> WaveSignalsPanel ::SignalForWaves() {
-  if (signal_for_waves_ == nullptr) return std::nullopt;
-  auto ret = signal_for_waves_;
-  signal_for_waves_ = nullptr;
+std::optional<std::vector<const WaveData::Signal *>>
+WaveSignalsPanel::SignalsForWaves() {
+  if (signal_for_waves_ == nullptr && all_signals_for_waves_ == false) {
+    return std::nullopt;
+  }
+  std::vector<const WaveData::Signal *> ret;
+  if (all_signals_for_waves_) {
+    for (const auto &item : items_) {
+      ret.push_back(item.Signal());
+    }
+    all_signals_for_waves_ = false;
+  } else {
+    ret.push_back(signal_for_waves_);
+    signal_for_waves_ = nullptr;
+  }
   return ret;
 }
 
@@ -106,8 +117,8 @@ void WaveSignalsPanel::UIChar(int ch) {
     }
   } else {
     switch (ch) {
-    case 'w': signal_for_waves_ = signals_[line_idx_].Signal(); break;
-    case 'W': /* TODO */ break;
+    case 'w': signal_for_waves_ = items_[line_idx_].Signal(); break;
+    case 'W': all_signals_for_waves_ = true; break;
     case 'f': editing_filter_ = true; break;
     case '1':
       hide_signals_ = !hide_signals_;
