@@ -4,6 +4,8 @@
 #include "color.h"
 #include "utils.h"
 #include "workspace.h"
+#include <iterator>
+#include <memory>
 #include <optional>
 
 namespace sv {
@@ -33,7 +35,7 @@ WavesPanel::WavesPanel() : time_input_("goto time:"), rename_input_("") {
   });
   // Populate the list with a trailing blank signal so that inserts can happen
   // at the end of the list.
-  signals_.push_back(ListItem(nullptr));
+  signals_.push_back(std::make_unique<ListItem>(nullptr));
   UpdateVisibleSignals();
 }
 
@@ -83,13 +85,13 @@ void WavesPanel::UpdateVisibleSignals() {
   int idx = -1;
   for (auto &item : signals_) {
     idx++;
-    if (trim_depth != 0 && item.depth >= trim_depth) continue;
+    if (trim_depth != 0 && item->depth >= trim_depth) continue;
     // Stop trimming when reaching an item that is back at legal depth.
-    if (item.depth <= trim_depth) trim_depth = 0;
-    visible_signals_.push_back(&item);
+    if (item->depth <= trim_depth) trim_depth = 0;
+    visible_signals_.push_back(item.get());
     visible_to_full_lookup_.push_back(idx);
     // Set a trimming depth if the current item is a collapsed group.
-    if (item.is_group && item.collapsed) trim_depth = item.depth + 1;
+    if (item->is_group && item->collapsed) trim_depth = item->depth + 1;
   }
 }
 
@@ -393,6 +395,8 @@ void WavesPanel::UIChar(int ch) {
     case 't': CycleTimeUnits(); break;
     case 0x14a: // Delete
     case 'x': DeleteItem(); break;
+    case 'U': MoveSignal(true); break;
+    case 'D': MoveSignal(false); break;
     case 0x7: // Ctrl-g
       AddGroup();
       break;
@@ -422,16 +426,16 @@ void WavesPanel::UIChar(int ch) {
 void WavesPanel::AddSignal(const WaveData::Signal *signal) {
   // By default, insert at the same depth as the current signal.
   int new_depth = visible_signals_[line_idx_]->depth;
-  if (line_idx_ > 0) {
-    // Try to match the depth of the item above.
+  if (line_idx_ > 0 && line_idx_ == signals_.size() - 1) {
+    // Try to match the depth of the item above when appending at the end.
     auto *prev = visible_signals_[line_idx_ - 1];
     // If that item is an uncollapsed group, increase the depth.
     new_depth =
         prev->is_group && !prev->collapsed ? prev->depth + 1 : prev->depth;
   }
   const int pos = visible_to_full_lookup_[line_idx_];
-  signals_.insert(signals_.begin() + pos, ListItem(signal));
-  signals_[pos].depth = new_depth;
+  signals_.insert(signals_.begin() + pos, std::make_unique<ListItem>(signal));
+  signals_[pos]->depth = new_depth;
   UpdateVisibleSignals();
   // Move the insert position down, so things generally just nicely append.
   // Only if this isn't a new blank/group.
@@ -446,9 +450,9 @@ void WavesPanel::DeleteItem() {
   const int pos = visible_to_full_lookup_[line_idx_];
   int end_pos = pos + 1; // [a, b) style range
   // Delete the group and everying under it with greater depth.
-  if (signals_[pos].is_group) {
+  if (signals_[pos]->is_group) {
     while (end_pos != signals_.size() &&
-           signals_[end_pos].depth > signals_[pos].depth) {
+           signals_[end_pos]->depth > signals_[pos]->depth) {
       end_pos++;
     }
   }
@@ -456,14 +460,84 @@ void WavesPanel::DeleteItem() {
   UpdateVisibleSignals();
 }
 
-void WavesPanel::MoveSignalUp() {
+void WavesPanel::MoveSignal(bool up) {
   // Last line is immutable
   if (line_idx_ == visible_signals_.size() - 1) return;
-}
+  // First line can't move up.
+  if (up && line_idx_ == 0) return;
+  auto *item = visible_signals_[line_idx_];
+  // Second to last line can't move down unless it's not at the lowest depth.
+  if (!up && line_idx_ == visible_signals_.size() - 2 && item->depth == 0) {
+    return;
+  }
+  // Find the range of things to move.
+  const int start_pos = visible_to_full_lookup_[line_idx_];
+  int end_pos = start_pos + 1; // [a, b) style range
+  if (signals_[start_pos]->is_group) {
+    while (end_pos != signals_.size() &&
+           signals_[end_pos]->depth > item->depth) {
+      end_pos++;
+    }
+  }
+  // If the last thing to move is the end of the list, nothing else to do.
+  if (!up && end_pos >= visible_signals_.size() - 1) return;
+  auto adjust_depth = [&](bool deeper) {
+    for (int i = start_pos; i < end_pos; ++i) {
+      signals_[i]->depth += deeper ? 1 : -1;
+    }
+  };
+  int destination = start_pos;
+  if (up) {
+    // Move into the above group without moving.
+    const auto *above_item = visible_signals_[line_idx_ - 1];
+    if (above_item->depth > item->depth ||
+        (above_item->depth == item->depth && above_item->is_group &&
+         !above_item->collapsed)) {
+      adjust_depth(true);
+    } else {
+      destination = visible_to_full_lookup_[line_idx_ - 1];
+      if (above_item->depth < item->depth) {
+        adjust_depth(false);
+      }
+    }
+  } else {
+    // Find the real index of whatever the visible item below the current one
+    // is.
+    int below_pos = line_idx_ + 1;
+    while (visible_signals_[below_pos]->depth > item->depth) {
+      below_pos++;
+    }
+    // If the depth is less, decrease depth without moving.
+    if (item->depth > visible_signals_[below_pos]->depth) {
+      adjust_depth(false);
+    } else {
+      destination = visible_to_full_lookup_[below_pos];
+      // If the below item is a group, move deeper.
+      if (visible_signals_[below_pos]->is_group &&
+          !visible_signals_[below_pos]->collapsed) {
+        adjust_depth(true);
+      }
+    }
+  }
 
-void WavesPanel::MoveSignalDown() {
-  // Last line is immutable. Don't move into it.
-  if (line_idx_ >= visible_signals_.size() - 2) return;
+  if (destination != start_pos) {
+    // Create a temporary vector to hold the items to be moved, clear out the
+    // old range.
+    std::vector<std::unique_ptr<ListItem>> temp_list;
+    for (int i = start_pos; i < end_pos; ++i) {
+      temp_list.emplace_back(std::move(signals_[i]));
+    }
+    signals_.erase(signals_.begin() + start_pos, signals_.begin() + end_pos);
+    // Insert them at the new spot, accounting for the additional range that was
+    // just deleted when moving down.
+    const int insert_pos = destination - (up ? 0 : (end_pos - start_pos - 1));
+    signals_.insert(signals_.begin() + insert_pos,
+                    std::make_move_iterator(temp_list.begin()),
+                    std::make_move_iterator(temp_list.end()));
+    // Also move the selected line down.
+    line_idx_ += up ? -1 : 1;
+  }
+  UpdateVisibleSignals();
 }
 
 void WavesPanel::UpdateValues() {}

@@ -4,6 +4,7 @@
 #include "radix.h"
 #include "text_input.h"
 #include "wave_data.h"
+#include <memory>
 
 namespace sv {
 
@@ -29,8 +30,7 @@ class WavesPanel : public Panel {
   void UpdateValues();
   void UpdateWaves();
   void DeleteItem();
-  void MoveSignalUp();
-  void MoveSignalDown();
+  void MoveSignal(bool up);
   void AddGroup();
   struct ListItem {
     // Helper constructors
@@ -51,7 +51,9 @@ class WavesPanel : public Panel {
     std::vector<WaveData::Sample> wave;
   };
 
-  std::vector<ListItem> signals_;
+  // Owned pointers here makes reordering the contents of the list a lot faster
+  // if the user adds groups etc. Otherwise there are copies of large datasets.
+  std::vector<std::unique_ptr<ListItem>> signals_;
   // Flattened list of all signals, accounting for collapsed groups.
   std::vector<ListItem *> visible_signals_;
   // Lookup table, mapping a line number in the signal list (with potentially
