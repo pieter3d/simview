@@ -418,8 +418,14 @@ void WavesPanel::UIChar(int ch) {
     case 't': CycleTimeUnits(); break;
     case 0x14a: // Delete
     case 'x': DeleteItem(); break;
-    case 'U': MoveSignal(true); break;
-    case 'D': MoveSignal(false); break;
+    case 'U':
+      MoveSignal(true);
+      cancel_multi_line = false;
+      break;
+    case 'D':
+      MoveSignal(false);
+      cancel_multi_line = false;
+      break;
     case 0x7: // Ctrl-g
       AddGroup();
       break;
@@ -489,10 +495,12 @@ void WavesPanel::DeleteItem() {
   // Delete the group and everying under it with greater depth.
   if (items_[end_pos]->is_group) {
     while (end_pos != items_.size() &&
-           items_[end_pos]->depth > items_[start_pos]->depth) {
+           items_[end_pos + 1]->depth > items_[start_pos]->depth) {
       end_pos++;
     }
   }
+  // Preserve the last item.
+  if (end_pos == items_.size() - 1) end_pos--;
   items_.erase(items_.begin() + start_pos, items_.begin() + end_pos + 1);
   if (multi_line_idx_ >= 0) line_idx_ = std::min(line_idx_, multi_line_idx_);
   UpdateVisibleSignals();
@@ -502,37 +510,58 @@ void WavesPanel::MoveSignal(bool up) {
   // Last line is immutable
   if (line_idx_ == visible_items_.size() - 1) return;
   // First line can't move up.
-  if (up && line_idx_ == 0) return;
+  if (up && (line_idx_ == 0 || multi_line_idx_ == 0)) return;
   auto *item = visible_items_[line_idx_];
   // Second to last line can't move down unless it's not at the lowest depth.
-  if (!up && line_idx_ == visible_items_.size() - 2 && item->depth == 0) {
+  if (!up &&
+      std::max(multi_line_idx_, line_idx_) == visible_items_.size() - 2 &&
+      item->depth == 0) {
     return;
   }
+  // If a multi-line selection isn't an even depth, just give up. Too
+  // complicated.
+  if (multi_line_idx_ >= 0) {
+    if (visible_items_[line_idx_]->depth !=
+        visible_items_[multi_line_idx_]->depth) {
+      return;
+    }
+  }
   // Find the range of things to move.
-  const int start_pos = visible_to_full_lookup_[line_idx_];
-  int end_pos = start_pos + 1; // [a, b) style range
-  if (items_[start_pos]->is_group) {
-    while (end_pos != items_.size() && items_[end_pos]->depth > item->depth) {
+  int start_pos, end_pos;
+  start_pos = visible_to_full_lookup_[line_idx_];
+  end_pos = multi_line_idx_ < 0 ? start_pos
+                                : visible_to_full_lookup_[multi_line_idx_];
+  if (start_pos > end_pos) std::swap(start_pos, end_pos);
+  // Move the group and everying under it with greater depth.
+  if (items_[end_pos]->is_group) {
+    while (end_pos != items_.size() &&
+           items_[end_pos + 1]->depth > items_[start_pos]->depth) {
       end_pos++;
     }
   }
-  // If the last thing to move is the end of the list, nothing else to do.
-  if (!up && end_pos >= visible_items_.size() - 1) return;
+  // Preserve the last item.
+  if (end_pos == items_.size() - 1) end_pos--;
+  // If the last thing to move down is the end of the list, nothing else to do.
+  if (!up && end_pos >= items_.size() - 2) return;
   auto adjust_depth = [&](bool deeper) {
-    for (int i = start_pos; i < end_pos; ++i) {
+    for (int i = start_pos; i <= end_pos; ++i) {
       items_[i]->depth += deeper ? 1 : -1;
     }
   };
   int destination = start_pos;
   if (up) {
     // Move into the above group without moving.
-    const auto *above_item = visible_items_[line_idx_ - 1];
+    const int above_pos =
+        (multi_line_idx_ < 0 ? line_idx_
+                             : std::min(line_idx_, multi_line_idx_)) -
+        1;
+    const auto *above_item = visible_items_[above_pos];
     if (above_item->depth > item->depth ||
         (above_item->depth == item->depth && above_item->is_group &&
          !above_item->collapsed)) {
       adjust_depth(true);
     } else {
-      destination = visible_to_full_lookup_[line_idx_ - 1];
+      destination = visible_to_full_lookup_[above_pos];
       if (above_item->depth < item->depth) {
         adjust_depth(false);
       }
@@ -540,7 +569,7 @@ void WavesPanel::MoveSignal(bool up) {
   } else {
     // Find the real index of whatever the visible item below the current one
     // is.
-    int below_pos = line_idx_ + 1;
+    int below_pos = 1 + std::max(multi_line_idx_, line_idx_);
     while (visible_items_[below_pos]->depth > item->depth) {
       below_pos++;
     }
@@ -561,18 +590,19 @@ void WavesPanel::MoveSignal(bool up) {
     // Create a temporary vector to hold the items to be moved, clear out the
     // old range.
     std::vector<std::unique_ptr<ListItem>> temp_list;
-    for (int i = start_pos; i < end_pos; ++i) {
+    for (int i = start_pos; i <= end_pos; ++i) {
       temp_list.emplace_back(std::move(items_[i]));
     }
-    items_.erase(items_.begin() + start_pos, items_.begin() + end_pos);
+    items_.erase(items_.begin() + start_pos, items_.begin() + end_pos + 1);
     // Insert them at the new spot, accounting for the additional range that was
     // just deleted when moving down.
-    const int insert_pos = destination - (up ? 0 : (end_pos - start_pos - 1));
+    const int insert_pos = destination - (up ? 0 : (end_pos - start_pos));
     items_.insert(items_.begin() + insert_pos,
                   std::make_move_iterator(temp_list.begin()),
                   std::make_move_iterator(temp_list.end()));
     // Also move the selected line down.
     line_idx_ += up ? -1 : 1;
+    if (multi_line_idx_ >= 0) multi_line_idx_ += up ? -1 : 1;
   }
   UpdateVisibleSignals();
 }
@@ -582,6 +612,12 @@ void WavesPanel::UpdateValues() {}
 void WavesPanel::UpdateWaves() {}
 
 void WavesPanel::AddGroup() {
+  // Insert at the top of a multi-line selection. The swap would screw up a
+  // multi line selection process, but adding a group anyway cancels the
+  // multi-line process.
+  if (multi_line_idx_ >= 0 && multi_line_idx_ < line_idx_) {
+    std::swap(line_idx_, multi_line_idx_);
+  }
   AddSignal(nullptr);
   // Mark the newly added item as needing rename.
   rename_item_ = visible_items_[line_idx_];
@@ -589,6 +625,20 @@ void WavesPanel::AddGroup() {
   rename_input_.SetDims(line_idx_ + 1 - scroll_row_, rename_item_->depth,
                         name_size_ - rename_item_->depth);
   rename_input_.SetText("NewGroup");
+  if (multi_line_idx_ < 0) return;
+  // If mutliple lines were selected and they are all the same depth, move them
+  // under the group.
+  const int start_pos = line_idx_ + 1;
+  // Avoid groupifying the last item.
+  const int end_pos =
+      std::min(multi_line_idx_ + 1, (int)visible_items_.size() - 2);
+  for (int i = start_pos; i <= end_pos; ++i) {
+    if (visible_items_[i]->depth != visible_items_[line_idx_]->depth) return;
+  }
+  for (int i = visible_to_full_lookup_[start_pos];
+       i <= visible_to_full_lookup_[end_pos]; ++i) {
+    items_[i]->depth++;
+  }
 }
 
 bool WavesPanel::Modal() const {
