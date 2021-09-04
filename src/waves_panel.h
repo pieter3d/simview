@@ -69,9 +69,6 @@ class WavesPanel : public Panel {
   uint64_t numbered_marker_times_[10];
   uint64_t left_time_ = 0;
   uint64_t right_time_ = 0;
-  // Keep track of the time range for which signals have all their wave data.
-  uint64_t samples_left_time_ = 0;
-  uint64_t samples_right_time_ = 0;
   bool marker_selection_ = false;
   TextInput time_input_;
   TextInput rename_input_;
@@ -79,6 +76,7 @@ class WavesPanel : public Panel {
   bool inputting_time_ = false;
   bool showing_help_ = false;
   int time_unit_ = -9; // nanoseconds.
+  int multi_line_idx_ = -1;
 
   // Charachters reserved for the signal name and value.
   int name_size_ = 20;

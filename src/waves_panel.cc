@@ -212,7 +212,12 @@ void WavesPanel::Draw() {
     const int list_idx = row - 1 + scroll_row_;
     if (list_idx >= visible_items_.size()) break;
     const auto *item = visible_items_[list_idx];
-    if (list_idx == line_idx_) {
+    const bool highlight =
+        multi_line_idx_ < 0
+            ? list_idx == line_idx_
+            : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
+               list_idx <= std::max(line_idx_, multi_line_idx_));
+    if (highlight) {
       if (rename_item_ != nullptr) {
         rename_input_.Draw(w_);
         continue;
@@ -258,6 +263,8 @@ void WavesPanel::UIChar(int ch) {
   double time_per_char = std::max(1.0, TimePerChar());
   bool time_changed = false;
   bool range_changed = false;
+  // Most actions cancel multi-line.
+  bool cancel_multi_line = true;
   if (showing_help_) {
     showing_help_ = false;
   } else if (marker_selection_) {
@@ -357,6 +364,22 @@ void WavesPanel::UIChar(int ch) {
       cursor_time_ = left_time_ + cursor_pos_ * TimePerChar();
       time_changed = true;
     } break;
+    case 0x151: // shift-up
+    case 'K':
+      if (line_idx_ != 0) {
+        if (multi_line_idx_ < 0) multi_line_idx_ = line_idx_;
+        Panel::UIChar('k');
+        cancel_multi_line = false;
+      }
+      break;
+    case 0x150: // shift-down
+    case 'J':
+      if (line_idx_ != visible_items_.size() - 1) {
+        if (multi_line_idx_ < 0) multi_line_idx_ = line_idx_;
+        Panel::UIChar('j');
+        cancel_multi_line = false;
+      }
+      break;
     case 'F': {
       std::tie(left_time_, right_time_) = wave_data_->TimeRange();
       range_changed = true;
@@ -421,6 +444,7 @@ void WavesPanel::UIChar(int ch) {
   }
   if (time_changed) UpdateValues();
   if (range_changed) UpdateWaves();
+  if (cancel_multi_line) multi_line_idx_ = -1;
 }
 
 void WavesPanel::AddSignal(const WaveData::Signal *signal) {
@@ -457,16 +481,20 @@ void WavesPanel::AddSignals(
 void WavesPanel::DeleteItem() {
   // Last line is immutable
   if (line_idx_ == visible_items_.size() - 1) return;
-  const int pos = visible_to_full_lookup_[line_idx_];
-  int end_pos = pos + 1; // [a, b) style range
+  int start_pos, end_pos;
+  start_pos = visible_to_full_lookup_[line_idx_];
+  end_pos = multi_line_idx_ < 0 ? start_pos
+                                : visible_to_full_lookup_[multi_line_idx_];
+  if (start_pos > end_pos) std::swap(start_pos, end_pos);
   // Delete the group and everying under it with greater depth.
-  if (items_[pos]->is_group) {
+  if (items_[end_pos]->is_group) {
     while (end_pos != items_.size() &&
-           items_[end_pos]->depth > items_[pos]->depth) {
+           items_[end_pos]->depth > items_[start_pos]->depth) {
       end_pos++;
     }
   }
-  items_.erase(items_.begin() + pos, items_.begin() + end_pos);
+  items_.erase(items_.begin() + start_pos, items_.begin() + end_pos + 1);
+  if (multi_line_idx_ >= 0) line_idx_ = std::min(line_idx_, multi_line_idx_);
   UpdateVisibleSignals();
 }
 
