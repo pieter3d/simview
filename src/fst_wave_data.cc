@@ -95,7 +95,7 @@ FstWaveData::SignalSamples(const std::vector<const Signal *> &signals,
   }
   fstReaderSetLimitTimeRange(reader_, start_time, end_time);
   // Wrap the locals in an object that can be passed to the callback.
-  struct Locals {
+  struct {
     decltype(id_map) *wrapped_id_map;
     decltype(samples) *wrapped_samples;
     uint64_t wrapped_start_time;
@@ -110,12 +110,9 @@ FstWaveData::SignalSamples(const std::vector<const Signal *> &signals,
       reader_,
       +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,
           const unsigned char *value) {
-        auto locals = reinterpret_cast<Locals *>(user_callback_data_pointer);
-        if (time < locals->wrapped_start_time ||
-            time > locals->wrapped_end_time) {
-          return;
-        }
-        (*locals->wrapped_samples)[(*locals->wrapped_id_map)[facidx]].push_back(
+        const auto vars =
+            reinterpret_cast<decltype(locals) *>(user_callback_data_pointer);
+        (*vars->wrapped_samples)[(*vars->wrapped_id_map)[facidx]].push_back(
             {.time = time, .value = reinterpret_cast<const char *>(value)});
       },
       &locals, nullptr);

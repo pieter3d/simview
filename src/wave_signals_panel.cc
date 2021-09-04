@@ -88,23 +88,17 @@ void WaveSignalsPanel::SetScope(const WaveData::SignalScope *s) {
 
 std::optional<std::vector<const WaveData::Signal *>>
 WaveSignalsPanel::SignalsForWaves() {
-  if (signal_for_waves_ == nullptr && all_signals_for_waves_ == false) {
-    return std::nullopt;
-  }
+  if (!add_signals_) return std::nullopt;
   std::vector<const WaveData::Signal *> ret;
-  if (all_signals_for_waves_) {
-    for (const auto &item : items_) {
-      ret.push_back(item.Signal());
-    }
-    all_signals_for_waves_ = false;
-  } else {
-    ret.push_back(signal_for_waves_);
-    signal_for_waves_ = nullptr;
+  for (int i = add_signal_range_.first; i <= add_signal_range_.second; ++i) {
+    ret.push_back(items_[i].Signal());
   }
+  add_signals_ = false;
   return ret;
 }
 
 void WaveSignalsPanel::UIChar(int ch) {
+  bool cancel_multi_line = true;
   if (editing_filter_) {
     const auto state = filter_input_.HandleKey(ch);
     if (state != TextInput::kTyping) {
@@ -117,8 +111,31 @@ void WaveSignalsPanel::UIChar(int ch) {
     }
   } else {
     switch (ch) {
-    case 'w': signal_for_waves_ = items_[line_idx_].Signal(); break;
-    case 'W': all_signals_for_waves_ = true; break;
+    case 0x151: // shift-up
+    case 'K':
+      if (line_idx_ != 0) {
+        if (multi_line_idx_ < 0) multi_line_idx_ = line_idx_;
+        Panel::UIChar('k');
+        cancel_multi_line = false;
+      }
+      break;
+    case 0x150: // shift-down
+    case 'J':
+      if (line_idx_ != items_.size() - 1) {
+        if (multi_line_idx_ < 0) multi_line_idx_ = line_idx_;
+        Panel::UIChar('j');
+        cancel_multi_line = false;
+      }
+      break;
+    case 'w':
+    case 'W': {
+      const bool add_all = ch == 'W';
+      const int mult = multi_line_idx_ < 0 ? line_idx_ : multi_line_idx_;
+      add_signal_range_.first = add_all ? 0 : std::min(line_idx_, mult);
+      add_signal_range_.second =
+          add_all ? items_.size() : std::max(line_idx_, mult);
+      add_signals_ = true;
+    } break;
     case 'f': editing_filter_ = true; break;
     case '1':
       hide_signals_ = !hide_signals_;
@@ -139,6 +156,7 @@ void WaveSignalsPanel::UIChar(int ch) {
     default: TreePanel::UIChar(ch);
     }
   }
+  if (cancel_multi_line) multi_line_idx_ = -1;
 }
 
 std::string WaveSignalsPanel::Tooltip() const {

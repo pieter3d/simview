@@ -15,6 +15,24 @@ constexpr float kZoomStep = 0.75;
 constexpr int kSmallestUnit = -18;
 constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
+
+// Binary search for the right sample.
+const std::string &FindValue(uint64_t time,
+                             const std::vector<WaveData::Sample> &samples,
+                             uint64_t left, uint64_t right) {
+  if (right - left <= 1) {
+    // Use the new value when on the same time.
+    return time < samples[right].time ? samples[left].value
+                                      : samples[right].value;
+  }
+  const uint64_t mid = (left + right) / 2;
+  if (time > samples[mid].time) {
+    return FindValue(time, samples, mid, right);
+  } else {
+    return FindValue(time, samples, left, mid);
+  }
+}
+
 } // namespace
 
 WavesPanel::WavesPanel() : time_input_("goto time:"), rename_input_("") {
@@ -255,6 +273,38 @@ void WavesPanel::Draw() {
       }
     }
     wattrset(w_, A_NORMAL);
+    // Render the signal value.
+    const int val_start = std::max(0, (int)item->value.size() - value_size_);
+    wmove(w_, row,
+          std::max(name_size_,
+                   name_size_ + value_size_ - (int)item->value.size()));
+    SetColor(w_, kWavesSignalValuePair);
+    for (int i = val_start; i < item->value.size(); ++i) {
+      if (i == val_start && val_start > 0) {
+        SetColor(w_, kOverflowTextPair);
+        waddch(w_, '<');
+        SetColor(w_, kWavesSignalValuePair);
+      } else {
+        waddch(w_, item->value[i]);
+      }
+    }
+  }
+
+  // Draw the full path on top of everything else.
+  if (showing_path_ && visible_items_[line_idx_]->signal != nullptr) {
+    const int ypos = line_idx_ - scroll_row_ + 1;
+    SetColor(w_, kWavesCursorPair);
+    wmove(w_, ypos, 0);
+    std::string path = visible_items_[line_idx_]->Name();
+    auto scope = visible_items_[line_idx_]->signal->scope;
+    while (scope != nullptr) {
+      path = scope->name + "." + path;
+      scope = scope->parent;
+    }
+    for (int x = 0; x < max_w; ++x) {
+      if (x >= path.size()) break;
+      waddch(w_, path[x]);
+    }
   }
 }
 
@@ -265,6 +315,7 @@ void WavesPanel::UIChar(int ch) {
   bool range_changed = false;
   // Most actions cancel multi-line.
   bool cancel_multi_line = true;
+  showing_path_ = false; // Anything cancels, but still do other stuff.
   if (showing_help_) {
     showing_help_ = false;
   } else if (marker_selection_) {
@@ -443,8 +494,19 @@ void WavesPanel::UIChar(int ch) {
         UpdateVisibleSignals();
       }
       break;
+    case 'R':
+      if (visible_items_[line_idx_]->signal != nullptr) {
+        visible_items_[line_idx_]->CycleRadix();
+        UpdateValue(visible_items_[line_idx_]);
+      }
+      break;
     case '?': showing_help_ = true; break;
+    case 'p': showing_path_ = true; break;
     case 'b': AddSignal(nullptr); break;
+    case '0':
+      leading_zeroes_ = !leading_zeroes_;
+      UpdateValues();
+      break;
     default: Panel::UIChar(ch);
     }
   }
@@ -471,9 +533,16 @@ void WavesPanel::AddSignals(
         prev->is_group && !prev->collapsed ? prev->depth + 1 : prev->depth;
   }
   int pos = visible_to_full_lookup_[line_idx_];
+  // It's much more efficient to get samples from all signals at once, so no
+  // repeated calls to UpdateWave() here.
+  const auto waves =
+      wave_data_->SignalSamples(signals, left_time_, right_time_);
+  int wave_idx = 0;
   for (const auto *signal : signals) {
     items_.insert(items_.begin() + pos, std::make_unique<ListItem>(signal));
     items_[pos]->depth = new_depth;
+    items_[pos]->wave = std::move(waves[wave_idx++]);
+    UpdateValue(items_[pos].get());
     pos++;
   }
   UpdateVisibleSignals();
@@ -607,9 +676,50 @@ void WavesPanel::MoveSignal(bool up) {
   UpdateVisibleSignals();
 }
 
-void WavesPanel::UpdateValues() {}
+void WavesPanel::UpdateWave(ListItem *item) {
+  auto samples =
+      wave_data_->SignalSamples(item->signal, left_time_, right_time_);
+  item->wave = std::move(samples);
+}
 
-void WavesPanel::UpdateWaves() {}
+void WavesPanel::UpdateValue(ListItem *item) {
+  if (item->is_group || item->signal == nullptr) return;
+  if (item->wave.empty()) {
+    item->value = "Unavailable";
+    return;
+  }
+  const auto &val =
+      FindValue(cursor_time_, item->wave, 0, item->wave.size() - 1);
+  item->value = FormatValue(val, item->radix, leading_zeroes_);
+}
+
+void WavesPanel::UpdateValues() {
+  for (auto *item : visible_items_) {
+    UpdateValue(item);
+  }
+}
+
+void WavesPanel::UpdateWaves() {
+  std::vector<const WaveData::Signal *> signal_list;
+  std::vector<ListItem *> items_to_update;
+  for (auto *item : visible_items_) {
+    if (item->signal == nullptr) continue;
+    // Skip the update if all the data is already present.
+    if (!item->wave.empty() && item->wave.front().time >= left_time_ &&
+        item->wave.back().time <= right_time_) {
+      continue;
+    }
+    signal_list.push_back(item->signal);
+    items_to_update.push_back(item);
+  }
+  auto waves = wave_data_->SignalSamples(signal_list, left_time_, right_time_);
+  // The samples return is a vector of vector of samples, in the same order as
+  // the input list.
+  int wave_idx = 0;
+  for (auto *item : items_to_update) {
+    item->wave = std::move(waves[wave_idx++]);
+  }
+}
 
 void WavesPanel::AddGroup() {
   // Insert at the top of a multi-line selection. The swap would screw up a
@@ -642,7 +752,8 @@ void WavesPanel::AddGroup() {
 }
 
 bool WavesPanel::Modal() const {
-  return rename_item_ != nullptr || inputting_time_ || showing_help_;
+  return rename_item_ != nullptr || inputting_time_ || showing_help_ ||
+         showing_path_;
 }
 
 std::string WavesPanel::Tooltip() const {
@@ -658,6 +769,7 @@ void WavesPanel::DrawHelp() const {
       "F:   Zoom full range",
       "sS:  Adjust signal name size",
       "vV:  Adjust value size",
+      "0:   Show leading zeroes",
       "p:   Show full signal path",
       "T:   Go to time",
       "t:   Cycle time units",
@@ -670,7 +782,7 @@ void WavesPanel::DrawHelp() const {
       "b:   Insert blank signal",
       "x:   Delete highlighted signal",
       "c:   Change signal color",
-      "r:   Cycle signal radix",
+      "R:   Cycle signal radix",
       "aA:  Adjust analog signal height",
       "d:   Show signal declaration in source",
   });

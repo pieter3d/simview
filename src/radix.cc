@@ -17,7 +17,7 @@ std::string FormatValue(const std::string &bin, Radix radix,
     if (radix == Radix::kUnsignedDecimal) {
       return absl::StrFormat("%d'd%lu", bin.size(), val);
     } else if (radix == Radix::kSignedDecimal) {
-      return absl::StrFormat("%d'd%ld", bin.size(), val);
+      return absl::StrFormat("%d'sd%ld", bin.size(), val);
     } else if (bin.size() == 32) {
       float f;
       memcpy(&f, &val, sizeof(float));
@@ -37,22 +37,31 @@ std::string FormatValue(const std::string &bin, Radix radix,
     return s;
   } else {
     const char hex_digits[] = "0123456789abcdef";
-    std::string s = absl::StrFormat("%d'h", bin.size());
+    std::string hex;
     int nibble = 0;
     bool nibble_is_x = false;
     for (int i = bin.size() - 1; i >= 0; --i) {
       const char ch = std::tolower(bin[i]);
       if (ch == 'z' || ch == 'x') nibble_is_x = true;
-      nibble |= 1 << (i & 0x3);
+      if (ch == '1') nibble |= 1 << (i & 0x3);
       if (i % 4 == 0) {
-        s += nibble_is_x ? 'x' : hex_digits[nibble];
+        hex += nibble_is_x ? 'x' : hex_digits[nibble];
         nibble_is_x = false;
         nibble = 0;
         // Add underscore separator every 4 digits (16 bits).
-        if (i % 16 == 0 && i != 0) s += '_';
+        if (i % 16 == 0 && i != 0) hex += '_';
       }
     }
-    return s;
+    // Strip any leading zeroes if needed.
+    if (!leading_zeroes) {
+      const int pos = hex.find_first_not_of("0_");
+      if (pos == std::string::npos) {
+        hex = "0";
+      } else {
+        hex = hex.substr(pos);
+      }
+    }
+    return absl::StrFormat("%d'h", bin.size()) + hex;
   }
 }
 } // namespace sv

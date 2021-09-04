@@ -11,7 +11,12 @@ void TreePanel::Draw() {
   for (int y = header_lines_; y < win_h; ++y) {
     const int list_idx = y + scroll_row_ - header_lines_;
     if (list_idx >= data_.ListSize()) break;
-    if (list_idx == line_idx_ && !search_preview_) {
+    const bool highlight =
+        multi_line_idx_ < 0
+            ? list_idx == line_idx_
+            : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
+               list_idx <= std::max(line_idx_, multi_line_idx_));
+    if (highlight && !search_preview_) {
       wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
     }
     auto item = data_[list_idx];

@@ -25,14 +25,6 @@ class WavesPanel : public Panel {
   void AddSignals(const std::vector<const WaveData::Signal *> &signals);
 
  private:
-  double TimePerChar() const;
-  void DrawHelp() const;
-  void CycleTimeUnits();
-  void UpdateValues();
-  void UpdateWaves();
-  void DeleteItem();
-  void MoveSignal(bool up);
-  void AddGroup();
   struct ListItem {
     // Helper constructors
     explicit ListItem(const WaveData::Signal *s) : signal(s) {}
@@ -50,7 +42,19 @@ class WavesPanel : public Panel {
     bool collapsed = false;
     int depth = 0;
     std::vector<WaveData::Sample> wave;
+    // Saved here instead of searched and derived every time.
+    std::string value;
   };
+  double TimePerChar() const;
+  void DrawHelp() const;
+  void CycleTimeUnits();
+  void DeleteItem();
+  void MoveSignal(bool up);
+  void AddGroup();
+  void UpdateValues();
+  void UpdateWaves();
+  void UpdateValue(ListItem *item);
+  void UpdateWave(ListItem *item);
 
   // Owned pointers here makes reordering the contents of the list a lot faster
   // if the user adds groups etc. Otherwise there are copies of large datasets.
@@ -75,8 +79,9 @@ class WavesPanel : public Panel {
   ListItem *rename_item_ = nullptr;
   bool inputting_time_ = false;
   bool showing_help_ = false;
+  bool showing_path_ = false;
   int time_unit_ = -9; // nanoseconds.
-  int multi_line_idx_ = -1;
+  bool leading_zeroes_ = false;
 
   // Charachters reserved for the signal name and value.
   int name_size_ = 20;

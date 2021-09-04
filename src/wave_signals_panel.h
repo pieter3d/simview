@@ -27,8 +27,8 @@ class WaveSignalsPanel : public TreePanel {
  private:
   const WaveData::SignalScope *scope_;
   std::vector<SignalTreeItem> items_;
-  const WaveData::Signal *signal_for_waves_ = nullptr;
-  bool all_signals_for_waves_ = false;
+  bool add_signals_ = false;
+  std::pair<int, int> add_signal_range_;
 
   // Signal type filter toggles.
   bool hide_inputs_ = false;

@@ -38,6 +38,7 @@ class Panel : public TextReceiver {
   virtual void SetLineAndScroll(int l);
   WINDOW *w_;
   int line_idx_ = 0;
+  int multi_line_idx_ = -1;
   int col_idx_ = 0;
   int scroll_row_ = 0;
   bool has_focus_ = false;
