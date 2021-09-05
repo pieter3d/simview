@@ -322,12 +322,12 @@ void WavesPanel::Draw() {
     // Determine initial color.
     if (item->wave[left_sample_idx].value.find_first_of("xX") !=
         std::string::npos) {
-      SetColor(w_, kWavesXPair);
+      SetColor(w_, kWavesXPair + highlight);
     } else if (item->wave[left_sample_idx].value.find_first_of("zZ") !=
                std::string::npos) {
-      SetColor(w_, kWavesZPair);
+      SetColor(w_, kWavesZPair + highlight);
     } else {
-      SetColor(w_, kWavesWaveformPair);
+      SetColor(w_, kWavesWaveformPair + highlight);
     }
     // Draw charachter by charachter
     wmove(w_, row, wave_x);
@@ -347,11 +347,11 @@ void WavesPanel::Draw() {
         }
         // Update color.
         if (has_x)
-          SetColor(w_, kWavesXPair);
+          SetColor(w_, kWavesXPair + highlight);
         else if (has_z)
-          SetColor(w_, kWavesZPair);
+          SetColor(w_, kWavesZPair + highlight);
         else
-          SetColor(w_, kWavesWaveformPair);
+          SetColor(w_, kWavesWaveformPair + highlight);
       }
       if (multi_bit) {
         if (num_transitions == 0) {
@@ -390,7 +390,7 @@ void WavesPanel::Draw() {
     }
 
     // Draw waveform values inline where possible.
-    SetColor(w_, kWavesInlineValuePair);
+    SetColor(w_, kWavesInlineValuePair + highlight);
     for (const auto &wv : wave_value_list) {
       int start_pos, char_offset;
       if (wv.size - 1 < wv.value.size()) {
@@ -993,6 +993,33 @@ void WavesPanel::ListItem::CycleRadix() {
                                                        : Radix::kHex;
     break;
   case Radix::kFloat: radix = Radix::kHex; break;
+  }
+}
+
+bool WavesPanel::Search(bool search_down) {
+  int idx = line_idx_;
+  const int start_idx = idx;
+  const auto step = [&] {
+    idx += search_down ? 1 : -1;
+    if (idx < 0) {
+      idx = items_.size() - 1;
+    } else if (idx >= items_.size()) {
+      idx = 0;
+    }
+  };
+  while (1) {
+    if (!search_preview_) step();
+    const auto pos = items_[idx]->Name().find(search_text_, 0);
+    if (pos != std::string::npos) {
+      search_start_col_ = pos;
+      SetLineAndScroll(idx);
+      return true;
+    }
+    if (search_preview_) step();
+    if (idx == start_idx) {
+      search_start_col_ = -1;
+      return false;
+    }
   }
 }
 } // namespace sv

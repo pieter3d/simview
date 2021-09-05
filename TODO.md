@@ -16,8 +16,9 @@ Stuff that is still pending to be fixed or implemented.
 * Expose local variables in always blocks?
 * tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`
 * Time multiplier for waves (e.g. wave 1 unit is really X us/ns/ps/)
-* Cursor snap to value in waves
 * Wave + source should be able to figure out enums in waves.
 * waveform color chooser.
 * Reload waves, and possibly live updates.
-* wave panel, help popup. tooltip too full
+* Search for value in wave.
+* Analog signals.
+* Highlight background of active waveform 

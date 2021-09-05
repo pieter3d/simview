@@ -38,10 +38,11 @@ constexpr int kWavesDeltaPair = 31;
 constexpr int kWavesSignalNamePair = 32;
 constexpr int kWavesSignalValuePair = 33;
 constexpr int kWavesGroupPair = 34;
+// Increment by two here. These have a highlighted background variant.
 constexpr int kWavesWaveformPair = 35;
-constexpr int kWavesZPair = 36;
-constexpr int kWavesXPair = 37;
-constexpr int kWavesInlineValuePair = 38;
+constexpr int kWavesZPair = 37;
+constexpr int kWavesXPair = 39;
+constexpr int kWavesInlineValuePair = 40;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);

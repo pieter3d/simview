@@ -23,6 +23,8 @@ class WavesPanel : public Panel {
   std::pair<int, int> ScrollArea() const final;
   void AddSignal(const WaveData::Signal *signal);
   void AddSignals(const std::vector<const WaveData::Signal *> &signals);
+  bool Searchable() const final { return true; }
+  bool Search(bool search_down) final;
 
  private:
   struct ListItem {
@@ -82,7 +84,7 @@ class WavesPanel : public Panel {
   bool showing_help_ = false;
   bool showing_path_ = false;
   int time_unit_ = -9; // nanoseconds.
-  bool leading_zeroes_ = false;
+  bool leading_zeroes_ = true;
 
   // Charachters reserved for the signal name and value.
   int name_size_ = 20;
