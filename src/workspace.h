@@ -28,6 +28,14 @@ class Workspace {
   const auto &IncludeDirs() const { return include_paths_; }
   const WaveData *Waves() const { return wave_data_.get(); }
 
+  void TryMatchDesignWithWaves();
+  auto MatchedDesignScope() const { return matched_design_scope_; }
+  auto MatchedSignalScope() const { return matched_signal_scope_; }
+  void SetMatchedDesignScope(const UHDM::any *s) { matched_design_scope_ = s; }
+  void SetMatchedSignalScope(const WaveData::SignalScope *s) {
+    matched_signal_scope_ = s;
+  }
+
  private:
   // Singleton
   Workspace() {}
@@ -41,6 +49,8 @@ class Workspace {
   SURELOG::scompiler *compiler_ = nullptr;
   std::vector<std::string> include_paths_;
   std::unique_ptr<WaveData> wave_data_;
+  const WaveData::SignalScope *matched_signal_scope_ = nullptr;
+  const UHDM::any *matched_design_scope_ = nullptr;
 };
 
 } // namespace sv

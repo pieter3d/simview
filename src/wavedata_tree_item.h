@@ -14,6 +14,7 @@ class WaveDataTreeItem : public TreeItem {
   bool Expandable() const final;
   int NumChildren() const final;
   TreeItem *Child(int idx) final;
+  bool MatchColor() const final;
 
   const WaveData::SignalScope *SignalScope() const {
     return &hierarchy_level_;

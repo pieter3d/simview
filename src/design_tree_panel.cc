@@ -72,6 +72,10 @@ void DesignTreePanel::UIChar(int ch) {
   switch (ch) {
   case 'i': load_instance_ = true; break;
   case 'd': load_definition_ = true; break;
+  case 'S':
+    Workspace::Get().SetMatchedDesignScope(
+        dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem());
+    break;
   default: TreePanel::UIChar(ch);
   }
 }
@@ -90,7 +94,11 @@ DesignTreePanel::ItemForSource() {
 }
 
 std::string DesignTreePanel::Tooltip() const {
-  return "i:instance  d:definition  u:up scope";
+  std::string tt = "i:instance  d:definition  u:up scope  ";
+  if (Workspace::Get().Waves() != nullptr) {
+    tt += "S:set scope for waves  ";
+  }
+  return tt;
 }
 
 } // namespace sv

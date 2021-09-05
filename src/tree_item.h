@@ -14,6 +14,7 @@ class TreeItem {
   virtual bool Expandable() const = 0;
   virtual int NumChildren() const = 0;
   virtual TreeItem *Child(int idx) = 0;
+  virtual bool MatchColor() const { return false; }
 
   // State update.
   void SetDepth(int d) { depth_ = d; }

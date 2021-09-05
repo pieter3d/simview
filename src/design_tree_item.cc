@@ -1,6 +1,7 @@
 #include "design_tree_item.h"
 #include "absl/strings/str_format.h"
 #include "utils.h"
+#include "workspace.h"
 #include <uhdm/headers/gen_scope.h>
 #include <uhdm/headers/gen_scope_array.h>
 #include <uhdm/headers/module.h>
@@ -83,6 +84,10 @@ void DesignTreeItem::BuildChildren() const {
                             b.DesignItem()->VpiLineNo();
                    });
   children_built_ = true;
+}
+
+bool DesignTreeItem::MatchColor() const {
+  return item_ == Workspace::Get().MatchedDesignScope();
 }
 
 } // namespace sv

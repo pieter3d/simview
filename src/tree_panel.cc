@@ -71,7 +71,8 @@ void TreePanel::Draw() {
             if (show_search && j == search_pos) {
               wattron(w_, A_REVERSE);
             }
-            SetColor(w_, kHierNamePair);
+            SetColor(w_,
+                     item->MatchColor() ? kHierMatchedNamePair : kHierNamePair);
           } else if (j == expand_pos && item->Expandable()) {
             SetColor(w_, kHierExpandPair);
           }

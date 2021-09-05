@@ -9,12 +9,15 @@ namespace sv {
 class DesignTreeItem : public TreeItem {
  public:
   explicit DesignTreeItem(UHDM::any *item);
-  virtual const std::string &Name() const override { return name_; }
-  virtual const std::string &Type() const override { return type_; }
-  virtual bool AltType() const override;
-  virtual bool Expandable() const override;
-  virtual int NumChildren() const override;
-  virtual TreeItem *Child(int idx) override;
+  const std::string &Name() const final { return name_; }
+  const std::string &Type() const final { return type_; }
+  bool AltType() const final;
+  bool Expandable() const final;
+  int NumChildren() const final;
+  TreeItem *Child(int idx) final;
+  bool MatchColor() const final;
+
+
 
   const UHDM::any *DesignItem() const { return item_; }
 

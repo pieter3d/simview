@@ -17,6 +17,7 @@ void SetupColors() {
     init_pair(kTextInputRejectPair, 15, 1);       // white on red
     init_pair(kHierExpandPair, 10, kBackground);  // bright green
     init_pair(kHierNamePair, COLOR_WHITE, kBackground);
+    init_pair(kHierMatchedNamePair, 11, kBackground); // yellow
     init_pair(kHierTypePair, COLOR_CYAN, kBackground);
     init_pair(kHierShowMorePair, COLOR_YELLOW, kBackground);
     init_pair(kHierOtherPair, 13, kBackground);           // bright magenta

@@ -6,8 +6,7 @@ int main(int argc, char *argv[]) {
     std::cout
         << "simview: view and browse RTL design code and simulation waves.\n"
            "Specify an FST or VCD file with -waves, and/or design parsing "
-           "flags to "
-           "load verilog RTL.\n";
+           "flags to load verilog RTL.\n";
     return -1;
   }
   std::vector<char *> pruned_args;
@@ -47,6 +46,10 @@ int main(int argc, char *argv[]) {
       return -1;
     }
   }
+
+  // Try to match the two up.
+  sv::Workspace::Get().TryMatchDesignWithWaves();
+
   // Start the UI and the event loop.
   sv::UI ui;
   ui.EventLoop();

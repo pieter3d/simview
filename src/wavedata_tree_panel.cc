@@ -18,6 +18,11 @@ WaveDataTreePanel::WaveDataTreePanel() {
 void WaveDataTreePanel::UIChar(int ch) {
   int initial_line = line_idx_;
   switch (ch) {
+  case 'S':
+    Workspace::Get().SetMatchedSignalScope(
+        dynamic_cast<const WaveDataTreeItem *>(data_[line_idx_])
+            ->SignalScope());
+    break;
   default: TreePanel::UIChar(ch);
   }
   // If the selection moved, update the signals panel
@@ -27,7 +32,9 @@ void WaveDataTreePanel::UIChar(int ch) {
   }
 }
 
-std::string WaveDataTreePanel::Tooltip() const { return ""; }
+std::string WaveDataTreePanel::Tooltip() const {
+  return "S:set scope for source  ";
+}
 
 std::optional<const WaveData::SignalScope *>
 WaveDataTreePanel::ScopeForSignals() {

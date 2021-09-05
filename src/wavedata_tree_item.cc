@@ -1,4 +1,5 @@
 #include "wavedata_tree_item.h"
+#include "workspace.h"
 
 namespace sv {
 
@@ -25,4 +26,7 @@ int WaveDataTreeItem::NumChildren() const { return children_.size(); }
 
 TreeItem *WaveDataTreeItem::Child(int idx) { return &children_[idx]; }
 
+bool WaveDataTreeItem::MatchColor() const {
+  return &hierarchy_level_ == Workspace::Get().MatchedSignalScope();
+}
 } // namespace sv
