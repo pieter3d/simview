@@ -1,6 +1,7 @@
 #include "wave_signals_panel.h"
 #include "color.h"
 #include "workspace.h"
+#include <algorithm>
 #include <regex>
 
 namespace sv {
@@ -78,7 +79,13 @@ void WaveSignalsPanel::SetScope(const WaveData::SignalScope *s) {
         if (sig.name.find(filter_text_) == std::string::npos) continue;
       }
     }
-    items_.push_back(SignalTreeItem(sig));
+    items_.push_back(SignalTreeItem(&sig));
+  }
+  if (sort_) {
+    std::sort(items_.begin(), items_.end(),
+              [](const SignalTreeItem &a, const SignalTreeItem &b) {
+                return a.Name() < b.Name();
+              });
   }
   for (auto &item : items_) {
     data_.AddRoot(&item);
@@ -153,6 +160,10 @@ void WaveSignalsPanel::UIChar(int ch) {
       hide_inouts_ = !hide_inouts_;
       SetScope(scope_);
       break;
+    case 's':
+      sort_ = !sort_;
+      SetScope(scope_);
+      break;
     default: TreePanel::UIChar(ch);
     }
   }
@@ -164,6 +175,7 @@ std::string WaveSignalsPanel::Tooltip() const {
   tt += "W:add all to waves  ";
   tt += "f:filter  ";
   tt += "1234:toggle types  ";
+  tt += "s:toggle sort  ";
   if (Workspace::Get().Design() != nullptr) tt += "d:source  "; // TODO
   return tt;
 }

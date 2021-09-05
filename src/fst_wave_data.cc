@@ -1,4 +1,5 @@
 #include "fst_wave_data.h"
+#include "absl/strings/str_format.h"
 #include <stack>
 #include <stdexcept>
 #include <unordered_map>
@@ -30,8 +31,12 @@ FstWaveData::FstWaveData(const std::string &file_name) {
     } break;
     case FST_HT_UPSCOPE: stack.pop(); break;
     case FST_HT_VAR: {
+      std::string name(h->u.var.name, h->u.var.name_length);
+      if (h->u.var.length > 1) {
+        name += absl::StrFormat("[%d:0]", h->u.var.length - 1);
+      }
       stack.top()->signals.push_back({
-          .name = std::string(h->u.var.name, h->u.var.name_length),
+          .name = name,
           .width = h->u.var.length,
           .id = h->u.var.handle,
           .scope = stack.top(),

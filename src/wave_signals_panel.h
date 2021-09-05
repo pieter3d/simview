@@ -35,6 +35,8 @@ class WaveSignalsPanel : public TreePanel {
   bool hide_outputs_ = false;
   bool hide_inouts_ = false;
   bool hide_signals_ = false;
+  // Control the order of signals when added.
+  bool sort_ = false;
 
   TextInput filter_input_;
   std::string filter_text_;
