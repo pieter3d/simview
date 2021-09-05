@@ -17,19 +17,17 @@ constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
 
 // Binary search for the right sample.
-const std::string &FindValue(uint64_t time,
-                             const std::vector<WaveData::Sample> &samples,
-                             uint64_t left, uint64_t right) {
+int FindSampleIndex(uint64_t time, const std::vector<WaveData::Sample> &samples,
+                    int left, int right) {
   if (right - left <= 1) {
     // Use the new value when on the same time.
-    return time < samples[right].time ? samples[left].value
-                                      : samples[right].value;
+    return time < samples[right].time ? left : right;
   }
-  const uint64_t mid = (left + right) / 2;
+  const int mid = (left + right) / 2;
   if (time > samples[mid].time) {
-    return FindValue(time, samples, mid, right);
+    return FindSampleIndex(time, samples, mid, right);
   } else {
-    return FindValue(time, samples, left, mid);
+    return FindSampleIndex(time, samples, left, mid);
   }
 }
 
@@ -81,6 +79,28 @@ void WavesPanel::Resized() {
   rename_input_.SetDims(line_idx_, visible_items_[line_idx_]->depth,
                         name_size_ - visible_items_[line_idx_]->depth);
   time_input_.SetDims(0, 0, getmaxx(w_));
+}
+
+void WavesPanel::SnapToValue() {
+  const auto *item = visible_items_[line_idx_];
+  if (item->signal == nullptr) return;
+  auto time_per_char = TimePerChar();
+  // See if there is an edge within the current cursor's character span
+  const uint64_t left_time = left_time_ + cursor_pos_ * time_per_char;
+  const uint64_t right_time = left_time_ + (cursor_pos_ + 1) * time_per_char;
+  const int left_idx =
+      FindSampleIndex(left_time, item->wave, 0, item->wave.size() - 1);
+  const int right_idx =
+      FindSampleIndex(right_time, item->wave, 0, item->wave.size() - 1);
+  // Nothing to snap to if there is no transition within this character.
+  if (left_idx == right_idx) return;
+  // Find transition closest to left edge, but not before.
+  int idx = left_idx;
+  while (item->wave[idx].time < left_time) {
+    idx++;
+  }
+  // Update the cursor's time to the precise edge.
+  cursor_time_ = item->wave[idx].time;
 }
 
 std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
@@ -198,32 +218,6 @@ void WavesPanel::Draw() {
     }
   }
 
-  // Draw the cursor and markers. These are drawn on top of the ruler, but not
-  // over the time indicators.
-  // TODO: Don't overwrite the character in the selected wave.
-  auto vline_row = [&](int col) { return col >= time_width ? 0 : 1; };
-  for (int i = -1; i < 10; ++i) {
-    const uint64_t time = i < 0 ? marker_time_ : numbered_marker_times_[i];
-    if (time == 0) continue;
-    const int marker_pos = 0.5 + (time - left_time_) / time_per_char;
-    if (marker_pos >= 0 && marker_pos + wave_x < max_w) {
-      std::string marker_label = "m";
-      if (i >= 0) marker_label += '0' + i;
-      SetColor(w_, kWavesMarkerPair);
-      const int col = wave_x + marker_pos;
-      const int row = vline_row(wave_x + marker_pos);
-      mvwvline(w_, row, col, ACS_VLINE, max_h - row);
-      if (marker_pos + marker_label.size() < max_w) {
-        mvwaddstr(w_, row, col, marker_label.c_str());
-      }
-    }
-  }
-  // Also the interactive cursor.
-  int cursor_col = wave_x + cursor_pos_;
-  int cursor_row = vline_row(cursor_col);
-  SetColor(w_, kWavesCursorPair);
-  mvwvline(w_, cursor_row, cursor_col, ACS_VLINE, max_h - cursor_row);
-
   // Render signal name list. Using the the TreePanel data here since it has the
   // flattened list with proper tree state etc.
   for (int row = 1; row < max_h; ++row) {
@@ -273,11 +267,13 @@ void WavesPanel::Draw() {
       }
     }
     wattrset(w_, A_NORMAL);
+
     // Render the signal value.
-    const int val_start = std::max(0, (int)item->value.size() - value_size_);
+    const int val_start =
+        std::max(0, (int)item->value.size() - value_size_ - 1);
     wmove(w_, row,
           std::max(name_size_,
-                   name_size_ + value_size_ - (int)item->value.size()));
+                   name_size_ + value_size_ - 1 - (int)item->value.size()));
     SetColor(w_, kWavesSignalValuePair);
     for (int i = val_start; i < item->value.size(); ++i) {
       if (i == val_start && val_start > 0) {
@@ -288,7 +284,168 @@ void WavesPanel::Draw() {
         waddch(w_, item->value[i]);
       }
     }
+
+    // Nothing more to do for blanks/groups.
+    if (item->signal == nullptr) continue;
+
+    // Render the signal waveform
+    // Single bit signals that aren't too compressed:
+    //    ____/"""""""\______
+    //
+    // Compressed single bit signals shade by duty cycle:
+    //
+    //   _____|||___|||""""|_||______
+    //
+    // Multi-bit signals with visible transitions:
+    //   =|.5|===16'habcd=====|.123|===16'h0000===
+    //
+    // Compressed multi-bit signals
+    //   ||||=||||||=||||||||||||||||
+    //
+    // Helper function to set color.
+    const bool multi_bit = item->signal->width > 1;
+    int left_sample_idx =
+        FindSampleIndex(left_time_, item->wave, 0, item->wave.size() - 1);
+    // Save the locations of transitions and times to fill in values.
+    struct WaveValueInfo {
+      int xpos;
+      int size;
+      uint64_t time;
+      std::string value;
+    };
+    std::vector<WaveValueInfo> wave_value_list;
+    // Get the first value ready.
+    WaveValueInfo wvi;
+    wvi.xpos = 0;
+    wvi.time = left_time_;
+    int wave_value_idx = left_sample_idx;
+    // Determine initial color.
+    if (item->wave[left_sample_idx].value.find_first_of("xX") !=
+        std::string::npos) {
+      SetColor(w_, kWavesXPair);
+    } else if (item->wave[left_sample_idx].value.find_first_of("zZ") !=
+               std::string::npos) {
+      SetColor(w_, kWavesZPair);
+    } else {
+      SetColor(w_, kWavesWaveformPair);
+    }
+    // Draw charachter by charachter
+    wmove(w_, row, wave_x);
+    for (int x = 0; x < max_w - wave_x; ++x) {
+      // Find what sample index corresponds to the right edge of this character.
+      const int right_sample_idx =
+          FindSampleIndex(left_time_ + (1 + x) * time_per_char, item->wave,
+                          left_sample_idx, item->wave.size() - 1);
+      const int num_transitions = right_sample_idx - left_sample_idx;
+      if (num_transitions > 0) {
+        // See if anything has X or Z in it. Scan only the new values.
+        bool has_x = false;
+        bool has_z = false;
+        for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
+          has_x |= item->wave[i].value.find_first_of("xX") != std::string::npos;
+          has_z |= item->wave[i].value.find_first_of("zZ") != std::string::npos;
+        }
+        // Update color.
+        if (has_x)
+          SetColor(w_, kWavesXPair);
+        else if (has_z)
+          SetColor(w_, kWavesZPair);
+        else
+          SetColor(w_, kWavesWaveformPair);
+      }
+      if (multi_bit) {
+        if (num_transitions == 0) {
+          waddch(w_, '=');
+        } else {
+          waddch(w_, '|');
+          // Only save value locations if they are at least 3 characters.
+          if (x - wvi.xpos >= 3) {
+            wvi.size = x - wvi.xpos;
+            wvi.value =
+                FormatValue(item->wave[wave_value_idx].value, item->radix,
+                            leading_zeroes_, /*drop_size*/ true);
+            wave_value_list.push_back(wvi);
+          }
+          wvi.xpos = x;
+          wvi.time = item->wave[right_sample_idx].time;
+          wave_value_idx = right_sample_idx;
+        }
+      } else {
+        if (num_transitions == 0) {
+          waddch(w_, item->wave[left_sample_idx].value[0] == '0' ? '_' : '"');
+        } else if (num_transitions == 1) {
+          waddch(w_, item->wave[left_sample_idx].value[0] == '0' ? '/' : '\\');
+        } else {
+          waddch(w_, '|');
+        }
+      }
+      left_sample_idx = right_sample_idx;
+    }
+    // Add the remaining wave value if possible, sized against the right edge.
+    if (multi_bit && max_w - wave_x - wvi.xpos >= 3) {
+      wvi.size = max_w - wave_x - wvi.xpos;
+      wvi.value = FormatValue(item->wave[wave_value_idx].value, item->radix,
+                              leading_zeroes_, /*drop_size*/ true);
+      wave_value_list.push_back(wvi);
+    }
+
+    // Draw waveform values inline where possible.
+    SetColor(w_, kWavesInlineValuePair);
+    for (const auto &wv : wave_value_list) {
+      int start_pos, char_offset;
+      if (wv.size - 1 < wv.value.size()) {
+        start_pos = wv.xpos + 1;
+        char_offset = wv.value.size() - wv.size + 1;
+      } else {
+        start_pos = wv.xpos + wv.size / 2 - wv.value.size() / 2;
+        char_offset = 0;
+      }
+      wmove(w_, row, start_pos + wave_x);
+      for (int i = char_offset; i < wv.value.size(); ++i) {
+        waddch(w_, (i == char_offset && char_offset != 0) ? '.' : wv.value[i]);
+      }
+    }
   }
+
+  // Draw the cursor and markers.
+  const auto draw_vline = [&](int row, int col) {
+    const int current_line = 1 + line_idx_ - scroll_row_;
+    if (visible_items_[line_idx_]->signal != nullptr) {
+      // Draw the line in two sections, above and below the current line to
+      // avoid overwriting the drawn wave.
+      if (current_line > row) {
+        mvwvline(w_, row, col, ACS_VLINE, current_line - row);
+      }
+      if (current_line < max_h - 1) {
+        mvwvline(w_, current_line + 1, col, ACS_VLINE,
+                 max_h - current_line - 1);
+      }
+    } else {
+      mvwvline(w_, row, col, ACS_VLINE, max_h - row);
+    }
+  };
+  auto vline_row = [&](int col) { return col >= time_width ? 0 : 1; };
+  for (int i = -1; i < 10; ++i) {
+    const uint64_t time = i < 0 ? marker_time_ : numbered_marker_times_[i];
+    if (time == 0) continue;
+    const int marker_pos = 0.5 + (time - left_time_) / time_per_char;
+    if (marker_pos >= 0 && marker_pos + wave_x < max_w) {
+      std::string marker_label = "m";
+      if (i >= 0) marker_label += '0' + i;
+      SetColor(w_, kWavesMarkerPair);
+      const int col = wave_x + marker_pos;
+      const int row = vline_row(wave_x + marker_pos);
+      draw_vline(row, col);
+      if (marker_pos + marker_label.size() < max_w) {
+        mvwaddstr(w_, row, col, marker_label.c_str());
+      }
+    }
+  }
+  // Also the interactive cursor.
+  int cursor_col = wave_x + cursor_pos_;
+  int cursor_row = vline_row(cursor_col);
+  SetColor(w_, kWavesCursorPair);
+  draw_vline(cursor_row, cursor_col);
 
   // Draw the full path on top of everything else.
   if (showing_path_ && visible_items_[line_idx_]->signal != nullptr) {
@@ -480,7 +637,7 @@ void WavesPanel::UIChar(int ch) {
     case 0x7: // Ctrl-g
       AddGroup();
       break;
-    case 'r':
+    case 'R':
       if (visible_items_[line_idx_]->is_group) {
         rename_item_ = visible_items_[line_idx_];
         rename_input_.SetText(visible_items_[line_idx_]->group_name);
@@ -494,7 +651,7 @@ void WavesPanel::UIChar(int ch) {
         UpdateVisibleSignals();
       }
       break;
-    case 'R':
+    case 'r':
       if (visible_items_[line_idx_]->signal != nullptr) {
         visible_items_[line_idx_]->CycleRadix();
         UpdateValue(visible_items_[line_idx_]);
@@ -510,7 +667,10 @@ void WavesPanel::UIChar(int ch) {
     default: Panel::UIChar(ch);
     }
   }
-  if (time_changed) UpdateValues();
+  if (time_changed) {
+    SnapToValue();
+    UpdateValues();
+  }
   if (range_changed) UpdateWaves();
   if (cancel_multi_line) multi_line_idx_ = -1;
 }
@@ -688,9 +848,10 @@ void WavesPanel::UpdateValue(ListItem *item) {
     item->value = "Unavailable";
     return;
   }
-  const auto &val =
-      FindValue(cursor_time_, item->wave, 0, item->wave.size() - 1);
-  item->value = FormatValue(val, item->radix, leading_zeroes_);
+  const uint64_t idx =
+      FindSampleIndex(cursor_time_, item->wave, 0, item->wave.size() - 1);
+  item->value =
+      FormatValue(item->wave[idx].value, item->radix, leading_zeroes_);
 }
 
 void WavesPanel::UpdateValues() {
@@ -734,7 +895,7 @@ void WavesPanel::AddGroup() {
   rename_item_->is_group = true;
   rename_input_.SetDims(line_idx_ + 1 - scroll_row_, rename_item_->depth,
                         name_size_ - rename_item_->depth);
-  rename_input_.SetText("NewGroup");
+  rename_input_.SetText("");
   if (multi_line_idx_ < 0) return;
   // If mutliple lines were selected and they are all the same depth, move them
   // under the group.
@@ -777,12 +938,12 @@ void WavesPanel::DrawHelp() const {
       "m:   Place marker",
       "M:   Place numbered marker",
       "C-g: Create group",
-      "r:   Rename group",
+      "R:   Rename group",
       "UD:  Move signal up / down",
       "b:   Insert blank signal",
       "x:   Delete highlighted signal",
       "c:   Change signal color",
-      "R:   Cycle signal radix",
+      "r:   Cycle signal radix",
       "aA:  Adjust analog signal height",
       "d:   Show signal declaration in source",
   });

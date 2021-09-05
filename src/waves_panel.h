@@ -55,6 +55,7 @@ class WavesPanel : public Panel {
   void UpdateWaves();
   void UpdateValue(ListItem *item);
   void UpdateWave(ListItem *item);
+  void SnapToValue();
 
   // Owned pointers here makes reordering the contents of the list a lot faster
   // if the user adds groups etc. Otherwise there are copies of large datasets.

@@ -18,32 +18,35 @@ void SetupColors() {
     init_pair(kHierNamePair, COLOR_WHITE, kBackground);
     init_pair(kHierTypePair, COLOR_CYAN, kBackground);
     init_pair(kHierShowMorePair, COLOR_YELLOW, kBackground);
-    init_pair(kHierOtherPair, 13, kBackground);           // Bright magenta
-    init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);   // Yellow background
-    init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW);  // Yellow background
-    init_pair(kSourceLineNrPair, 8, kBackground);         // Grey
-    init_pair(kSourceCurrentLineNrPair, 11, kBackground); // Yellow
+    init_pair(kHierOtherPair, 13, kBackground);           // bright magenta
+    init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);   // yellow background
+    init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW);  // yellow background
+    init_pair(kSourceLineNrPair, 8, kBackground);         // grey
+    init_pair(kSourceCurrentLineNrPair, 11, kBackground); // yellow
     init_pair(kSourceHeaderPair, COLOR_CYAN, kBackground);
-    init_pair(kSourceTextPair, 7, kBackground);       // Silver
-    init_pair(kSourceIdentifierPair, 9, kBackground); // Red
-    init_pair(kSourceKeywordPair, 11, kBackground);   // Yellow
-    init_pair(kSourceCommentPair, 12, kBackground);   // Bright blue
-    init_pair(kSourceInactivePair, 8, kBackground);   // Grey
-    init_pair(kSourceParamPair, 5, kBackground);      // Purple
+    init_pair(kSourceTextPair, 7, kBackground);       // silver
+    init_pair(kSourceIdentifierPair, 9, kBackground); // red
+    init_pair(kSourceKeywordPair, 11, kBackground);   // yellow
+    init_pair(kSourceCommentPair, 12, kBackground);   // bright blue
+    init_pair(kSourceInactivePair, 8, kBackground);   // grey
+    init_pair(kSourceParamPair, 5, kBackground);      // purple
     init_pair(kSourceInstancePair, COLOR_CYAN, kBackground);
-    init_pair(kSourceValuePair, 10, kBackground);     // Bright green
-    init_pair(kSignalToggleOnPair, 12, kBackground);  // Bright blue
-    init_pair(kSignalToggleOffPair, 8, kBackground);  // Grey
-    init_pair(kSignalFilterPair, 12, kBackground);    // Bright blue
-    init_pair(kWavesTimeTickPair, 12, kBackground);   // Bright blue
-    init_pair(kWavesTimeValuePair, 8, kBackground);   // Grey
-    init_pair(kWavesCursorPair, 11, kBackground);     // Yellow
-    init_pair(kWavesMarkerPair, 15, kBackground);     // White
-    init_pair(kWavesDeltaPair, 6, kBackground);       // Cyan
-    init_pair(kWavesSignalNamePair, 15, kBackground); // White
-    init_pair(kWavesSignalValuePair, 6, kBackground); // Cyan
-    init_pair(kWavesGroupPair, 10, kBackground);      // Bright green
-    init_pair(kWavesInsertPair, 11, kBackground);     // Yellow
+    init_pair(kSourceValuePair, 10, kBackground);     // bright green
+    init_pair(kSignalToggleOnPair, 12, kBackground);  // bright blue
+    init_pair(kSignalToggleOffPair, 8, kBackground);  // grey
+    init_pair(kSignalFilterPair, 12, kBackground);    // bright blue
+    init_pair(kWavesTimeTickPair, 12, kBackground);   // bright blue
+    init_pair(kWavesTimeValuePair, 8, kBackground);   // grey
+    init_pair(kWavesCursorPair, 11, kBackground);     // yellow
+    init_pair(kWavesMarkerPair, 15, kBackground);     // white
+    init_pair(kWavesDeltaPair, 6, kBackground);       // cyan
+    init_pair(kWavesSignalNamePair, 15, kBackground); // white
+    init_pair(kWavesSignalValuePair, 6, kBackground); // cyan
+    init_pair(kWavesGroupPair, 10, kBackground);      // bright green
+    init_pair(kWavesWaveformPair, 10, kBackground);   // bright green
+    init_pair(kWavesZPair, 3, kBackground);           // dark yellow
+    init_pair(kWavesXPair, 9, kBackground);           // bright red
+    init_pair(kWavesInlineValuePair, 7, kBackground); // light grey
     use_default_colors();
   }
 }

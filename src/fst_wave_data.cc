@@ -90,6 +90,7 @@ FstWaveData::SignalSamples(const std::vector<const Signal *> &signals,
   fstReaderClrFacProcessMaskAll(reader_);
   int signal_index = 0;
   for (const auto &s : signals) {
+    if (s == nullptr) continue;
     fstReaderSetFacProcessMask(reader_, s->id);
     id_map[s->id] = signal_index++;
   }

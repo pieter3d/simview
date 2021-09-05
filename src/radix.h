@@ -14,6 +14,6 @@ enum class Radix {
 
 // Format a string of '1' and '0' charachters into the proper representation.
 std::string FormatValue(const std::string &bin, Radix radix,
-                        bool leading_zeroes);
+                        bool leading_zeroes, bool drop_size = false);
 
 } // namespace sv

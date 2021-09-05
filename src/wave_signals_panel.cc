@@ -133,7 +133,7 @@ void WaveSignalsPanel::UIChar(int ch) {
       const int mult = multi_line_idx_ < 0 ? line_idx_ : multi_line_idx_;
       add_signal_range_.first = add_all ? 0 : std::min(line_idx_, mult);
       add_signal_range_.second =
-          add_all ? items_.size() : std::max(line_idx_, mult);
+          add_all ? items_.size() - 1 : std::max(line_idx_, mult);
       add_signals_ = true;
     } break;
     case 'f': editing_filter_ = true; break;
