@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace sv {
@@ -37,7 +38,6 @@ class WaveData {
     // Containing scope, or parent.
     const SignalScope *scope = nullptr;
     // This can be loaded / reloaded.
-    mutable std::vector<WaveData::Sample> wave;
     mutable uint64_t valid_start_time = 0;
     mutable uint64_t valid_end_time = 0;
   };
@@ -47,13 +47,19 @@ class WaveData {
     std::vector<Signal> signals;
     const SignalScope *parent = nullptr;
   };
-  virtual ~WaveData() {}
+  const std::vector<Sample> &Wave(const Signal *s) const {
+    return waves_[s->id];
+  }
+  const SignalScope &Root() const { return root_; }
+
+  // ------------- Implementation methods --------------
   // returns -9 for nanoseconds, -6 for microseconds, etc.
   virtual int Log10TimeUnits() const = 0;
   // Valid time range in the wave data.
   virtual std::pair<uint64_t, uint64_t> TimeRange() const = 0;
   // Returns signal data as binary string of digits 01xz
   virtual std::string SignalValue(const Signal *s, uint64_t time) const = 0;
+  // Loads up the waves_ structure with sample data for the given Signal.
   virtual void LoadSignalSamples(const Signal *signal, uint64_t start_time,
                                  uint64_t end_time) const = 0;
   // Batch processing variant, which is often significantly more efficient than
@@ -61,11 +67,22 @@ class WaveData {
   virtual void LoadSignalSamples(const std::vector<const Signal *> &signals,
                                  uint64_t start_time,
                                  uint64_t end_time) const = 0;
-  const SignalScope &Root() const { return root_; }
+
+  virtual ~WaveData() {}
 
  protected:
   // Not directly constructable.
   WaveData() = default;
+  // Waveform data is stored per ID, which is potentially a subset of signals
+  // in the wave. This avoids the need to hold copies of identical waveforms
+  // for signals who are aliases of eachother. The canonical example here is
+  // clocks, which have lots of samples and generally exist all throughout the
+  // design without differing between scopes.
+  // This is marked mutable so that classes that hold a const reference or
+  // pointer to this WaveData object can index the map (which is a non-const
+  // operation since it may create new empty vectors for new IDs).
+  mutable std::unordered_map<uint32_t, std::vector<Sample>> waves_;
+  // Signals owned from here.
   SignalScope root_;
 };
 

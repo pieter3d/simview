@@ -102,7 +102,6 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
                                     uint64_t end_time) const {
   // Build a map to know where each result goes during the unpredictable order
   // in callbacks.
-  std::unordered_map<uint32_t, const Signal *> id_map;
   fstReaderClrFacProcessMaskAll(reader_);
   for (const auto &s : signals) {
     if (s == nullptr) continue;
@@ -110,9 +109,7 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
     if (s->valid_start_time <= start_time && s->valid_end_time >= end_time) {
       continue;
     }
-    s->wave.clear();
-    // Inlcude this signal in the lookup table.
-    id_map[s->id] = s;
+    waves_[s->id].clear();
     // Save the time over where the samples are valid.
     s->valid_start_time = start_time;
     s->valid_end_time = end_time;
@@ -128,18 +125,19 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
       reader_,
       +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,
           const unsigned char *value) {
-        const auto map =
-            reinterpret_cast<decltype(id_map) *>(user_callback_data_pointer);
-        (*map)[facidx]->wave.push_back(
+        const auto wave_map =
+            reinterpret_cast<decltype(waves_) *>(user_callback_data_pointer);
+        (*wave_map)[facidx].push_back(
             {.time = time, .value = reinterpret_cast<const char *>(value)});
       },
-      &id_map, nullptr);
+      &waves_, nullptr);
 
   // Update the valid range based on sample data actually received.
   for (const auto &s : signals) {
-    if (s->wave.empty()) continue;
-    s->valid_start_time = std::min(s->valid_start_time, s->wave.front().time);
-    s->valid_end_time = std::max(s->valid_end_time, s->wave.back().time);
+    auto &wave = waves_[s->id];
+    if (wave.empty()) continue;
+    s->valid_start_time = std::min(s->valid_start_time, wave.front().time);
+    s->valid_end_time = std::max(s->valid_end_time, wave.back().time);
   }
 }
 

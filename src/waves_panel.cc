@@ -85,22 +85,21 @@ void WavesPanel::SnapToValue() {
   const auto *item = visible_items_[line_idx_];
   if (item->signal == nullptr) return;
   auto time_per_char = TimePerChar();
+  auto &wave = wave_data_->Wave(item->signal);
   // See if there is an edge within the current cursor's character span
   const uint64_t left_time = left_time_ + cursor_pos_ * time_per_char;
   const uint64_t right_time = left_time_ + (cursor_pos_ + 1) * time_per_char;
-  const int left_idx = FindSampleIndex(left_time, item->signal->wave, 0,
-                                       item->signal->wave.size() - 1);
-  const int right_idx = FindSampleIndex(right_time, item->signal->wave, 0,
-                                        item->signal->wave.size() - 1);
+  const int left_idx = FindSampleIndex(left_time, wave, 0, wave.size() - 1);
+  const int right_idx = FindSampleIndex(right_time, wave, 0, wave.size() - 1);
   // Nothing to snap to if there is no transition within this character.
   if (left_idx == right_idx) return;
   // Find transition closest to left edge, but not before.
   int idx = left_idx;
-  while (item->signal->wave[idx].time < left_time) {
+  while (wave[idx].time < left_time) {
     idx++;
   }
   // Update the cursor's time to the precise edge.
-  cursor_time_ = item->signal->wave[idx].time;
+  cursor_time_ = wave[idx].time;
 }
 
 std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
@@ -301,10 +300,9 @@ void WavesPanel::Draw() {
     // Compressed multi-bit signals
     //   ||||=||||||=||||||||||||||||
     //
-    // Helper function to set color.
+    const auto &wave = wave_data_->Wave(item->signal);
     const bool multi_bit = item->signal->width > 1;
-    int left_sample_idx = FindSampleIndex(left_time_, item->signal->wave, 0,
-                                          item->signal->wave.size() - 1);
+    int left_sample_idx = FindSampleIndex(left_time_, wave, 0, wave.size() - 1);
     // Save the locations of transitions and times to fill in values.
     struct WaveValueInfo {
       int xpos;
@@ -319,10 +317,9 @@ void WavesPanel::Draw() {
     wvi.time = left_time_;
     int wave_value_idx = left_sample_idx;
     // Determine initial color.
-    if (item->signal->wave[left_sample_idx].value.find_first_of("xX") !=
-        std::string::npos) {
+    if (wave[left_sample_idx].value.find_first_of("xX") != std::string::npos) {
       SetColor(w_, kWavesXPair + highlight);
-    } else if (item->signal->wave[left_sample_idx].value.find_first_of("zZ") !=
+    } else if (wave[left_sample_idx].value.find_first_of("zZ") !=
                std::string::npos) {
       SetColor(w_, kWavesZPair + highlight);
     } else {
@@ -332,19 +329,17 @@ void WavesPanel::Draw() {
     wmove(w_, row, wave_x);
     for (int x = 0; x < max_w - wave_x; ++x) {
       // Find what sample index corresponds to the right edge of this character.
-      const int right_sample_idx = FindSampleIndex(
-          left_time_ + (1 + x) * time_per_char, item->signal->wave,
-          left_sample_idx, item->signal->wave.size() - 1);
+      const int right_sample_idx =
+          FindSampleIndex(left_time_ + (1 + x) * time_per_char, wave,
+                          left_sample_idx, wave.size() - 1);
       const int num_transitions = right_sample_idx - left_sample_idx;
       if (num_transitions > 0) {
         // See if anything has X or Z in it. Scan only the new values.
         bool has_x = false;
         bool has_z = false;
         for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
-          has_x |= item->signal->wave[i].value.find_first_of("xX") !=
-                   std::string::npos;
-          has_z |= item->signal->wave[i].value.find_first_of("zZ") !=
-                   std::string::npos;
+          has_x |= wave[i].value.find_first_of("xX") != std::string::npos;
+          has_z |= wave[i].value.find_first_of("zZ") != std::string::npos;
         }
         // Update color.
         if (has_x)
@@ -362,23 +357,19 @@ void WavesPanel::Draw() {
           // Only save value locations if they are at least 3 characters.
           if (x - wvi.xpos >= 3) {
             wvi.size = x - wvi.xpos;
-            wvi.value =
-                FormatValue(item->signal->wave[wave_value_idx].value,
-                            item->radix, leading_zeroes_, /*drop_size*/ true);
+            wvi.value = FormatValue(wave[wave_value_idx].value, item->radix,
+                                    leading_zeroes_, /*drop_size*/ true);
             wave_value_list.push_back(wvi);
           }
-          wvi.xpos = x;
-          wvi.time = item->signal->wave[right_sample_idx].time;
+          wvi.xpos = x + 1;
+          wvi.time = wave[right_sample_idx].time;
           wave_value_idx = right_sample_idx;
         }
       } else {
         if (num_transitions == 0) {
-          waddch(w_, item->signal->wave[left_sample_idx].value[0] == '0' ? '_'
-                                                                         : '^');
+          waddch(w_, wave[left_sample_idx].value[0] == '0' ? '_' : '^');
         } else if (num_transitions == 1) {
-          waddch(w_, item->signal->wave[left_sample_idx].value[0] == '0'
-                         ? '/'
-                         : '\\');
+          waddch(w_, wave[left_sample_idx].value[0] == '0' ? '/' : '\\');
         } else {
           waddch(w_, '|');
         }
@@ -388,8 +379,8 @@ void WavesPanel::Draw() {
     // Add the remaining wave value if possible, sized against the right edge.
     if (multi_bit && max_w - wave_x - wvi.xpos >= 3) {
       wvi.size = max_w - wave_x - wvi.xpos;
-      wvi.value = FormatValue(item->signal->wave[wave_value_idx].value,
-                              item->radix, leading_zeroes_, /*drop_size*/ true);
+      wvi.value = FormatValue(wave[wave_value_idx].value, item->radix,
+                              leading_zeroes_, /*drop_size*/ true);
       wave_value_list.push_back(wvi);
     }
 
@@ -844,14 +835,13 @@ void WavesPanel::UpdateWave(ListItem *item) {
 
 void WavesPanel::UpdateValue(ListItem *item) {
   if (item->is_group || item->signal == nullptr) return;
-  if (item->signal->wave.empty()) {
+  auto &wave = wave_data_->Wave(item->signal);
+  if (wave.empty()) {
     item->value = "Unavailable";
     return;
   }
-  const uint64_t idx = FindSampleIndex(cursor_time_, item->signal->wave, 0,
-                                       item->signal->wave.size() - 1);
-  item->value =
-      FormatValue(item->signal->wave[idx].value, item->radix, leading_zeroes_);
+  const uint64_t idx = FindSampleIndex(cursor_time_, wave, 0, wave.size() - 1);
+  item->value = FormatValue(wave[idx].value, item->radix, leading_zeroes_);
 }
 
 void WavesPanel::UpdateValues() {
