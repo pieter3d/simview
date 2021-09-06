@@ -4,7 +4,8 @@ namespace sv {
 
 namespace {
 constexpr int kBackground = COLOR_BLACK;
-constexpr int kDimHighlight = 234;
+constexpr int kDimHighlight = 233;
+const int kCustomColors[] = {4, 12, 9, 172, 11, 55, 199, 22, 240, 249};
 } // namespace
 
 void SetupColors() {
@@ -54,6 +55,10 @@ void SetupColors() {
     init_pair(kWavesXPair + 1, 9, kDimHighlight);           // bright red
     init_pair(kWavesInlineValuePair, 7, kBackground);       // light grey
     init_pair(kWavesInlineValuePair + 1, 7, kDimHighlight); // light grey
+    for (int i = 0; i < 10; ++i) {
+      init_pair(kWavesCustomPair + i * 2, kCustomColors[i], kBackground);
+      init_pair(kWavesCustomPair + i * 2 + 1, kCustomColors[i], kDimHighlight);
+    }
     use_default_colors();
   }
 }

@@ -44,6 +44,7 @@ class WavesPanel : public Panel {
     bool is_group = false;
     bool collapsed = false;
     int depth = 0;
+    int custom_color = -1;
     // Saved here instead of searched and derived every time.
     std::string value;
   };
@@ -77,6 +78,7 @@ class WavesPanel : public Panel {
   uint64_t left_time_ = 0;
   uint64_t right_time_ = 0;
   bool marker_selection_ = false;
+  bool color_selection_ = false;
   TextInput time_input_;
   TextInput rename_input_;
   ListItem *rename_item_ = nullptr;

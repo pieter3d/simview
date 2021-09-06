@@ -45,6 +45,10 @@ constexpr int kWavesWaveformPair = 37;
 constexpr int kWavesZPair = 39;
 constexpr int kWavesXPair = 41;
 constexpr int kWavesInlineValuePair = 43;
+constexpr int kWavesCustomPair = 45;
+// 10 custom colors, each with a background highlight variant. So need
+// a step of 20.
+constexpr int kReservedColor = 65;
 
 void SetupColors();
 void SetColor(WINDOW *w, int n);

@@ -329,7 +329,10 @@ void WavesPanel::Draw() {
     wvi.time = left_time_;
     int wave_value_idx = left_sample_idx;
     // Determine initial color.
-    if (wave[left_sample_idx].value.find_first_of("xX") != std::string::npos) {
+    if (item->custom_color >= 0) {
+      SetColor(w_, kWavesCustomPair + 2 * item->custom_color + highlight);
+    } else if (wave[left_sample_idx].value.find_first_of("xX") !=
+               std::string::npos) {
       SetColor(w_, kWavesXPair + highlight);
     } else if (wave[left_sample_idx].value.find_first_of("zZ") !=
                std::string::npos) {
@@ -354,12 +357,15 @@ void WavesPanel::Draw() {
           has_z |= wave[i].value.find_first_of("zZ") != std::string::npos;
         }
         // Update color.
-        if (has_x)
+        if (item->custom_color >= 0) {
+          SetColor(w_, kWavesCustomPair + 2 * item->custom_color + highlight);
+        } else if (has_x) {
           SetColor(w_, kWavesXPair + highlight);
-        else if (has_z)
+        } else if (has_z) {
           SetColor(w_, kWavesZPair + highlight);
-        else
+        } else {
           SetColor(w_, kWavesWaveformPair + highlight);
+        }
       }
       if (multi_bit) {
         if (num_transitions == 0) {
@@ -454,6 +460,18 @@ void WavesPanel::Draw() {
   SetColor(w_, kWavesCursorPair);
   draw_vline(cursor_row, cursor_col);
 
+  // Draw color palette
+  if (color_selection_) {
+    wmove(w_, 0, 0);
+    int color_idx = 0;
+    for (int x = 0; x < 50; ++x) {
+      if (x % 5 == 0) {
+        SetColor(w_, kWavesCustomPair + 2 * color_idx++);
+      }
+      waddch(w_, x % 5 == 2 ? '0' + color_idx - 1 : '=');
+    }
+  }
+
   // Draw the full path on top of everything else.
   if (showing_path_ && visible_items_[line_idx_]->signal != nullptr) {
     const int ypos = line_idx_ - scroll_row_ + 1;
@@ -479,9 +497,24 @@ void WavesPanel::UIChar(int ch) {
   bool range_changed = false;
   // Most actions cancel multi-line.
   bool cancel_multi_line = true;
-  showing_path_ = false; // Anything cancels, but still do other stuff.
   if (showing_help_) {
     showing_help_ = false;
+  } else if (showing_path_) {
+    showing_path_ = false;
+  } else if (color_selection_) {
+    int start = line_idx_;
+    int stop = multi_line_idx_ < 0 ? line_idx_ : multi_line_idx_;
+    if (stop < start) std::swap(start, stop);
+    for (int i = start; i <= stop; ++i) {
+      if (visible_items_[i]->signal == nullptr) continue;
+      if (ch >= '0' && ch <= '9') {
+        visible_items_[i]->custom_color = ch - '0';
+      } else if (ch == '-') {
+        visible_items_[i]->custom_color = -1;
+      }
+    }
+    color_selection_ = false;
+    cancel_multi_line = false; // Keep changing lots of colors.
   } else if (marker_selection_) {
     if (ch >= '0' && ch <= '9') {
       numbered_marker_times_[ch - '0'] = cursor_time_;
@@ -667,6 +700,14 @@ void WavesPanel::UIChar(int ch) {
     case '?': showing_help_ = true; break;
     case 'p': showing_path_ = true; break;
     case 'b': AddSignal(nullptr); break;
+    case 'c':
+      // No action if a single non-signal is selected.
+      if (multi_line_idx_ < 0 && visible_items_[line_idx_]->signal == nullptr) {
+        break;
+      }
+      color_selection_ = true;
+      cancel_multi_line = false;
+      break;
     case 'd':
       if (Workspace::Get().Design() != nullptr) {
         signal_for_source_ = visible_items_[line_idx_]->signal;
@@ -922,6 +963,8 @@ bool WavesPanel::Modal() const {
 std::string WavesPanel::Tooltip() const {
   if (marker_selection_) {
     return "0-9:marker selection";
+  } else if (color_selection_) {
+    return "0-9:color selection  -:default color  ";
   }
   return "?:show help  ";
 }
@@ -929,7 +972,6 @@ std::string WavesPanel::Tooltip() const {
 void WavesPanel::DrawHelp() const {
   // TODO: Missing features
   // "eE:  Previous / next signal edge",
-  // "c:   Change signal color",
   // "aA:  Adjust analog signal height",
   std::vector<std::string> keys({
       "zZ:  Zoom about the cursor",
@@ -937,6 +979,7 @@ void WavesPanel::DrawHelp() const {
       "sS:  Adjust signal name size",
       "vV:  Adjust value size",
       "0:   Show leading zeroes",
+      "c:   Change signal color",
       "p:   Show full signal path",
       "T:   Go to time",
       "t:   Cycle time units",
