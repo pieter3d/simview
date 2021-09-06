@@ -252,7 +252,7 @@ bool IsKeyword(const std::string &s) {
       "within",
       "wor",
       "xnor",
-      "xor ",
+      "xor",
   };
   return kKeywords.find(s) != kKeywords.end();
 }

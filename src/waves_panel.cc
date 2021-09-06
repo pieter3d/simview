@@ -174,7 +174,7 @@ void WavesPanel::Draw() {
   // Draw as many ticks as possible, forming the time ruler.
   uint64_t tick_time = left_time_ - (left_time_ % time_per_tick);
   while (1) {
-    const int xpos = 0.5 + wave_x + (tick_time - left_time_) / time_per_char;
+    const int xpos = wave_x + (tick_time - left_time_) / time_per_char;
     const auto s =
         absl::StrFormat("%s%s", AddDigitSeparators(tick_time * ruler_factor),
                         kTimeUnits[ruler_unit_idx]);
@@ -201,12 +201,23 @@ void WavesPanel::Draw() {
     s += absl::StrFormat("marker:%s%s ",
                          AddDigitSeparators(marker_time_ * time_factor),
                          unit_string);
+    uint64_t marker_delta_value =
+        abs((int64_t)marker_time_ - (int64_t)cursor_time_);
     const int delta_start = s.size();
-    s += absl::StrFormat(
-        "|t-m|:%s%s ",
-        AddDigitSeparators(time_factor *
-                           abs((int64_t)marker_time_ - (int64_t)cursor_time_)),
-        unit_string);
+    s += absl::StrFormat("|t-m|:%s%s ",
+                         AddDigitSeparators(time_factor * marker_delta_value),
+                         unit_string);
+    if (marker_delta_value > 0) {
+      double freq =
+          1.0 / (marker_delta_value * pow(10, wave_data_->Log10TimeUnits()));
+      std::vector<std::string> freq_units = {"", "k", "M", "G"};
+      int freq_idx = 0;
+      while (freq > 1000 && freq_idx < freq_units.size() - 1) {
+        freq /= 1000;
+        freq_idx++;
+      }
+      s += absl::StrFormat("(%.1f%sHz) ", freq, freq_units[freq_idx]);
+    }
     time_width = s.size();
     SetColor(w_, kWavesCursorPair);
     wmove(w_, 0, 0);
@@ -424,7 +435,7 @@ void WavesPanel::Draw() {
   for (int i = -1; i < 10; ++i) {
     const uint64_t time = i < 0 ? marker_time_ : numbered_marker_times_[i];
     if (time == 0) continue;
-    const int marker_pos = 0.5 + (time - left_time_) / time_per_char;
+    const int marker_pos = (time - left_time_) / time_per_char;
     if (marker_pos >= 0 && marker_pos + wave_x < max_w) {
       std::string marker_label = "m";
       if (i >= 0) marker_label += '0' + i;
@@ -916,6 +927,10 @@ std::string WavesPanel::Tooltip() const {
 }
 
 void WavesPanel::DrawHelp() const {
+  // TODO: Missing features
+  // "eE:  Previous / next signal edge",
+  // "c:   Change signal color",
+  // "aA:  Adjust analog signal height",
   std::vector<std::string> keys({
       "zZ:  Zoom about the cursor",
       "F:   Zoom full range",
@@ -925,7 +940,6 @@ void WavesPanel::DrawHelp() const {
       "p:   Show full signal path",
       "T:   Go to time",
       "t:   Cycle time units",
-      "eE:  Previous / next signal edge",
       "m:   Place marker",
       "M:   Place numbered marker",
       "C-g: Create group",
@@ -933,9 +947,7 @@ void WavesPanel::DrawHelp() const {
       "UD:  Move signal up / down",
       "b:   Insert blank signal",
       "x:   Delete highlighted signal",
-      "c:   Change signal color",
       "r:   Cycle signal radix",
-      "aA:  Adjust analog signal height",
   });
   if (Workspace::Get().Design() != nullptr) {
     keys.push_back("d:   Show signal declaration in source");

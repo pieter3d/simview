@@ -134,6 +134,7 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
 
   // Update the valid range based on sample data actually received.
   for (const auto &s : signals) {
+    if (s == nullptr) continue;
     auto &wave = waves_[s->id];
     if (wave.empty()) continue;
     s->valid_start_time = std::min(s->valid_start_time, wave.front().time);

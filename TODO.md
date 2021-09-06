@@ -20,5 +20,4 @@ Stuff that is still pending to be fixed or implemented.
 * Reload waves, and possibly live updates.
 * Search for value in wave.
 * Analog signals.
-* Highlight background of active waveform 
 * Detect arrays in waves, make them expandable in the waveforms
