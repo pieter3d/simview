@@ -25,18 +25,19 @@ class WaveData {
       kParameter,
     } type = Type::kNet;
     std::string name;
+    std::string name_width;
     uint32_t width;
     // General purpose identifier. May need to revisit the type since the
     // various wave database formats use different ways to look up signal data.
     uint32_t id;
     // Containing scope, or parent.
-    SignalScope *scope;
+    SignalScope *scope = nullptr;
   };
   struct SignalScope {
     std::string name;
     std::vector<SignalScope> children;
     std::vector<Signal> signals;
-    SignalScope *parent;
+    SignalScope *parent = nullptr;
   };
   virtual ~WaveData() {}
   // returns -9 for nanoseconds, -6 for microseconds, etc.

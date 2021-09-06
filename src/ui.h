@@ -50,6 +50,7 @@ class UI {
   // A list of all panels makes it easy to cycle focus.
   std::vector<Panel *> panels_;
   int focused_panel_idx_ = 0;
+  std::string error_message_;
 
   // Search state.
   bool searching_ = false;

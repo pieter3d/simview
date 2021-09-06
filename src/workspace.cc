@@ -1,4 +1,5 @@
 #include "workspace.h"
+#include <gen_scope_array.h>
 #include <stdexcept>
 #include <surelog/surelog.h>
 #include <uhdm/headers/ElaboratorListener.h>
@@ -33,7 +34,7 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   clp.setElabUhdm(true);
   clp.setCompile(true);
   clp.setwritePpOutput(true);
-  clp.setWriteUhdm(false);
+  clp.setWriteUhdm(true);
   bool success = clp.parseCommandLine(argc, argv);
   vpiHandle design = nullptr;
   if (!success || clp.help()) {
@@ -110,7 +111,7 @@ void Workspace ::TryMatchDesignWithWaves() {
     }
   }
   // Okay, good enough. Now try to build a list of design scopes that look
-  // interesting.
+  // interesting. Not considering generate blocks here for the auto-detect.
   std::vector<const UHDM::any *> design_scopes;
   for (const auto *sub : *design_->TopModules()) {
     design_scopes.push_back(sub);
@@ -147,4 +148,147 @@ void Workspace ::TryMatchDesignWithWaves() {
   }
 }
 
+std::vector<const WaveData::Signal *>
+Workspace::DesignToSignals(const UHDM::any *item) const {
+  std::vector<const WaveData::Signal *> signals;
+  return signals;
+}
+
+const UHDM::any *
+Workspace::SignalToDesign(const WaveData::Signal *signal) const {
+  // Build a stack of all parents up to the root, or the matched signal scope,
+  // whichever comes first.
+  std::stack<const WaveData::SignalScope *> stack;
+  WaveData::SignalScope *scope = signal->scope;
+  do {
+    stack.push(scope);
+    if (scope == matched_signal_scope_) break;
+    scope = scope->parent;
+  } while (scope != nullptr);
+  // Helper match, since the design names have a "work@" prefix.
+  auto scope_match = [](const std::string &design_scope,
+                        const std::string &signal_scope) {
+    auto pos = design_scope.find(signal_scope);
+    if (pos == std::string::npos) return false;
+    if (design_scope.size() == signal_scope.size() || pos == 0) return true;
+    return design_scope[pos - 1] == '@';
+  };
+  // Traverse the stack down the design tree hierarcy.
+  const UHDM::any *design_scope = matched_design_scope_;
+  while (design_scope != nullptr && !stack.empty()) {
+    auto *signal_scope = stack.top();
+    // Running the search as an anonoymous lambda allows for an easier exit out
+    // of next loops when the hierarchy item is found. An alternative would be a
+    // goto statement.
+    [&] {
+      if (scope_match(design_scope->VpiName(), signal_scope->name)) {
+        return;
+      } else if (design_scope->VpiType() == vpiModule) {
+        const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
+        if (m->Modules() != nullptr) {
+          for (const auto *sub : *m->Modules()) {
+            if (scope_match(sub->VpiName(), signal_scope->name)) {
+              design_scope = sub;
+              return;
+            }
+          }
+        }
+        if (m->Gen_scope_arrays() != nullptr) {
+          for (const auto *ga : *m->Gen_scope_arrays()) {
+            // Surelog always has an unrolled list of gen scope arrays with a
+            // single generate scope as the only child.
+            const auto *g = (*ga->Gen_scopes())[0];
+            if (scope_match(ga->VpiName(), signal_scope->name)) {
+              design_scope = g;
+              return;
+            }
+          }
+        }
+      } else if (design_scope->VpiType() == vpiGenScope) {
+        // Nearly identical code to the above, but the Surelog classes don't
+        // have this virtualized.
+        const auto *g = dynamic_cast<const UHDM::gen_scope *>(design_scope);
+        if (g->Modules() != nullptr) {
+          for (const auto *sub : *g->Modules()) {
+            if (scope_match(sub->VpiName(), signal_scope->name)) {
+              design_scope = sub;
+              return;
+            }
+          }
+        }
+        if (g->Gen_scope_arrays() != nullptr) {
+          for (const auto *ga : *g->Gen_scope_arrays()) {
+            const auto *g = (*ga->Gen_scopes())[0];
+            if (scope_match(ga->VpiName(), signal_scope->name)) {
+              design_scope = g;
+              return;
+            }
+          }
+        }
+      }
+      // Not considering anything else
+      design_scope = nullptr;
+      return;
+    }();
+    stack.pop();
+  }
+  // Bail out if there is no matching design.
+  if (design_scope == nullptr) return nullptr;
+  // Helper to match without [n] suffix, since the design does not contain
+  // unrolled net arrays.
+  auto array_match = [](const std::string &val,
+                        const std::string &val_with_suffix) {
+    const auto pos = val_with_suffix.find(val);
+    if (pos == std::string::npos) return false;
+    if (val.size() == val_with_suffix.size()) return true;
+    return val_with_suffix[val.size()] == '[';
+  };
+  // Look for nets, variables.
+  if (design_scope->VpiType() == vpiModule) {
+    const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
+    if (m->Nets() != nullptr) {
+      for (const auto *n : *m->Nets()) {
+        if (n->VpiName() == signal->name) return n;
+      }
+    }
+    if (m->Variables() != nullptr) {
+      for (const auto *v : *m->Variables()) {
+        if (v->VpiName() == signal->name) return v;
+      }
+    }
+    if (m->Array_nets() != nullptr) {
+      for (const auto *a : *m->Array_nets()) {
+        if (array_match(a->VpiName(), signal->name)) return a;
+      }
+    }
+    if (m->Array_vars() != nullptr) {
+      for (const auto *a : *m->Array_vars()) {
+        if (array_match(a->VpiName(), signal->name)) return a;
+      }
+    }
+  } else if (design_scope->VpiType() == vpiGenScope) {
+    const auto *g = dynamic_cast<const UHDM::gen_scope *>(design_scope);
+    if (g->Nets() != nullptr) {
+      for (const auto *n : *g->Nets()) {
+        if (n->VpiName() == signal->name) return n;
+      }
+    }
+    if (g->Variables() != nullptr) {
+      for (const auto *v : *g->Variables()) {
+        if (v->VpiName() == signal->name) return v;
+      }
+    }
+    if (g->Array_nets() != nullptr) {
+      for (const auto *a : *g->Array_nets()) {
+        if (array_match(a->VpiName(), signal->name)) return a;
+      }
+    }
+    if (g->Array_vars() != nullptr) {
+      for (const auto *a : *g->Array_vars()) {
+        if (array_match(a->VpiName(), signal->name)) return a;
+      }
+    }
+  }
+  return nullptr;
+}
 } // namespace sv

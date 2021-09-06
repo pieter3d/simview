@@ -25,6 +25,7 @@ class WavesPanel : public Panel {
   void AddSignals(const std::vector<const WaveData::Signal *> &signals);
   bool Searchable() const final { return true; }
   bool Search(bool search_down) final;
+  std::optional<const WaveData::Signal *> SignalForSource();
 
  private:
   struct ListItem {
@@ -85,6 +86,7 @@ class WavesPanel : public Panel {
   bool showing_path_ = false;
   int time_unit_ = -9; // nanoseconds.
   bool leading_zeroes_ = true;
+  const WaveData::Signal *signal_for_source_ = nullptr;
 
   // Charachters reserved for the signal name and value.
   int name_size_ = 20;

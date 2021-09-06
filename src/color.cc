@@ -12,6 +12,7 @@ void SetupColors() {
     start_color();
     init_pair(kBorderPair, 8, kBackground);       // gray
     init_pair(kFocusBorderPair, 13, kBackground); // magenta
+    init_pair(kPanelErrorPair, 15, 1);            // white on red
     init_pair(kOverflowTextPair, 9, kBackground); // bright red
     init_pair(kTextInputPair, 15, 5);             // white on purple
     init_pair(kTextInputRejectPair, 15, 1);       // white on red

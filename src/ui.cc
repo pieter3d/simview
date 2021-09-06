@@ -122,6 +122,11 @@ void UI::EventLoop() {
   while (int ch = getch()) {
     bool quit = false;
 
+    // Any key clears an error message.
+    if (ch != ERR) {
+      error_message_.clear();
+    }
+
     // TODO: remove
     if (ch != ERR) {
       const auto now = absl::Now();
@@ -266,6 +271,17 @@ void UI::EventLoop() {
       } else if (focused_panel == wave_signals_panel_.get()) {
         if (const auto signals = wave_signals_panel_->SignalsForWaves()) {
           waves_panel_->AddSignals(*signals);
+        }
+      } else if (focused_panel == waves_panel_.get()) {
+        if (const auto signal = waves_panel_->SignalForSource()) {
+          auto design_item = Workspace::Get().SignalToDesign(*signal);
+          if (design_item == nullptr) {
+            error_message_ = absl::StrFormat("Signal %s not found in design.",
+                                             (*signal)->name);
+          } else {
+            source_panel_->SetItem(design_item, /* show_def*/ true);
+            design_tree_panel_->SetItem(design_item);
+          }
         }
       }
     }
@@ -413,6 +429,12 @@ void UI::Draw() {
     } else {
       curs_set(0);
     }
+  }
+  // Finally, render an error message if needed.
+  if (!error_message_.empty()) {
+    move(term_h - 1, std::max(0ul, term_w - error_message_.size()));
+    SetColor(stdscr, kPanelErrorPair);
+    addnstr(error_message_.c_str(), term_w);
   }
   doupdate();
 }

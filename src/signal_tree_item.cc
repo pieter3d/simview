@@ -1,4 +1,5 @@
 #include "signal_tree_item.h"
+#include "utils.h"
 
 namespace sv {
 namespace {
@@ -9,7 +10,7 @@ std::string kNetString = "";
 std::string kParameterString = "[P]";
 } // namespace
 
-const std::string &SignalTreeItem::Name() const { return signal_->name; }
+const std::string &SignalTreeItem::Name() const { return signal_->name_width; }
 
 bool SignalTreeItem::AltType() const {
   return signal_->type == WaveData::Signal::kParameter;

@@ -35,6 +35,9 @@ class Workspace {
   void SetMatchedSignalScope(const WaveData::SignalScope *s) {
     matched_signal_scope_ = s;
   }
+  std::vector<const WaveData::Signal *>
+  DesignToSignals(const UHDM::any *item) const;
+  const UHDM::any *SignalToDesign(const WaveData::Signal *signal) const;
 
  private:
   // Singleton

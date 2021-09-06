@@ -27,14 +27,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (!wave_file.empty()) {
-    std::cout << "Reading wave file..." << std::endl;
-    if (!sv::Workspace::Get().ReadWaves(wave_file)) {
-      std::cout << "Problem reading wave file." << std::endl;
-      return -1;
-    }
-  }
-
   // Parse the design using the remaining command line arguments
   if (pruned_args.size() > 1) {
     // TODO: Run in parallel threads with wave parsing?
@@ -43,6 +35,14 @@ int main(int argc, char *argv[]) {
             pruned_args.size(),
             const_cast<const char **>(pruned_args.data()))) {
       // This function prints plenty of errors if it fails.
+      return -1;
+    }
+  }
+
+  if (!wave_file.empty()) {
+    std::cout << "Reading wave file..." << std::endl;
+    if (!sv::Workspace::Get().ReadWaves(wave_file)) {
+      std::cout << "Problem reading wave file." << std::endl;
       return -1;
     }
   }

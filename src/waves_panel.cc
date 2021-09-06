@@ -218,8 +218,7 @@ void WavesPanel::Draw() {
     }
   }
 
-  // Render signal name list. Using the the TreePanel data here since it has the
-  // flattened list with proper tree state etc.
+  // Render signals, values and waves.
   for (int row = 1; row < max_h; ++row) {
     const int list_idx = row - 1 + scroll_row_;
     if (list_idx >= visible_items_.size()) break;
@@ -660,6 +659,7 @@ void WavesPanel::UIChar(int ch) {
     case '?': showing_help_ = true; break;
     case 'p': showing_path_ = true; break;
     case 'b': AddSignal(nullptr); break;
+    case 'd': signal_for_source_ = visible_items_[line_idx_]->signal; break;
     case '0':
       leading_zeroes_ = !leading_zeroes_;
       UpdateValues();
@@ -976,7 +976,7 @@ const std::string &WavesPanel::ListItem::Name() const {
   static std::string blank_string;
   if (is_group) return group_name;
   if (signal == nullptr) return blank_string;
-  return signal->name;
+  return signal->name_width;
 }
 
 void WavesPanel::ListItem::CycleRadix() {
@@ -994,6 +994,13 @@ void WavesPanel::ListItem::CycleRadix() {
     break;
   case Radix::kFloat: radix = Radix::kHex; break;
   }
+}
+
+std::optional<const WaveData::Signal *> WavesPanel::SignalForSource() {
+  if (signal_for_source_ == nullptr) return std::nullopt;
+  auto s = signal_for_source_;
+  signal_for_source_ = nullptr;
+  return s;
 }
 
 bool WavesPanel::Search(bool search_down) {

@@ -1,7 +1,7 @@
 #include "source_panel.h"
 #include "color.h"
-#include "utils.h"
 #include "uhdm_utils.h"
+#include "utils.h"
 #include <curses.h>
 #include <filesystem>
 #include <fstream>
@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <uhdm/headers/array_net.h>
+#include <uhdm/headers/array_var.h>
 #include <uhdm/headers/constant.h>
 #include <uhdm/headers/function.h>
 #include <uhdm/headers/gen_scope.h>
@@ -566,6 +567,11 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
               nav_[a->VpiName()] = a;
             }
           }
+          if (m->Array_vars() != nullptr) {
+            for (auto &a : *m->Array_vars()) {
+              nav_[a->VpiName()] = a;
+            }
+          }
           if (m->Task_funcs() != nullptr) {
             for (auto &tf : *m->Task_funcs()) {
               nav_[tf->VpiName()] = tf;
@@ -599,37 +605,40 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
           // Surelog always uses a gen_scope_array to wrap a single gen_scope
           // for any generate block, wether it's a single if statement or one
           // iteration of an unrolled for loop.
-          if (ga->Gen_scopes() != nullptr) {
-            // TODO: Use full names here, since generate scopes can come from
-            // generate loops, in which case there could be many items with the
-            // same name. Currently, the last one overwrites the others.
-            auto &g = (*ga->Gen_scopes())[0];
-            if (g->Variables() != nullptr) {
-              for (auto &v : *g->Variables()) {
-                nav_[v->VpiName()] = v;
-              }
+          auto &g = (*ga->Gen_scopes())[0];
+          // TODO: Use full names here, since generate scopes can come from
+          // generate loops, in which case there could be many items with the
+          // same name. Currently, the last one overwrites the others.
+          if (g->Variables() != nullptr) {
+            for (auto &v : *g->Variables()) {
+              nav_[v->VpiName()] = v;
             }
-            if (g->Nets() != nullptr) {
-              for (auto &n : *g->Nets()) {
-                nav_[n->VpiName()] = n;
-              }
+          }
+          if (g->Nets() != nullptr) {
+            for (auto &n : *g->Nets()) {
+              nav_[n->VpiName()] = n;
             }
-            if (g->Array_nets() != nullptr) {
-              for (auto &a : *g->Array_nets()) {
-                nav_[a->VpiName()] = a;
-              }
+          }
+          if (g->Array_nets() != nullptr) {
+            for (auto &a : *g->Array_nets()) {
+              nav_[a->VpiName()] = a;
             }
-            if (g->Modules() != nullptr) {
-              for (auto &sub : *g->Modules()) {
-                nav_[sub->VpiName()] = sub;
-              }
-              // No recursion into modules since that source code is not in
-              // scope.
+          }
+          if (g->Array_vars() != nullptr) {
+            for (auto &a : *g->Array_vars()) {
+              nav_[a->VpiName()] = a;
             }
-            if (g->Gen_scope_arrays() != nullptr) {
-              for (auto &sub_ga : *g->Gen_scope_arrays()) {
-                find_navigable_items(sub_ga);
-              }
+          }
+          if (g->Modules() != nullptr) {
+            for (auto &sub : *g->Modules()) {
+              nav_[sub->VpiName()] = sub;
+            }
+            // No recursion into modules since that source code is not in
+            // scope.
+          }
+          if (g->Gen_scope_arrays() != nullptr) {
+            for (auto &sub_ga : *g->Gen_scope_arrays()) {
+              find_navigable_items(sub_ga);
             }
           }
           break;

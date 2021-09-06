@@ -22,24 +22,22 @@ FstWaveData::FstWaveData(const std::string &file_name) {
         root_.name = name;
         stack.push(&root_);
       } else {
-        auto parent = stack.top();
         stack.top()->children.push_back({});
         stack.top()->children.back().name = name;
-        stack.top()->children.back().parent = parent;
         stack.push(&stack.top()->children.back());
       }
     } break;
     case FST_HT_UPSCOPE: stack.pop(); break;
     case FST_HT_VAR: {
       std::string name(h->u.var.name, h->u.var.name_length);
-      if (h->u.var.length > 1) {
-        name += absl::StrFormat("[%d:0]", h->u.var.length - 1);
-      }
+      std::string width = h->u.var.length > 1
+                              ? absl::StrFormat("[%d:0]", h->u.var.length - 1)
+                              : "";
       stack.top()->signals.push_back({
           .name = name,
+          .name_width = name + width,
           .width = h->u.var.length,
           .id = h->u.var.handle,
-          .scope = stack.top(),
       });
       auto &signal = stack.top()->signals.back();
       switch (h->u.var.direction) {
@@ -54,6 +52,22 @@ FstWaveData::FstWaveData(const std::string &file_name) {
     } break;
     }
   }
+  // Now that everything has been read and allocated, recurse the tree and fill
+  // in parents. Can't do this on the fly since vectors get re-allocated and
+  // shuffled around, so pointers derived there won't necessarily be correct
+  // after wave data reading is finished.
+  std::function<void(SignalScope *)> recurse_assign_parents =
+      [&](SignalScope *scope) {
+        // Assign to all signals.
+        for (auto &sig : scope->signals) {
+          sig.scope = scope;
+        }
+        for (auto &sub : scope->children) {
+          sub.parent = scope;
+          recurse_assign_parents(&sub);
+        }
+      };
+  recurse_assign_parents(&root_);
 }
 
 FstWaveData::~FstWaveData() { fstReaderClose(reader_); }

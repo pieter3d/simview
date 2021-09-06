@@ -9,7 +9,6 @@ Stuff that is still pending to be fixed or implemented.
   * Source search: whole file or active scope?
 * Polishing
   * Syntax highlighting of macros
-* Auto-match wave hierarchy against design hierarchy.
 * Source window: Set a marker on a source line (press m), press A to add all
   signals between current line and marker.
 * Expose nets in functions and tasks
