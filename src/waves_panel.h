@@ -59,6 +59,8 @@ class WavesPanel : public Panel {
   void UpdateValue(ListItem *item);
   void UpdateWave(ListItem *item);
   void SnapToValue();
+  void FindEdge(bool forward, bool &time_changed, bool &range_changed);
+  void GoToTime(uint64_t time, bool &time_changed, bool &range_changed);
 
   // Owned pointers here makes reordering the contents of the list a lot faster
   // if the user adds groups etc. Otherwise there are copies of large datasets.

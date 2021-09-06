@@ -82,6 +82,54 @@ void WavesPanel::Resized() {
   time_input_.SetDims(0, 0, getmaxx(w_));
 }
 
+void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
+                          bool &range_changed) {
+  // Make sure the parsed time actually is inside the wave data.
+  if (time >= wave_data_->TimeRange().first &&
+      time <= wave_data_->TimeRange().second) {
+    cursor_time_ = time;
+    time_changed = true;
+    const uint64_t current_time_span = right_time_ - left_time_;
+    // Ajust left and right bounds if the new time is outside the
+    // currently displaye range. Attempt to keep the same zoom scale by
+    // keep the time difference between left and right the same.
+    if (cursor_time_ > right_time_) {
+      right_time_ = cursor_time_;
+      left_time_ = right_time_ - current_time_span;
+      range_changed = true;
+    } else if (cursor_time_ < left_time_) {
+      left_time_ = cursor_time_;
+      right_time_ = left_time_ + current_time_span;
+      range_changed = true;
+    }
+    // Don't let the cursor go off the screen.
+    const int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
+    cursor_pos_ = std::min((double)max_cursor_pos,
+                           (cursor_time_ - left_time_) / TimePerChar());
+  }
+}
+
+void WavesPanel::FindEdge(bool forward, bool &time_changed,
+                          bool &range_changed) {
+  if (visible_items_[line_idx_]->signal == nullptr) return;
+  const auto &wave = wave_data_->Wave(visible_items_[line_idx_]->signal);
+  const int sample_idx =
+      FindSampleIndex(cursor_time_, wave, 0, wave.size() - 1);
+  if (forward) {
+    // No more data left.
+    if (sample_idx == wave.size() - 1) return;
+    GoToTime(wave[sample_idx + 1].time, time_changed, range_changed);
+  } else {
+    // If on the edge, go the sample prior, if possible.
+    if (wave[sample_idx].time == cursor_time_) {
+      if (sample_idx == 0) return;
+      GoToTime(wave[sample_idx - 1].time, time_changed, range_changed);
+    } else {
+      GoToTime(wave[sample_idx].time, time_changed, range_changed);
+    }
+  }
+}
+
 void WavesPanel::SnapToValue() {
   const auto *item = visible_items_[line_idx_];
   if (item->signal == nullptr) return;
@@ -535,31 +583,7 @@ void WavesPanel::UIChar(int ch) {
       inputting_time_ = false;
       if (state == TextInput::kDone) {
         if (auto parsed = ParseTime(time_input_.Text(), time_unit_)) {
-          const uint64_t new_time = *parsed;
-          // Make sure the parsed time actually is inside the wave data.
-          if (new_time >= wave_data_->TimeRange().first &&
-              new_time <= wave_data_->TimeRange().second) {
-            cursor_time_ = new_time;
-            time_changed = true;
-            const uint64_t current_time_span = right_time_ - left_time_;
-            // Ajust left and right bounds if the new time is outside the
-            // currently displaye range. Attempt to keep the same zoom scale by
-            // keep the time difference between left and right the same.
-            if (cursor_time_ > right_time_) {
-              right_time_ = cursor_time_;
-              left_time_ = right_time_ - current_time_span;
-              range_changed = true;
-            } else if (cursor_time_ < left_time_) {
-              left_time_ = cursor_time_;
-              right_time_ = left_time_ + current_time_span;
-              range_changed = true;
-            }
-            // Don't let the cursor go off the screen.
-            const int max_cursor_pos =
-                getmaxx(w_) - 1 - (name_size_ + value_size_);
-            cursor_pos_ = std::min((double)max_cursor_pos,
-                                   (cursor_time_ - left_time_) / time_per_char);
-          }
+          GoToTime(*parsed, time_changed, range_changed);
         }
       }
       time_input_.Reset();
@@ -691,6 +715,8 @@ void WavesPanel::UIChar(int ch) {
         UpdateVisibleSignals();
       }
       break;
+    case 'e':
+    case 'E': FindEdge(ch == 'e', time_changed, range_changed); break;
     case 'r':
       if (visible_items_[line_idx_]->signal != nullptr) {
         visible_items_[line_idx_]->CycleRadix();
@@ -971,11 +997,11 @@ std::string WavesPanel::Tooltip() const {
 
 void WavesPanel::DrawHelp() const {
   // TODO: Missing features
-  // "eE:  Previous / next signal edge",
   // "aA:  Adjust analog signal height",
   std::vector<std::string> keys({
       "zZ:  Zoom about the cursor",
       "F:   Zoom full range",
+      "eE:  Previous / next signal edge",
       "sS:  Adjust signal name size",
       "vV:  Adjust value size",
       "0:   Show leading zeroes",
