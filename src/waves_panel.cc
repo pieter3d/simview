@@ -76,6 +76,7 @@ double WavesPanel::TimePerChar() const {
 }
 
 void WavesPanel::Resized() {
+  Panel::Resized();
   rename_input_.SetDims(line_idx_, visible_items_[line_idx_]->depth,
                         name_size_ - visible_items_[line_idx_]->depth);
   time_input_.SetDims(0, 0, getmaxx(w_));
@@ -655,7 +656,11 @@ void WavesPanel::UIChar(int ch) {
     case '?': showing_help_ = true; break;
     case 'p': showing_path_ = true; break;
     case 'b': AddSignal(nullptr); break;
-    case 'd': signal_for_source_ = visible_items_[line_idx_]->signal; break;
+    case 'd':
+      if (Workspace::Get().Design() != nullptr) {
+        signal_for_source_ = visible_items_[line_idx_]->signal;
+      }
+      break;
     case '0':
       leading_zeroes_ = !leading_zeroes_;
       UpdateValues();
@@ -931,8 +936,10 @@ void WavesPanel::DrawHelp() const {
       "c:   Change signal color",
       "r:   Cycle signal radix",
       "aA:  Adjust analog signal height",
-      "d:   Show signal declaration in source",
   });
+  if (Workspace::Get().Design() != nullptr) {
+    keys.push_back("d:   Show signal declaration in source");
+  }
   // Find the widest signal.
   int widest_text = 0;
   for (auto s : keys) {

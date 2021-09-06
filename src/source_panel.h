@@ -19,6 +19,7 @@ class SourcePanel : public Panel {
   void SetItem(const UHDM::any *item, bool show_def = false);
   std::pair<int, int> ScrollArea() const override;
   std::optional<const UHDM::any *> ItemForDesignTree();
+  std::optional<const UHDM::any *> ItemForWaves();
   bool Search(bool search_down) override;
   bool Searchable() const override { return true; }
   // Need to look for stuff under the cursor when changing lines.
@@ -82,7 +83,8 @@ class SourcePanel : public Panel {
   int end_line_ = 0;
   // When not null, indicates this object should be shown in the design tree.
   // This allows the design tree panel to always match current scope.
-  const UHDM::any *item_for_hier_ = nullptr;
+  const UHDM::any *item_for_design_tree_ = nullptr;
+  const UHDM::any *item_for_waves_ = nullptr;
   // Drivers and loads
   const UHDM::any *trace_net_;
   int trace_idx_;

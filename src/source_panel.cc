@@ -284,17 +284,18 @@ void SourcePanel::UIChar(int ch) {
   if (scope_ == nullptr) return;
   int prev_line_idx = line_idx_;
   int prev_col_idx = col_idx_;
+  bool send_to_waves = false;
   switch (ch) {
   case 'u':
     if (showing_def_) {
       // Go back up to the instance location if showing a definition
       SetItem(scope_, false);
-      item_for_hier_ = scope_;
+      item_for_design_tree_ = scope_;
     } else {
       auto new_scope = GetScopeForUI(scope_->VpiParent());
       if (new_scope != nullptr) {
         SetItem(new_scope, false);
-        item_for_hier_ = new_scope;
+        item_for_design_tree_ = new_scope;
       }
     }
     break;
@@ -340,7 +341,7 @@ void SourcePanel::UIChar(int ch) {
     if (sel_ != nullptr) {
       // For modules, load the definition.
       if (sel_->VpiType() == vpiModule) {
-        item_for_hier_ = GetScopeForUI(sel_);
+        item_for_design_tree_ = GetScopeForUI(sel_);
         SetItem(sel_, true);
       } else {
         SetLocation(sel_);
@@ -360,11 +361,10 @@ void SourcePanel::UIChar(int ch) {
       trace_idx_ = (trace_idx_ + 1) % drivers_or_loads_.size();
     }
     if (drivers_or_loads_.size() > 0 && trace_net_ != nullptr) {
-      item_for_hier_ = sel_;
+      item_for_design_tree_ = sel_;
       SetLocation(drivers_or_loads_[trace_idx_]);
     }
     break;
-
   case 'v': show_vals_ = !show_vals_; break;
   case 'b':
   case 'f': {
@@ -378,14 +378,13 @@ void SourcePanel::UIChar(int ch) {
       max_col_idx_ = s.col_idx;
       scroll_row_ = s.scroll_row;
       scroll_col_ = s.scroll_col;
-      item_for_hier_ = s.scope;
+      item_for_design_tree_ = s.scope;
     };
     if (ch == 'f') {
       // Can't go forward past the end.
       if (stack_idx_ >= state_stack_.size() - 1) break;
       auto &s = state_stack_[++stack_idx_];
       load_state(s);
-      break;
     } else {
       // Go back in the stack if possible.
       if (stack_idx_ == 0) break;
@@ -402,10 +401,10 @@ void SourcePanel::UIChar(int ch) {
         auto &s = state_stack_[--stack_idx_];
         load_state(s);
       }
-      break;
     }
+    break;
   }
-  case 'w': {
+  case 'p': {
     // Go to the next highlightable thing.
     int param_pos = -1;
     int identifier_pos = -1;
@@ -435,9 +434,14 @@ void SourcePanel::UIChar(int ch) {
       col_idx_ = std::max(param_pos, identifier_pos);
       max_col_idx_ = col_idx_;
     }
+  } break;
+  case 'w':
+    if (Workspace::Get().Waves() != nullptr) {
+      send_to_waves = true;
+    }
+    break;
+  default: Panel::UIChar(ch);
   }
-  }
-  Panel::UIChar(ch);
   bool line_moved = line_idx_ != prev_line_idx;
   bool col_moved = col_idx_ != prev_col_idx;
   // If the current line changed, move the cursor to the end if this new line is
@@ -454,6 +458,9 @@ void SourcePanel::UIChar(int ch) {
   if (line_moved || col_moved) {
     // Figure out if anything should be highlighted.
     SelectItem();
+  }
+  if (send_to_waves) {
+    item_for_waves_ = sel_;
   }
 }
 
@@ -486,9 +493,16 @@ std::pair<int, int> SourcePanel::ScrollArea() const {
 }
 
 std::optional<const UHDM::any *> SourcePanel::ItemForDesignTree() {
-  if (item_for_hier_ == nullptr) return std::nullopt;
-  auto item = item_for_hier_;
-  item_for_hier_ = nullptr;
+  if (item_for_design_tree_ == nullptr) return std::nullopt;
+  auto item = item_for_design_tree_;
+  item_for_design_tree_ = nullptr;
+  return item;
+}
+
+std::optional<const UHDM::any *> SourcePanel::ItemForWaves() {
+  if (item_for_waves_ == nullptr) return std::nullopt;
+  auto item = item_for_waves_;
+  item_for_waves_ = nullptr;
   return item;
 }
 
@@ -756,7 +770,10 @@ bool SourcePanel::Search(bool search_down) {
   }
 }
 
-void SourcePanel::Resized() { BuildHeader(); }
+void SourcePanel::Resized() {
+  Panel::Resized();
+  BuildHeader();
+}
 
 void SourcePanel::SetLineAndScroll(int l) {
   Panel::SetLineAndScroll(l);
@@ -765,15 +782,18 @@ void SourcePanel::SetLineAndScroll(int l) {
 }
 
 std::string SourcePanel ::Tooltip() const {
-  std::string tt = "u:up scope";
-  tt += "  d:goto def";
-  tt += "  D:drivers";
-  tt += "  L:loads";
-  tt += "  b:back";
-  tt += "  f:forward";
-  tt += "  v:";
-  tt += (show_vals_ ? "SHOW/hide" : "show/HIDE");
-  tt += " vals";
+  std::string tt;
+  if (Workspace::Get().Waves() != nullptr) {
+    tt += "w:add to waves  ";
+  }
+  tt += "u:up scope  ";
+  tt += "d:goto def  ";
+  tt += "D:drivers  ";
+  tt += "L:loads  ";
+  tt += "b:back  ";
+  tt += "f:forward  ";
+  tt +=
+      "v:" + (show_vals_ ? std::string("SHOW/hide") : "show/HIDE") + " vals  ";
   return tt;
 }
 

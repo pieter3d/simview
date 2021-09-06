@@ -1,4 +1,6 @@
 #include "workspace.h"
+#include "uhdm_utils.h"
+#include "utils.h"
 #include <gen_scope_array.h>
 #include <stdexcept>
 #include <surelog/surelog.h>
@@ -7,6 +9,19 @@
 #include <uhdm/headers/vpi_uhdm.h>
 
 namespace sv {
+
+namespace {
+
+// Helper match, since the design names have a "work@" prefix.
+bool ScopeMatch(const std::string &design_scope,
+                const std::string &signal_scope) {
+  auto pos = design_scope.find(signal_scope);
+  if (pos == std::string::npos) return false;
+  if (design_scope.size() == signal_scope.size() || pos == 0) return true;
+  return design_scope[pos - 1] == '@';
+};
+
+} // namespace
 
 const UHDM::module *Workspace::GetDefinition(const UHDM::module *m) {
   // Top modules don't have a separate definition.
@@ -151,6 +166,52 @@ void Workspace ::TryMatchDesignWithWaves() {
 std::vector<const WaveData::Signal *>
 Workspace::DesignToSignals(const UHDM::any *item) const {
   std::vector<const WaveData::Signal *> signals;
+  // Make sure it's actually something that would have ended up in a wave.
+  if (!IsTraceable(item)) return signals;
+  // Build a stack of all parents up to the top module, or the matched design
+  // scope, whichever comes first.
+  std::stack<const UHDM::any *> stack;
+  const UHDM::any *parent = item->VpiParent();
+  while (parent != nullptr) {
+    // Drop out any genscopes, there's always a genscope_array above it.
+    if (parent->VpiType() == vpiGenScope) parent = parent->VpiParent();
+    stack.push(parent);
+    if (parent == matched_design_scope_) break;
+    parent = parent->VpiParent();
+  }
+
+  const WaveData::SignalScope *signal_scope = matched_signal_scope_;
+  while (!stack.empty()) {
+    auto *design_scope = stack.top();
+    bool found = false;
+    if (ScopeMatch(design_scope->VpiName(), signal_scope->name)) {
+      found = true;
+    } else {
+      for (const auto &sub : signal_scope->children) {
+        if (ScopeMatch(design_scope->VpiName(), sub.name)) {
+          signal_scope = &sub;
+          found = true;
+          break;
+        }
+      }
+    }
+    // Total abort if there is no matching scope in the wave data.
+    if (!found) return signals;
+    stack.pop();
+  }
+  // Now add any signals in the drilled-down scope that match the net name
+  // exactly, with optional square bracket suffixes.
+  const std::string net_name = StripWorklib(item->VpiName());
+  for (const auto &signal : signal_scope->signals) {
+    auto pos = signal.name.find(StripWorklib(item->VpiName()));
+    if (pos != 0) continue;
+    if (signal.name.size() > net_name.size() &&
+        signal.name[net_name.size()] != '[') {
+      continue;
+    }
+    signals.push_back(&signal);
+  }
+
   return signals;
 }
 
@@ -160,19 +221,11 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   // whichever comes first.
   std::stack<const WaveData::SignalScope *> stack;
   const auto *scope = signal->scope;
-  do {
+  while (scope != nullptr) {
     stack.push(scope);
     if (scope == matched_signal_scope_) break;
     scope = scope->parent;
-  } while (scope != nullptr);
-  // Helper match, since the design names have a "work@" prefix.
-  auto scope_match = [](const std::string &design_scope,
-                        const std::string &signal_scope) {
-    auto pos = design_scope.find(signal_scope);
-    if (pos == std::string::npos) return false;
-    if (design_scope.size() == signal_scope.size() || pos == 0) return true;
-    return design_scope[pos - 1] == '@';
-  };
+  }
   // Traverse the stack down the design tree hierarcy.
   const UHDM::any *design_scope = matched_design_scope_;
   while (design_scope != nullptr && !stack.empty()) {
@@ -181,13 +234,13 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
     // of next loops when the hierarchy item is found. An alternative would be a
     // goto statement.
     [&] {
-      if (scope_match(design_scope->VpiName(), signal_scope->name)) {
+      if (ScopeMatch(design_scope->VpiName(), signal_scope->name)) {
         return;
       } else if (design_scope->VpiType() == vpiModule) {
         const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
         if (m->Modules() != nullptr) {
           for (const auto *sub : *m->Modules()) {
-            if (scope_match(sub->VpiName(), signal_scope->name)) {
+            if (ScopeMatch(sub->VpiName(), signal_scope->name)) {
               design_scope = sub;
               return;
             }
@@ -198,7 +251,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
             // Surelog always has an unrolled list of gen scope arrays with a
             // single generate scope as the only child.
             const auto *g = (*ga->Gen_scopes())[0];
-            if (scope_match(ga->VpiName(), signal_scope->name)) {
+            if (ScopeMatch(ga->VpiName(), signal_scope->name)) {
               design_scope = g;
               return;
             }
@@ -210,7 +263,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
         const auto *g = dynamic_cast<const UHDM::gen_scope *>(design_scope);
         if (g->Modules() != nullptr) {
           for (const auto *sub : *g->Modules()) {
-            if (scope_match(sub->VpiName(), signal_scope->name)) {
+            if (ScopeMatch(sub->VpiName(), signal_scope->name)) {
               design_scope = sub;
               return;
             }
@@ -219,7 +272,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
         if (g->Gen_scope_arrays() != nullptr) {
           for (const auto *ga : *g->Gen_scope_arrays()) {
             const auto *g = (*ga->Gen_scopes())[0];
-            if (scope_match(ga->VpiName(), signal_scope->name)) {
+            if (ScopeMatch(ga->VpiName(), signal_scope->name)) {
               design_scope = g;
               return;
             }
@@ -291,4 +344,5 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   }
   return nullptr;
 }
+
 } // namespace sv

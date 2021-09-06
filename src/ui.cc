@@ -4,6 +4,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "color.h"
+#include "utils.h"
 #include <ncurses.h>
 
 namespace sv {
@@ -263,6 +264,16 @@ void UI::EventLoop() {
       } else if (focused_panel == source_panel_.get()) {
         if (const auto item = source_panel_->ItemForDesignTree()) {
           design_tree_panel_->SetItem(*item);
+        }
+        if (const auto item = source_panel_->ItemForWaves()) {
+          auto signals = Workspace::Get().DesignToSignals(*item);
+          if (signals.empty()) {
+            error_message_ =
+                absl::StrFormat("%s is not available in the waves.",
+                                StripWorklib((*item)->VpiName()));
+          } else {
+            waves_panel_->AddSignals(signals);
+          }
         }
       } else if (focused_panel == wave_tree_panel_.get()) {
         if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
