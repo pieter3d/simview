@@ -47,7 +47,9 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   compiler_ = SURELOG::start_compiler(&clp);
   design = SURELOG::get_uhdm_design(compiler_);
   for (auto &err : errors.getErrors()) {
-    auto [msg, fatal, filtered] = errors.createErrorMessage(err);
+    // TODO: Get rid of the const cast once surelog is fixed.
+    auto [msg, fatal, filtered] =
+        errors.createErrorMessage(const_cast<SURELOG::Error &>(err));
     // Surelog seems to like including newlines in the error messages.
     msg.erase(std::find_if(msg.rbegin(), msg.rend(),
                            [](unsigned char ch) { return !std::isspace(ch); })

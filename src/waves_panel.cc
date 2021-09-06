@@ -374,7 +374,7 @@ void WavesPanel::Draw() {
       } else {
         if (num_transitions == 0) {
           waddch(w_, item->signal->wave[left_sample_idx].value[0] == '0' ? '_'
-                                                                         : '"');
+                                                                         : '^');
         } else if (num_transitions == 1) {
           waddch(w_, item->signal->wave[left_sample_idx].value[0] == '0'
                          ? '/'
