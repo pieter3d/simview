@@ -23,11 +23,11 @@ std::string FormatValue(const std::string &bin, Radix radix,
     } else if (bin.size() == 32) {
       float f;
       memcpy(&f, &val, sizeof(float));
-      return absl::StrFormat("32'%g", f);
+      return absl::StrFormat("%g", f);
     } else {
       double d;
       memcpy(&d, &val, sizeof(double));
-      return absl::StrFormat("64'%g", d);
+      return absl::StrFormat("%g", d);
     }
   } else if (radix == Radix::kBinary) {
     std::string s;
