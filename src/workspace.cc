@@ -159,7 +159,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   // Build a stack of all parents up to the root, or the matched signal scope,
   // whichever comes first.
   std::stack<const WaveData::SignalScope *> stack;
-  WaveData::SignalScope *scope = signal->scope;
+  const auto *scope = signal->scope;
   do {
     stack.push(scope);
     if (scope == matched_signal_scope_) break;

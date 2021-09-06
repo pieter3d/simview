@@ -30,16 +30,15 @@ FstWaveData::FstWaveData(const std::string &file_name) {
     case FST_HT_UPSCOPE: stack.pop(); break;
     case FST_HT_VAR: {
       std::string name(h->u.var.name, h->u.var.name_length);
-      std::string width = h->u.var.length > 1
-                              ? absl::StrFormat("[%d:0]", h->u.var.length - 1)
-                              : "";
-      stack.top()->signals.push_back({
-          .name = name,
-          .name_width = name + width,
-          .width = h->u.var.length,
-          .id = h->u.var.handle,
-      });
+      stack.top()->signals.push_back({});
       auto &signal = stack.top()->signals.back();
+      signal.id = h->u.var.handle;
+      signal.width = h->u.var.length;
+      signal.name = name;
+      signal.name_width = name;
+      if (signal.width > 1) {
+        signal.name_width += absl::StrFormat("[%d:0]", h->u.var.length - 1);
+      }
       switch (h->u.var.direction) {
       case FST_VD_IMPLICIT: signal.direction = Signal::kInternal; break;
       case FST_VD_INOUT: signal.direction = Signal::kInout; break;
@@ -91,52 +90,57 @@ std::string FstWaveData::SignalValue(const Signal *signal,
   return val;
 }
 
-std::vector<WaveData::Sample>
-FstWaveData::SignalSamples(const Signal *signal, uint64_t start_time,
-                           uint64_t end_time) const {
+void FstWaveData::LoadSignalSamples(const Signal *signal, uint64_t start_time,
+                                    uint64_t end_time) const {
   // Use the batch version.
   std::vector<const Signal *> sigs({signal});
-  return SignalSamples(sigs, start_time, end_time)[0];
+  LoadSignalSamples(sigs, start_time, end_time);
 }
 
-std::vector<std::vector<WaveData::Sample>>
-FstWaveData::SignalSamples(const std::vector<const Signal *> &signals,
-                           uint64_t start_time, uint64_t end_time) const {
-  std::vector<std::vector<Sample>> samples(signals.size());
+void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
+                                    uint64_t start_time,
+                                    uint64_t end_time) const {
   // Build a map to know where each result goes during the unpredictable order
   // in callbacks.
-  std::unordered_map<uint32_t, uint32_t> id_map;
+  std::unordered_map<uint32_t, const Signal *> id_map;
   fstReaderClrFacProcessMaskAll(reader_);
-  int signal_index = 0;
   for (const auto &s : signals) {
     if (s == nullptr) continue;
+    // Don't re-read existing waves.
+    if (s->valid_start_time <= start_time && s->valid_end_time >= end_time) {
+      continue;
+    }
+    s->wave.clear();
+    // Inlcude this signal in the lookup table.
+    id_map[s->id] = s;
+    // Save the time over where the samples are valid.
+    s->valid_start_time = start_time;
+    s->valid_end_time = end_time;
+    // Tell the reader to include this signal while reading the large data
+    // blocks.
     fstReaderSetFacProcessMask(reader_, s->id);
-    id_map[s->id] = signal_index++;
   }
+
+  // This is more of a hint, data blocks can read data outside these limits.
   fstReaderSetLimitTimeRange(reader_, start_time, end_time);
-  // Wrap the locals in an object that can be passed to the callback.
-  struct {
-    decltype(id_map) *wrapped_id_map;
-    decltype(samples) *wrapped_samples;
-    uint64_t wrapped_start_time;
-    uint64_t wrapped_end_time;
-  } locals;
-  locals.wrapped_id_map = &id_map;
-  locals.wrapped_samples = &samples;
-  locals.wrapped_start_time = start_time;
-  locals.wrapped_end_time = end_time;
 
   fstReaderIterBlocks(
       reader_,
       +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,
           const unsigned char *value) {
-        const auto vars =
-            reinterpret_cast<decltype(locals) *>(user_callback_data_pointer);
-        (*vars->wrapped_samples)[(*vars->wrapped_id_map)[facidx]].push_back(
+        const auto map =
+            reinterpret_cast<decltype(id_map) *>(user_callback_data_pointer);
+        (*map)[facidx]->wave.push_back(
             {.time = time, .value = reinterpret_cast<const char *>(value)});
       },
-      &locals, nullptr);
-  return samples;
+      &id_map, nullptr);
+
+  // Update the valid range based on sample data actually received.
+  for (const auto &s : signals) {
+    if (s->wave.empty()) continue;
+    s->valid_start_time = std::min(s->valid_start_time, s->wave.front().time);
+    s->valid_end_time = std::max(s->valid_end_time, s->wave.back().time);
+  }
 }
 
 } // namespace sv

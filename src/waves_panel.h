@@ -44,7 +44,6 @@ class WavesPanel : public Panel {
     bool is_group = false;
     bool collapsed = false;
     int depth = 0;
-    std::vector<WaveData::Sample> wave;
     // Saved here instead of searched and derived every time.
     std::string value;
   };

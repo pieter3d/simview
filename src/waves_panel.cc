@@ -88,19 +88,19 @@ void WavesPanel::SnapToValue() {
   // See if there is an edge within the current cursor's character span
   const uint64_t left_time = left_time_ + cursor_pos_ * time_per_char;
   const uint64_t right_time = left_time_ + (cursor_pos_ + 1) * time_per_char;
-  const int left_idx =
-      FindSampleIndex(left_time, item->wave, 0, item->wave.size() - 1);
-  const int right_idx =
-      FindSampleIndex(right_time, item->wave, 0, item->wave.size() - 1);
+  const int left_idx = FindSampleIndex(left_time, item->signal->wave, 0,
+                                       item->signal->wave.size() - 1);
+  const int right_idx = FindSampleIndex(right_time, item->signal->wave, 0,
+                                        item->signal->wave.size() - 1);
   // Nothing to snap to if there is no transition within this character.
   if (left_idx == right_idx) return;
   // Find transition closest to left edge, but not before.
   int idx = left_idx;
-  while (item->wave[idx].time < left_time) {
+  while (item->signal->wave[idx].time < left_time) {
     idx++;
   }
   // Update the cursor's time to the precise edge.
-  cursor_time_ = item->wave[idx].time;
+  cursor_time_ = item->signal->wave[idx].time;
 }
 
 std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
@@ -303,8 +303,8 @@ void WavesPanel::Draw() {
     //
     // Helper function to set color.
     const bool multi_bit = item->signal->width > 1;
-    int left_sample_idx =
-        FindSampleIndex(left_time_, item->wave, 0, item->wave.size() - 1);
+    int left_sample_idx = FindSampleIndex(left_time_, item->signal->wave, 0,
+                                          item->signal->wave.size() - 1);
     // Save the locations of transitions and times to fill in values.
     struct WaveValueInfo {
       int xpos;
@@ -319,10 +319,10 @@ void WavesPanel::Draw() {
     wvi.time = left_time_;
     int wave_value_idx = left_sample_idx;
     // Determine initial color.
-    if (item->wave[left_sample_idx].value.find_first_of("xX") !=
+    if (item->signal->wave[left_sample_idx].value.find_first_of("xX") !=
         std::string::npos) {
       SetColor(w_, kWavesXPair + highlight);
-    } else if (item->wave[left_sample_idx].value.find_first_of("zZ") !=
+    } else if (item->signal->wave[left_sample_idx].value.find_first_of("zZ") !=
                std::string::npos) {
       SetColor(w_, kWavesZPair + highlight);
     } else {
@@ -332,17 +332,19 @@ void WavesPanel::Draw() {
     wmove(w_, row, wave_x);
     for (int x = 0; x < max_w - wave_x; ++x) {
       // Find what sample index corresponds to the right edge of this character.
-      const int right_sample_idx =
-          FindSampleIndex(left_time_ + (1 + x) * time_per_char, item->wave,
-                          left_sample_idx, item->wave.size() - 1);
+      const int right_sample_idx = FindSampleIndex(
+          left_time_ + (1 + x) * time_per_char, item->signal->wave,
+          left_sample_idx, item->signal->wave.size() - 1);
       const int num_transitions = right_sample_idx - left_sample_idx;
       if (num_transitions > 0) {
         // See if anything has X or Z in it. Scan only the new values.
         bool has_x = false;
         bool has_z = false;
         for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
-          has_x |= item->wave[i].value.find_first_of("xX") != std::string::npos;
-          has_z |= item->wave[i].value.find_first_of("zZ") != std::string::npos;
+          has_x |= item->signal->wave[i].value.find_first_of("xX") !=
+                   std::string::npos;
+          has_z |= item->signal->wave[i].value.find_first_of("zZ") !=
+                   std::string::npos;
         }
         // Update color.
         if (has_x)
@@ -361,19 +363,22 @@ void WavesPanel::Draw() {
           if (x - wvi.xpos >= 3) {
             wvi.size = x - wvi.xpos;
             wvi.value =
-                FormatValue(item->wave[wave_value_idx].value, item->radix,
-                            leading_zeroes_, /*drop_size*/ true);
+                FormatValue(item->signal->wave[wave_value_idx].value,
+                            item->radix, leading_zeroes_, /*drop_size*/ true);
             wave_value_list.push_back(wvi);
           }
           wvi.xpos = x;
-          wvi.time = item->wave[right_sample_idx].time;
+          wvi.time = item->signal->wave[right_sample_idx].time;
           wave_value_idx = right_sample_idx;
         }
       } else {
         if (num_transitions == 0) {
-          waddch(w_, item->wave[left_sample_idx].value[0] == '0' ? '_' : '"');
+          waddch(w_, item->signal->wave[left_sample_idx].value[0] == '0' ? '_'
+                                                                         : '"');
         } else if (num_transitions == 1) {
-          waddch(w_, item->wave[left_sample_idx].value[0] == '0' ? '/' : '\\');
+          waddch(w_, item->signal->wave[left_sample_idx].value[0] == '0'
+                         ? '/'
+                         : '\\');
         } else {
           waddch(w_, '|');
         }
@@ -383,8 +388,8 @@ void WavesPanel::Draw() {
     // Add the remaining wave value if possible, sized against the right edge.
     if (multi_bit && max_w - wave_x - wvi.xpos >= 3) {
       wvi.size = max_w - wave_x - wvi.xpos;
-      wvi.value = FormatValue(item->wave[wave_value_idx].value, item->radix,
-                              leading_zeroes_, /*drop_size*/ true);
+      wvi.value = FormatValue(item->signal->wave[wave_value_idx].value,
+                              item->radix, leading_zeroes_, /*drop_size*/ true);
       wave_value_list.push_back(wvi);
     }
 
@@ -695,13 +700,10 @@ void WavesPanel::AddSignals(
   int pos = visible_to_full_lookup_[line_idx_];
   // It's much more efficient to get samples from all signals at once, so no
   // repeated calls to UpdateWave() here.
-  const auto waves =
-      wave_data_->SignalSamples(signals, left_time_, right_time_);
-  int wave_idx = 0;
+  wave_data_->LoadSignalSamples(signals, left_time_, right_time_);
   for (const auto *signal : signals) {
     items_.insert(items_.begin() + pos, std::make_unique<ListItem>(signal));
     items_[pos]->depth = new_depth;
-    items_[pos]->wave = std::move(waves[wave_idx++]);
     UpdateValue(items_[pos].get());
     pos++;
   }
@@ -837,21 +839,19 @@ void WavesPanel::MoveSignal(bool up) {
 }
 
 void WavesPanel::UpdateWave(ListItem *item) {
-  auto samples =
-      wave_data_->SignalSamples(item->signal, left_time_, right_time_);
-  item->wave = std::move(samples);
+  wave_data_->LoadSignalSamples(item->signal, left_time_, right_time_);
 }
 
 void WavesPanel::UpdateValue(ListItem *item) {
   if (item->is_group || item->signal == nullptr) return;
-  if (item->wave.empty()) {
+  if (item->signal->wave.empty()) {
     item->value = "Unavailable";
     return;
   }
-  const uint64_t idx =
-      FindSampleIndex(cursor_time_, item->wave, 0, item->wave.size() - 1);
+  const uint64_t idx = FindSampleIndex(cursor_time_, item->signal->wave, 0,
+                                       item->signal->wave.size() - 1);
   item->value =
-      FormatValue(item->wave[idx].value, item->radix, leading_zeroes_);
+      FormatValue(item->signal->wave[idx].value, item->radix, leading_zeroes_);
 }
 
 void WavesPanel::UpdateValues() {
@@ -866,20 +866,16 @@ void WavesPanel::UpdateWaves() {
   for (auto *item : visible_items_) {
     if (item->signal == nullptr) continue;
     // Skip the update if all the data is already present.
-    if (!item->wave.empty() && item->wave.front().time >= left_time_ &&
-        item->wave.back().time <= right_time_) {
+    if (item->signal->valid_start_time <= left_time_ &&
+        item->signal->valid_end_time >= right_time_) {
       continue;
     }
     signal_list.push_back(item->signal);
     items_to_update.push_back(item);
   }
-  auto waves = wave_data_->SignalSamples(signal_list, left_time_, right_time_);
-  // The samples return is a vector of vector of samples, in the same order as
-  // the input list.
-  int wave_idx = 0;
-  for (auto *item : items_to_update) {
-    item->wave = std::move(waves[wave_idx++]);
-  }
+  if (signal_list.empty()) return;
+  // Read new samples.
+  wave_data_->LoadSignalSamples(signal_list, left_time_, right_time_);
 }
 
 void WavesPanel::AddGroup() {

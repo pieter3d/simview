@@ -10,6 +10,10 @@ class WaveData {
   static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name);
 
   struct SignalScope;
+  struct Sample {
+    uint64_t time;
+    std::string value;
+  };
   struct Signal {
     enum Direction {
       kUnknown,
@@ -31,13 +35,17 @@ class WaveData {
     // various wave database formats use different ways to look up signal data.
     uint32_t id;
     // Containing scope, or parent.
-    SignalScope *scope = nullptr;
+    const SignalScope *scope = nullptr;
+    // This can be loaded / reloaded.
+    mutable std::vector<WaveData::Sample> wave;
+    mutable uint64_t valid_start_time = 0;
+    mutable uint64_t valid_end_time = 0;
   };
   struct SignalScope {
     std::string name;
     std::vector<SignalScope> children;
     std::vector<Signal> signals;
-    SignalScope *parent = nullptr;
+    const SignalScope *parent = nullptr;
   };
   virtual ~WaveData() {}
   // returns -9 for nanoseconds, -6 for microseconds, etc.
@@ -46,18 +54,13 @@ class WaveData {
   virtual std::pair<uint64_t, uint64_t> TimeRange() const = 0;
   // Returns signal data as binary string of digits 01xz
   virtual std::string SignalValue(const Signal *s, uint64_t time) const = 0;
-  struct Sample {
-    uint64_t time;
-    std::string value;
-  };
-  virtual std::vector<Sample> SignalSamples(const Signal *signal,
-                                            uint64_t start_time,
-                                            uint64_t end_time) const = 0;
+  virtual void LoadSignalSamples(const Signal *signal, uint64_t start_time,
+                                 uint64_t end_time) const = 0;
   // Batch processing variant, which is often significantly more efficient than
   // iterating over a set of signal separately.
-  virtual std::vector<std::vector<Sample>>
-  SignalSamples(const std::vector<const Signal *> &signals, uint64_t start_time,
-                uint64_t end_time) const = 0;
+  virtual void LoadSignalSamples(const std::vector<const Signal *> &signals,
+                                 uint64_t start_time,
+                                 uint64_t end_time) const = 0;
   const SignalScope &Root() const { return root_; }
 
  protected:
