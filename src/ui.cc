@@ -223,7 +223,7 @@ void UI::EventLoop() {
           }
           break;
           break;
-        case 0x13: // ctrl-S
+        case 0x10: // ctrl-P
           layout_.show_wave_picker = !layout_.show_wave_picker;
           // If one of those panels was selected, move focus to the wave panel.
           if (focused_panel == wave_tree_panel_.get() ||
@@ -385,9 +385,9 @@ void UI::Draw() {
     // Render the tooltip when not searching.
     std::string tooltip = "C-q:quit  ";
     if (layout_.has_waves) {
-      tooltip += "C-s:";
+      tooltip += "C-P:";
       tooltip += layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE";
-      tooltip += " signals  ";
+      tooltip += " picker  ";
     }
     if (focused_panel->Searchable()) tooltip += "/nN:search  ";
     tooltip += focused_panel->Tooltip();

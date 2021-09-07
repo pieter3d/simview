@@ -38,7 +38,8 @@ void WaveSignalsPanel::Draw() {
 
 WaveSignalsPanel::WaveSignalsPanel() : filter_input_("filter:") {
   if (Workspace::Get().Waves() == nullptr) return;
-  SetScope(&Workspace::Get().Waves()->Root());
+  if (Workspace::Get().Waves()->Roots().empty()) return;
+  SetScope(&Workspace::Get().Waves()->Roots()[0]);
   show_expanders_ = false;
   prepend_type_ = true;
   header_lines_ = 2;

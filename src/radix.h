@@ -5,7 +5,7 @@
 namespace sv {
 
 enum class Radix {
-  kHex,
+  kHex = 0,
   kBinary,
   kUnsignedDecimal,
   kSignedDecimal,
@@ -15,5 +15,8 @@ enum class Radix {
 // Format a string of '1' and '0' charachters into the proper representation.
 std::string FormatValue(const std::string &bin, Radix radix,
                         bool leading_zeroes, bool drop_size = false);
+
+Radix CharToRadix(char c);
+char RadixToChar(Radix r);
 
 } // namespace sv

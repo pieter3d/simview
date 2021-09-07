@@ -19,7 +19,7 @@ class WaveDataTreePanel : public TreePanel {
 
  private:
   const WaveData::SignalScope *scope_for_signals_ = nullptr;
-  std::unique_ptr<WaveDataTreeItem> root_;
+  std::vector<std::unique_ptr<WaveDataTreeItem>> roots_;
 };
 
 } // namespace sv

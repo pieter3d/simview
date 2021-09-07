@@ -43,6 +43,7 @@ class WavesPanel : public Panel {
     std::string group_name;
     bool is_group = false;
     bool collapsed = false;
+    bool unavailable = false;
     int depth = 0;
     int custom_color = -1;
     // Saved here instead of searched and derived every time.
@@ -61,6 +62,8 @@ class WavesPanel : public Panel {
   void SnapToValue();
   void FindEdge(bool forward, bool &time_changed, bool &range_changed);
   void GoToTime(uint64_t time, bool &time_changed, bool &range_changed);
+  void LoadList(const std::string &file_name);
+  void SaveList(const std::string &file_name);
 
   // Owned pointers here makes reordering the contents of the list a lot faster
   // if the user adds groups etc. Otherwise there are copies of large datasets.
@@ -83,10 +86,13 @@ class WavesPanel : public Panel {
   bool color_selection_ = false;
   TextInput time_input_;
   TextInput rename_input_;
+  TextInput filename_input_;
   ListItem *rename_item_ = nullptr;
   bool inputting_time_ = false;
   bool showing_help_ = false;
   bool showing_path_ = false;
+  bool inputting_open_ = false;
+  bool inputting_save_ = false;
   int time_unit_ = -9; // nanoseconds.
   bool leading_zeroes_ = true;
   const WaveData::Signal *signal_for_source_ = nullptr;

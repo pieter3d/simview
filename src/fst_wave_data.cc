@@ -18,9 +18,13 @@ FstWaveData::FstWaveData(const std::string &file_name) {
     case FST_HT_SCOPE: {
       std::string name(h->u.scope.name, h->u.scope.name_length);
       if (stack.empty()) {
-        // Root node just needs the name.
-        root_.name = name;
-        stack.push(&root_);
+        // A root node just needs the name.
+        SignalScope root;
+        root.name = name;
+        roots_.push_back(root);
+        // This can be safely done since the roots vector won't be modified
+        // until the stack is empty.
+        stack.push(&roots_.back());
       } else {
         stack.top()->children.push_back({});
         stack.top()->children.back().name = name;
@@ -66,7 +70,9 @@ FstWaveData::FstWaveData(const std::string &file_name) {
           recurse_assign_parents(&sub);
         }
       };
-  recurse_assign_parents(&root_);
+  for (auto &root : roots_) {
+    recurse_assign_parents(&root);
+  }
 }
 
 FstWaveData::~FstWaveData() { fstReaderClose(reader_); }

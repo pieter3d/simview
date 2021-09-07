@@ -4,6 +4,7 @@
 #include "color.h"
 #include "utils.h"
 #include "workspace.h"
+#include <fstream>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -33,7 +34,7 @@ int FindSampleIndex(uint64_t time, const std::vector<WaveData::Sample> &samples,
 
 } // namespace
 
-WavesPanel::WavesPanel() : time_input_("goto time:"), rename_input_("") {
+WavesPanel::WavesPanel() {
   wave_data_ = Workspace::Get().Waves();
   std::tie(left_time_, right_time_) = wave_data_->TimeRange();
   for (int i = 0; i < 10; ++i) {
@@ -41,13 +42,18 @@ WavesPanel::WavesPanel() : time_input_("goto time:"), rename_input_("") {
   }
   time_unit_ = wave_data_->Log10TimeUnits();
   time_unit_ -= time_unit_ % 3; // Align to an SI unit.
-  time_input_.SetDims(1, 0, getmaxx(w_));
+  time_input_.SetDims(0, 0, getmaxx(w_));
   time_input_.SetValdiator([&](const std::string &s) {
     auto parsed = ParseTime(s, time_unit_);
     if (!parsed) return false;
     const uint64_t new_time = *parsed;
     return new_time >= wave_data_->TimeRange().first &&
            new_time <= wave_data_->TimeRange().second;
+  });
+  filename_input_.SetDims(0, 0, getmaxx(w_));
+  // Writing is always allowed.
+  filename_input_.SetValdiator([&](const std::string &s) {
+    return inputting_save_ || ActualFileName(s).has_value();
   });
   // Populate the list with a trailing blank signal so that inserts can happen
   // at the end of the list.
@@ -80,6 +86,7 @@ void WavesPanel::Resized() {
   rename_input_.SetDims(line_idx_, visible_items_[line_idx_]->depth,
                         name_size_ - visible_items_[line_idx_]->depth);
   time_input_.SetDims(0, 0, getmaxx(w_));
+  filename_input_.SetDims(0, 0, getmaxx(w_));
 }
 
 void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
@@ -154,6 +161,7 @@ void WavesPanel::SnapToValue() {
 std::optional<std::pair<int, int>> WavesPanel::CursorLocation() const {
   if (inputting_time_) return time_input_.CursorPos();
   if (rename_item_ != nullptr) return rename_input_.CursorPos();
+  if (inputting_open_ || inputting_save_) return filename_input_.CursorPos();
   return std::nullopt;
 }
 
@@ -239,6 +247,8 @@ void WavesPanel::Draw() {
   int time_width = max_w;
   if (inputting_time_) {
     time_input_.Draw(w_);
+  } else if (inputting_open_ || inputting_save_) {
+    filename_input_.Draw(w_);
   } else {
     const char *unit_string = kTimeUnits[(time_unit_ - kSmallestUnit) / 3];
     double time_factor = pow(10, wave_data_->Log10TimeUnits() - time_unit_);
@@ -327,8 +337,7 @@ void WavesPanel::Draw() {
     wattrset(w_, A_NORMAL);
 
     // Render the signal value.
-    const int val_start =
-        std::max(0, (int)item->value.size() - value_size_ - 1);
+    const int val_start = std::max(0, (int)item->value.size() - value_size_ + 1);
     wmove(w_, row,
           std::max(name_size_,
                    name_size_ + value_size_ - 1 - (int)item->value.size()));
@@ -525,12 +534,7 @@ void WavesPanel::Draw() {
     const int ypos = line_idx_ - scroll_row_ + 1;
     SetColor(w_, kWavesCursorPair);
     wmove(w_, ypos, 0);
-    std::string path = visible_items_[line_idx_]->Name();
-    auto scope = visible_items_[line_idx_]->signal->scope;
-    while (scope != nullptr) {
-      path = scope->name + "." + path;
-      scope = scope->parent;
-    }
+    auto path = WaveData::SignalToPath(visible_items_[line_idx_]->signal);
     for (int x = 0; x < max_w; ++x) {
       if (x >= path.size()) break;
       waddch(w_, path[x]);
@@ -576,6 +580,23 @@ void WavesPanel::UIChar(int ch) {
       }
       rename_item_ = nullptr;
       rename_input_.Reset();
+    }
+  } else if (inputting_open_) {
+    const auto state = filename_input_.HandleKey(ch);
+    if (state != TextInput::kTyping) {
+      if (state == TextInput::kDone) {
+      }
+      inputting_open_ = false;
+      filename_input_.Reset();
+    }
+  } else if (inputting_save_) {
+    const auto state = filename_input_.HandleKey(ch);
+    if (state != TextInput::kTyping) {
+      if (state == TextInput::kDone) {
+        SaveList(filename_input_.Text());
+      }
+      inputting_save_ = false;
+      filename_input_.Reset();
     }
   } else if (inputting_time_) {
     const auto state = time_input_.HandleKey(ch);
@@ -742,6 +763,14 @@ void WavesPanel::UIChar(int ch) {
     case '0':
       leading_zeroes_ = !leading_zeroes_;
       UpdateValues();
+      break;
+    case 0xf: // Ctrl-o
+      filename_input_.SetPrompt("Open:");
+      inputting_open_ = true;
+      break;
+    case 0x13: // Ctrl-s
+      filename_input_.SetPrompt("Save:");
+      inputting_save_ = true;
       break;
     default: Panel::UIChar(ch);
     }
@@ -983,7 +1012,7 @@ void WavesPanel::AddGroup() {
 
 bool WavesPanel::Modal() const {
   return rename_item_ != nullptr || inputting_time_ || showing_help_ ||
-         showing_path_;
+         showing_path_ || inputting_open_ || inputting_save_;
 }
 
 std::string WavesPanel::Tooltip() const {
@@ -998,6 +1027,8 @@ std::string WavesPanel::Tooltip() const {
 void WavesPanel::DrawHelp() const {
   // TODO: Missing features
   // "aA:  Adjust analog signal height",
+  // "C-r: Reload",
+  // "
   std::vector<std::string> keys({
       "zZ:  Zoom about the cursor",
       "F:   Zoom full range",
@@ -1017,6 +1048,8 @@ void WavesPanel::DrawHelp() const {
       "b:   Insert blank signal",
       "x:   Delete highlighted signal",
       "r:   Cycle signal radix",
+      "C-o: Open list file",
+      "C-s: Save list file",
   });
   if (Workspace::Get().Design() != nullptr) {
     keys.push_back("d:   Show signal declaration in source");
@@ -1103,4 +1136,29 @@ bool WavesPanel::Search(bool search_down) {
     }
   }
 }
+
+void WavesPanel::LoadList(const std::string &file_name) {}
+
+void WavesPanel::SaveList(const std::string &file_name) {
+  std::ofstream file(file_name);
+  // Don't write out the last item.
+  for (int i = 0; i < items_.size() - 1; ++i) {
+    const auto &item = items_[i];
+    std::string line(item->depth, ' ');
+    if (item->is_group) {
+      line += item->collapsed ? '+' : '-';
+      line += item->group_name;
+    } else if (item->signal == nullptr) {
+      line += "[blank]";
+    } else {
+      line += WaveData::SignalToPath(item->signal);
+      line += absl::StrFormat(" R%c", RadixToChar(item->radix));
+      if (item->custom_color >= 0) {
+        line += absl::StrFormat(" C%c", '0' + item->custom_color);
+      }
+    }
+    file << line << '\n';
+  }
+}
+
 } // namespace sv

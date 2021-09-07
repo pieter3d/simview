@@ -1,5 +1,8 @@
 #include "utils.h"
 #include "absl/strings/str_format.h"
+#include <filesystem>
+#include <optional>
+#include <wordexp.h>
 
 namespace sv {
 
@@ -74,4 +77,16 @@ std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit) {
   return std::nullopt;
 }
 
+std::optional<std::string> ActualFileName(const std::string &file_name) {
+  wordexp_t results;
+  // Don't run any commands, that's weird in this context.
+  int ret = wordexp(file_name.c_str(), &results, WRDE_NOCMD);
+  std::string expanded_name;
+  if (results.we_wordc > 0) expanded_name = results.we_wordv[0];
+  wordfree(&results);
+  if (ret != 0) return std::nullopt;
+  if (expanded_name.empty()) return std::nullopt;
+  if (!std::filesystem::exists(expanded_name)) return std::nullopt;
+  return expanded_name;
+}
 } // namespace sv

@@ -31,7 +31,10 @@ std::string FormatValue(const std::string &bin, Radix radix,
     }
   } else if (radix == Radix::kBinary) {
     std::string s;
+    bool drop_zeroes = !leading_zeroes;
     for (int i = 0; i < bin.size(); ++i) {
+      if (drop_zeroes && bin[i] == '0' && i != bin.size() - 1) continue;
+      drop_zeroes &= bin[i] == '0';
       s += std::tolower(bin[i]);
       // Add underscore separator every 4 bits.
       const int bitpos = bin.size() - 1 - i;
@@ -68,4 +71,25 @@ std::string FormatValue(const std::string &bin, Radix radix,
     return drop_size ? hex : (absl::StrFormat("%d'h", bin.size()) + hex);
   }
 }
+
+Radix CharToRadix(char c) {
+  switch (c) {
+  case 'b': return Radix::kBinary;
+  case 'u': return Radix::kUnsignedDecimal;
+  case 's': return Radix::kSignedDecimal;
+  case 'f': return Radix::kFloat;
+  default: return Radix::kHex;
+  }
+}
+
+char RadixToChar(Radix r) {
+  switch (r) {
+  case Radix::kBinary: return 'b';
+  case Radix::kUnsignedDecimal: return 'u';
+  case Radix::kSignedDecimal: return 's';
+  case Radix::kFloat: return 'f';
+  default: return 'h';
+  }
+}
+
 } // namespace sv

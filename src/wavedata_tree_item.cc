@@ -3,15 +3,13 @@
 
 namespace sv {
 
-WaveDataTreeItem::WaveDataTreeItem(const WaveData::SignalScope &hl)
-    : hierarchy_level_(hl) {
-  for (const auto &c : hierarchy_level_.children) {
+WaveDataTreeItem::WaveDataTreeItem(const WaveData::SignalScope &signal_scope)
+    : signal_scope_(signal_scope) {
+  for (const auto &c : signal_scope_.children) {
     children_.push_back(WaveDataTreeItem(c));
   }
 }
-const std::string &WaveDataTreeItem::Name() const {
-  return hierarchy_level_.name;
-}
+const std::string &WaveDataTreeItem::Name() const { return signal_scope_.name; }
 
 const std::string &WaveDataTreeItem::Type() const {
   static std::string empty = "";
@@ -27,6 +25,6 @@ int WaveDataTreeItem::NumChildren() const { return children_.size(); }
 TreeItem *WaveDataTreeItem::Child(int idx) { return &children_[idx]; }
 
 bool WaveDataTreeItem::MatchColor() const {
-  return &hierarchy_level_ == Workspace::Get().MatchedSignalScope();
+  return &signal_scope_ == Workspace::Get().MatchedSignalScope();
 }
 } // namespace sv

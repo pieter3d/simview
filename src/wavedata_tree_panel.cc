@@ -6,8 +6,10 @@ namespace sv {
 
 WaveDataTreePanel::WaveDataTreePanel() {
   if (Workspace::Get().Waves() == nullptr) return;
-  root_ = std::make_unique<WaveDataTreeItem>(Workspace::Get().Waves()->Root());
-  data_.AddRoot(root_.get());
+  for (const auto &scope : Workspace::Get().Waves()->Roots()) {
+    roots_.push_back(std::make_unique<WaveDataTreeItem>(scope));
+    data_.AddRoot(roots_.back().get());
+  }
   // Expand a little bit if it's easy.
   data_.ToggleExpand(0);
   if (data_.ListSize() == 2) {

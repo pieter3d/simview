@@ -7,7 +7,7 @@ namespace sv {
 
 class WaveDataTreeItem : public TreeItem {
  public:
-  explicit WaveDataTreeItem(const WaveData::SignalScope &hl);
+  explicit WaveDataTreeItem(const WaveData::SignalScope &signal_scope);
   const std::string &Name() const final;
   const std::string &Type() const final;
   bool AltType() const final;
@@ -16,12 +16,10 @@ class WaveDataTreeItem : public TreeItem {
   TreeItem *Child(int idx) final;
   bool MatchColor() const final;
 
-  const WaveData::SignalScope *SignalScope() const {
-    return &hierarchy_level_;
-  }
+  const WaveData::SignalScope *SignalScope() const { return &signal_scope_; }
 
  private:
-  const WaveData::SignalScope &hierarchy_level_;
+  const WaveData::SignalScope &signal_scope_;
   std::vector<WaveDataTreeItem> children_;
 };
 

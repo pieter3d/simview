@@ -19,4 +19,8 @@ std::string AddDigitSeparators(uint64_t val);
 // If the string doesn't contain any specific units, the default units are used.
 std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit);
 
+// Return nullopt if the file doesn't exist, otherwise the true path accounting
+// for expanded home directory tilde and environment variables.
+std::optional<std::string> ActualFileName(const std::string &file_name);
+
 } // namespace sv

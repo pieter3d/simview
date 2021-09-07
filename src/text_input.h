@@ -30,6 +30,7 @@ class TextInput {
     kCancelled,
     kDone,
   };
+  TextInput() = default;
   TextInput(const std::string &prompt) : prompt_(prompt) {}
   void SetPrompt(const std::string &prompt) { prompt_ = prompt; }
   void SetDims(int row, int col, int width);

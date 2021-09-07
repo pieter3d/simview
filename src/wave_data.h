@@ -50,7 +50,9 @@ class WaveData {
   const std::vector<Sample> &Wave(const Signal *s) const {
     return waves_[s->id];
   }
-  const SignalScope &Root() const { return root_; }
+  const std::vector<SignalScope> &Roots() const { return roots_; }
+  std::optional<const Signal *> PathToSignal(const std::string &path) const;
+  static std::string SignalToPath(const WaveData::Signal *signal);
 
   // ------------- Implementation methods --------------
   // returns -9 for nanoseconds, -6 for microseconds, etc.
@@ -83,7 +85,7 @@ class WaveData {
   // operation since it may create new empty vectors for new IDs).
   mutable std::unordered_map<uint32_t, std::vector<Sample>> waves_;
   // Signals owned from here.
-  SignalScope root_;
+  std::vector<SignalScope> roots_;
 };
 
 } // namespace sv

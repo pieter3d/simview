@@ -118,11 +118,13 @@ void Workspace ::TryMatchDesignWithWaves() {
   if (wave_data_ == nullptr || design_ == nullptr) return;
   // Look for a scope with stuff in it.
   std::vector<const WaveData::SignalScope *> signal_scopes;
-  signal_scopes.push_back(&wave_data_->Root());
-  for (const auto &sub : wave_data_->Root().children) {
-    signal_scopes.push_back(&sub);
-    for (const auto &subsub : sub.children) {
-      signal_scopes.push_back(&subsub);
+  for (const auto &root_scope : wave_data_->Roots()) {
+    signal_scopes.push_back(&root_scope);
+    for (const auto &sub : root_scope.children) {
+      signal_scopes.push_back(&sub);
+      for (const auto &subsub : sub.children) {
+        signal_scopes.push_back(&subsub);
+      }
     }
   }
   // Okay, good enough. Now try to build a list of design scopes that look
