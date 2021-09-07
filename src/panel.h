@@ -31,6 +31,8 @@ class Panel : public TextReceiver {
   // When this returns true and this panel has focus, it recieves all keyboard
   // input, global shortcuts are bypassed.
   virtual bool Modal() const { return false; }
+  // Returns the current error message and clears it.
+  std::string Error() const;
 
  protected:
   virtual int NumLines() const = 0;
@@ -48,6 +50,7 @@ class Panel : public TextReceiver {
   int search_start_col_ = 0;
   int search_orig_line_idx_ = -1;
   int search_orig_col_idx_ = -1;
+  mutable std::string error_message_;
 };
 
 } // namespace sv

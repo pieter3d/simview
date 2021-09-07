@@ -30,7 +30,6 @@ class WaveData {
       kParameter,
     } type = Type::kNet;
     std::string name;
-    std::string name_width;
     uint32_t width;
     // General purpose identifier. May need to revisit the type since the
     // various wave database formats use different ways to look up signal data.

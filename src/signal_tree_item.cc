@@ -1,4 +1,5 @@
 #include "signal_tree_item.h"
+#include "absl/strings/str_format.h"
 #include "utils.h"
 
 namespace sv {
@@ -10,7 +11,13 @@ std::string kNetString = "";
 std::string kParameterString = "[P]";
 } // namespace
 
-const std::string &SignalTreeItem::Name() const { return signal_->name_width; }
+SignalTreeItem::SignalTreeItem(const WaveData::Signal *s) : signal_(s) {
+  if (s->width > 1) {
+    name_ = s->name + absl::StrFormat("[%d:0]", s->width - 1);
+  } else {
+    name_ = s->name;
+  }
+}
 
 bool SignalTreeItem::AltType() const {
   return signal_->type == WaveData::Signal::kParameter;

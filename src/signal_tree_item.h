@@ -7,8 +7,8 @@ namespace sv {
 
 class SignalTreeItem : public TreeItem {
  public:
-  SignalTreeItem(const WaveData::Signal *s) : signal_(s) {}
-  const std::string &Name() const final;
+  SignalTreeItem(const WaveData::Signal *s);
+  const std::string &Name() const final { return name_; }
   const std::string &Type() const final;
   bool AltType() const final;
   const WaveData::Signal *Signal() const { return signal_; }
@@ -19,6 +19,7 @@ class SignalTreeItem : public TreeItem {
 
  private:
   const WaveData::Signal *signal_;
+  std::string name_;
 };
 
 } // namespace sv

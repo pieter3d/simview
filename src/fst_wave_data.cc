@@ -1,5 +1,5 @@
 #include "fst_wave_data.h"
-#include "absl/strings/str_format.h"
+#include <functional>
 #include <stack>
 #include <stdexcept>
 #include <unordered_map>
@@ -39,10 +39,6 @@ FstWaveData::FstWaveData(const std::string &file_name) {
       signal.id = h->u.var.handle;
       signal.width = h->u.var.length;
       signal.name = name;
-      signal.name_width = name;
-      if (signal.width > 1) {
-        signal.name_width += absl::StrFormat("[%d:0]", h->u.var.length - 1);
-      }
       switch (h->u.var.direction) {
       case FST_VD_IMPLICIT: signal.direction = Signal::kInternal; break;
       case FST_VD_INOUT: signal.direction = Signal::kInout; break;

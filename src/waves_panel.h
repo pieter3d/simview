@@ -33,17 +33,17 @@ class WavesPanel : public Panel {
     explicit ListItem(const WaveData::Signal *s) : signal(s) {}
     explicit ListItem(const std::string &s) : group_name(s) {}
     // Helpers
-    const std::string &Name() const;
+    std::string Name() const;
     void CycleRadix();
     // Member data.
     Radix radix = Radix::kHex;
     const WaveData::Signal *signal = nullptr;
     int analog_size = 1;
     // Members when this item represents a group container.
+    std::string unavailable_name;
     std::string group_name;
     bool is_group = false;
     bool collapsed = false;
-    bool unavailable = false;
     int depth = 0;
     int custom_color = -1;
     // Saved here instead of searched and derived every time.

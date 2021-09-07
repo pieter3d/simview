@@ -288,7 +288,7 @@ void UI::EventLoop() {
           auto design_item = Workspace::Get().SignalToDesign(*signal);
           if (design_item == nullptr) {
             error_message_ = absl::StrFormat("Signal %s not found in design.",
-                                             (*signal)->name);
+                                             WaveData::SignalToPath(*signal));
           } else {
             source_panel_->SetItem(design_item, /* show_def*/ true);
             design_tree_panel_->SetItem(design_item);
@@ -442,10 +442,12 @@ void UI::Draw() {
     }
   }
   // Finally, render an error message if needed.
-  if (!error_message_.empty()) {
-    move(term_h - 1, std::max(0ul, term_w - error_message_.size()));
+  const std::string err =
+      error_message_.empty() ? focused_panel->Error() : error_message_;
+  if (!err.empty()) {
+    move(term_h - 1, std::max(0ul, term_w - err.size()));
     SetColor(stdscr, kPanelErrorPair);
-    addnstr(error_message_.c_str(), term_w);
+    addnstr(err.c_str(), term_w);
   }
   doupdate();
 }

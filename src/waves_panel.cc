@@ -1,9 +1,11 @@
 #include "waves_panel.h"
 
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
 #include "color.h"
 #include "utils.h"
 #include "workspace.h"
+#include <algorithm>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -16,10 +18,12 @@ constexpr float kZoomStep = 0.75;
 constexpr int kSmallestUnit = -18;
 constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
+const char *kBlankMarkerInFile = "[blank]";
 
 // Binary search for the right sample.
 int FindSampleIndex(uint64_t time, const std::vector<WaveData::Sample> &samples,
                     int left, int right) {
+  if (samples.empty() || right < left) return -1;
   if (right - left <= 1) {
     // Use the new value when on the same time.
     return time < samples[right].time ? left : right;
@@ -59,6 +63,22 @@ WavesPanel::WavesPanel() {
   // at the end of the list.
   items_.push_back(std::make_unique<ListItem>(nullptr));
   UpdateVisibleSignals();
+}
+
+std::string WavesPanel::ListItem::Name() const {
+  if (is_group) return group_name;
+  if (signal == nullptr) {
+    // Strip the path hierarchy.
+    auto pos = unavailable_name.find_last_of('.');
+    if (pos == std::string::npos)
+      pos = 0;
+    else
+      pos++;
+    return unavailable_name.substr(pos);
+  }
+  std::string s = signal->name;
+  if (signal->width > 1) s += absl::StrFormat("[%d:0]", signal->width - 1);
+  return s;
 }
 
 void WavesPanel::CycleTimeUnits() {
@@ -305,10 +325,6 @@ void WavesPanel::Draw() {
         wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
       }
     }
-    // Treat a blank as a full line of spaces. The -1 accounts for the insert
-    // position marker.
-    const int len =
-        item->signal == nullptr ? (name_size_ - 1) : item->Name().size();
 
     wmove(w_, row, item->depth);
     if (item->is_group) {
@@ -321,6 +337,11 @@ void WavesPanel::Draw() {
         waddch(w_, item->group_name[i]);
       }
     } else {
+      const auto name = item->Name();
+      // Completely empty lines get a full width of blank spaces. This avoid
+      // highlighting nothing, which would look like the selected line
+      // disappeared.
+      const int len = name.empty() ? name_size_ : name.size();
       SetColor(w_, kWavesSignalNamePair);
       for (int i = 0; i < len; ++i) {
         const int xpos = item->depth + i;
@@ -330,14 +351,15 @@ void WavesPanel::Draw() {
           SetColor(w_, kOverflowTextPair);
           waddch(w_, '>');
         } else {
-          waddch(w_, item->signal == nullptr ? ' ' : item->Name()[i]);
+          waddch(w_, i >= name.size() ? ' ' : name[i]);
         }
       }
     }
     wattrset(w_, A_NORMAL);
 
     // Render the signal value.
-    const int val_start = std::max(0, (int)item->value.size() - value_size_ + 1);
+    const int val_start =
+        std::max(0, (int)item->value.size() - value_size_ + 1);
     wmove(w_, row,
           std::max(name_size_,
                    name_size_ + value_size_ - 1 - (int)item->value.size()));
@@ -352,16 +374,29 @@ void WavesPanel::Draw() {
       }
     }
 
-    // Nothing more to do for blanks/groups.
-    if (item->signal == nullptr) continue;
+    if (item->signal == nullptr) {
+      if (!item->unavailable_name.empty()) {
+        SetColor(w_, kWavesXPair);
+        std::string msg(" No wave data available for " +
+                        item->unavailable_name);
+        wmove(w_, row, wave_x);
+        for (int i = 0; i < msg.size(); ++i) {
+          if (wave_x + i >= max_w) break;
+          waddch(w_, msg[i]);
+        }
+      }
+
+      // Nothing more to do for blanks/groups.
+      continue;
+    }
 
     // Render the signal waveform
     // Single bit signals that aren't too compressed:
-    //    ____/"""""""\______
+    //    ____/^^^^^^^\______
     //
     // Compressed single bit signals shade by duty cycle:
     //
-    //   _____|||___|||""""|_||______
+    //   _____|||___|||^^^^|_||______
     //
     // Multi-bit signals with visible transitions:
     //   =|.5|===16'habcd=====|.123|===16'h0000===
@@ -585,6 +620,7 @@ void WavesPanel::UIChar(int ch) {
     const auto state = filename_input_.HandleKey(ch);
     if (state != TextInput::kTyping) {
       if (state == TextInput::kDone) {
+        LoadList(filename_input_.Text());
       }
       inputting_open_ = false;
       filename_input_.Reset();
@@ -734,6 +770,8 @@ void WavesPanel::UIChar(int ch) {
         visible_items_[line_idx_]->collapsed =
             !visible_items_[line_idx_]->collapsed;
         UpdateVisibleSignals();
+        UpdateWaves();
+        UpdateValues();
       }
       break;
     case 'e':
@@ -1079,13 +1117,6 @@ void WavesPanel::DrawHelp() const {
   }
 }
 
-const std::string &WavesPanel::ListItem::Name() const {
-  static std::string blank_string;
-  if (is_group) return group_name;
-  if (signal == nullptr) return blank_string;
-  return signal->name_width;
-}
-
 void WavesPanel::ListItem::CycleRadix() {
   switch (radix) {
   case Radix::kHex: radix = Radix::kBinary; break;
@@ -1137,7 +1168,50 @@ bool WavesPanel::Search(bool search_down) {
   }
 }
 
-void WavesPanel::LoadList(const std::string &file_name) {}
+void WavesPanel::LoadList(const std::string &file_name) {
+  std::ifstream file(file_name);
+  if (!file.is_open()) {
+    error_message_ = "Failed to open file " + file_name;
+    return;
+  }
+  // Clear everything
+  items_.clear();
+  for (std::string line; std::getline(file, line);) {
+    const int depth = line.find_first_not_of(' ');
+    items_.push_back(std::make_unique<ListItem>(nullptr));
+    auto &item = items_.back();
+    item->depth = depth;
+    if (line[depth] == '-' || line[depth] == '+') {
+      item->is_group = true;
+      item->group_name = line.substr(depth + 1);
+      item->collapsed = line[depth] == '+';
+    } else if (line.substr(depth) == kBlankMarkerInFile) {
+      // Nothing else to do.
+    } else {
+      std::vector<std::string> elements =
+          absl::StrSplit(line.substr(depth), ' ');
+      if (auto signal = wave_data_->PathToSignal(elements[0])) {
+        item->signal = *signal;
+        // Parse metadata flags.
+        for (int i = 1; i < elements.size(); ++i) {
+          if (elements[i].empty()) continue;
+          if (elements[i][0] == 'c' && elements[i].size() > 1) {
+            item->custom_color = std::clamp(elements[i][1] - '0', 0, 9);
+          } else if (elements[i][0] == 'r' && elements[i].size() > 1) {
+            item->radix = CharToRadix(elements[i][1]);
+          }
+        }
+      } else {
+        item->unavailable_name = elements[0];
+      }
+    }
+  }
+  // Restore the blank line at the end too.
+  items_.push_back(std::make_unique<ListItem>(nullptr));
+  UpdateVisibleSignals();
+  UpdateWaves();
+  UpdateValues();
+}
 
 void WavesPanel::SaveList(const std::string &file_name) {
   std::ofstream file(file_name);
@@ -1149,12 +1223,14 @@ void WavesPanel::SaveList(const std::string &file_name) {
       line += item->collapsed ? '+' : '-';
       line += item->group_name;
     } else if (item->signal == nullptr) {
-      line += "[blank]";
+      line += kBlankMarkerInFile;
     } else {
       line += WaveData::SignalToPath(item->signal);
-      line += absl::StrFormat(" R%c", RadixToChar(item->radix));
+      if (item->radix != Radix::kHex) {
+        line += absl::StrFormat(" r%c", RadixToChar(item->radix));
+      }
       if (item->custom_color >= 0) {
-        line += absl::StrFormat(" C%c", '0' + item->custom_color);
+        line += absl::StrFormat(" c%c", '0' + item->custom_color);
       }
     }
     file << line << '\n';

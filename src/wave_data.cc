@@ -34,6 +34,8 @@ WaveData::PathToSignal(const std::string &path) const {
           continue;
         }
       }
+      // No matching level, so abort.
+      if (candidate == nullptr) break;
     }
   }
   return std::nullopt;

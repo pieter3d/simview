@@ -126,4 +126,10 @@ void Panel::SetLineAndScroll(int l) {
   }
 }
 
+std::string Panel::Error() const {
+  std::string error = error_message_;
+  error_message_.clear();
+  return error;
+}
+
 } // namespace sv
