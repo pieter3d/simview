@@ -61,7 +61,7 @@ WavesPanel::WavesPanel() {
   });
   // Populate the list with a trailing blank signal so that inserts can happen
   // at the end of the list.
-  items_.push_back(std::make_unique<ListItem>(nullptr));
+  items_.push_back(ListItem(nullptr));
   UpdateVisibleSignals();
 }
 
@@ -70,14 +70,19 @@ std::string WavesPanel::ListItem::Name() const {
   if (signal == nullptr) {
     // Strip the path hierarchy.
     auto pos = unavailable_name.find_last_of('.');
-    if (pos == std::string::npos)
+    if (pos == std::string::npos) {
       pos = 0;
-    else
+    } else {
       pos++;
+    }
     return unavailable_name.substr(pos);
   }
   std::string s = signal->name;
-  if (signal->width > 1) s += absl::StrFormat("[%d:0]", signal->width - 1);
+  if (expanded_bit_idx >= 0) {
+    s += absl::StrFormat("[%d]", expanded_bit_idx);
+  } else if (signal->width > 1) {
+    s += absl::StrFormat("[%d:0]", signal->width - 1);
+  }
   return s;
 }
 
@@ -199,13 +204,15 @@ void WavesPanel::UpdateVisibleSignals() {
   int idx = -1;
   for (auto &item : items_) {
     idx++;
-    if (trim_depth != 0 && item->depth >= trim_depth) continue;
+    if (trim_depth != 0 && item.depth >= trim_depth) continue;
     // Stop trimming when reaching an item that is back at legal depth.
-    if (item->depth <= trim_depth) trim_depth = 0;
-    visible_items_.push_back(item.get());
+    if (item.depth <= trim_depth) trim_depth = 0;
+    visible_items_.push_back(&item);
     visible_to_full_lookup_.push_back(idx);
     // Set a trimming depth if the current item is a collapsed group.
-    if (item->is_group && item->collapsed) trim_depth = item->depth + 1;
+    if ((item.is_group || item.expandable_net) && item.collapsed) {
+      trim_depth = item.depth + 1;
+    }
   }
 }
 
@@ -337,6 +344,10 @@ void WavesPanel::Draw() {
         waddch(w_, item->group_name[i]);
       }
     } else {
+      if (item->expandable_net) {
+        SetColor(w_, kWavesGroupPair);
+        waddch(w_, item->collapsed ? '+' : '-');
+      }
       const auto name = item->Name();
       // Completely empty lines get a full width of blank spaces. This avoid
       // highlighting nothing, which would look like the selected line
@@ -405,7 +416,8 @@ void WavesPanel::Draw() {
     //   ||||=||||||=||||||||||||||||
     //
     const auto &wave = wave_data_->Wave(item->signal);
-    const bool multi_bit = item->signal->width > 1;
+    const bool multi_bit =
+        item->signal->width > 1 && item->expanded_bit_idx < 0;
     int left_sample_idx = FindSampleIndex(left_time_, wave, 0, wave.size() - 1);
     // Save the locations of transitions and times to fill in values.
     struct WaveValueInfo {
@@ -439,7 +451,7 @@ void WavesPanel::Draw() {
       const int right_sample_idx =
           FindSampleIndex(left_time_ + (1 + x) * time_per_char, wave,
                           left_sample_idx, wave.size() - 1);
-      const int num_transitions = right_sample_idx - left_sample_idx;
+      int num_transitions = right_sample_idx - left_sample_idx;
       if (num_transitions > 0) {
         // See if anything has X or Z in it. Scan only the new values.
         bool has_x = false;
@@ -476,10 +488,23 @@ void WavesPanel::Draw() {
           wave_value_idx = right_sample_idx;
         }
       } else {
+        int value_idx = 0;
+        if (item->expanded_bit_idx >= 0) {
+          value_idx = item->expanded_bit_idx;
+          if (num_transitions > 0) {
+            num_transitions = 0;
+            for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
+              if (wave[i - 1].value[value_idx] != wave[i].value[value_idx]) {
+                num_transitions++;
+              }
+            }
+          }
+        }
         if (num_transitions == 0) {
-          waddch(w_, wave[left_sample_idx].value[0] == '0' ? '_' : '^');
+          waddch(w_, wave[left_sample_idx].value[value_idx] == '0' ? '_' : '^');
         } else if (num_transitions == 1) {
-          waddch(w_, wave[left_sample_idx].value[0] == '0' ? '/' : '\\');
+          waddch(w_,
+                 wave[left_sample_idx].value[value_idx] == '0' ? '/' : '\\');
         } else {
           waddch(w_, '|');
         }
@@ -580,6 +605,8 @@ void WavesPanel::Draw() {
 void WavesPanel::UIChar(int ch) {
   // Convenience.
   double time_per_char = std::max(1.0, TimePerChar());
+  auto *item = visible_items_[line_idx_];
+
   bool time_changed = false;
   bool range_changed = false;
   // Most actions cancel multi-line.
@@ -759,27 +786,28 @@ void WavesPanel::UIChar(int ch) {
       AddGroup();
       break;
     case 'R':
-      if (visible_items_[line_idx_]->is_group) {
-        rename_item_ = visible_items_[line_idx_];
-        rename_input_.SetText(visible_items_[line_idx_]->group_name);
+      if (item->is_group) {
+        rename_item_ = item;
+        rename_input_.SetText(item->group_name);
       }
       break;
     case 0x20: // space
     case 0xd:  // enter
-      if (visible_items_[line_idx_]->is_group) {
-        visible_items_[line_idx_]->collapsed =
-            !visible_items_[line_idx_]->collapsed;
+      if (item->is_group || item->expandable_net) {
+        item->collapsed = !item->collapsed;
         UpdateVisibleSignals();
         UpdateWaves();
         UpdateValues();
+      } else if (item->signal != nullptr && item->signal->width > 1) {
+        ExpandMultiBit();
       }
       break;
     case 'e':
     case 'E': FindEdge(ch == 'e', time_changed, range_changed); break;
     case 'r':
-      if (visible_items_[line_idx_]->signal != nullptr) {
-        visible_items_[line_idx_]->CycleRadix();
-        UpdateValue(visible_items_[line_idx_]);
+      if (item->signal != nullptr) {
+        item->CycleRadix();
+        UpdateValue(item);
       }
       break;
     case '?': showing_help_ = true; break;
@@ -787,7 +815,7 @@ void WavesPanel::UIChar(int ch) {
     case 'b': AddSignal(nullptr); break;
     case 'c':
       // No action if a single non-signal is selected.
-      if (multi_line_idx_ < 0 && visible_items_[line_idx_]->signal == nullptr) {
+      if (multi_line_idx_ < 0 && item->signal == nullptr) {
         break;
       }
       color_selection_ = true;
@@ -795,7 +823,7 @@ void WavesPanel::UIChar(int ch) {
       break;
     case 'd':
       if (Workspace::Get().Design() != nullptr) {
-        signal_for_source_ = visible_items_[line_idx_]->signal;
+        signal_for_source_ = item->signal;
       }
       break;
     case '0':
@@ -835,17 +863,18 @@ void WavesPanel::AddSignals(
     // Try to match the depth of the item above when appending at the end.
     auto *prev = visible_items_[line_idx_ - 1];
     // If that item is an uncollapsed group, increase the depth.
-    new_depth =
-        prev->is_group && !prev->collapsed ? prev->depth + 1 : prev->depth;
+    new_depth = (prev->is_group || prev->expandable_net) && !prev->collapsed
+                    ? prev->depth + 1
+                    : prev->depth;
   }
   int pos = visible_to_full_lookup_[line_idx_];
   // It's much more efficient to get samples from all signals at once, so no
   // repeated calls to UpdateWave() here.
   wave_data_->LoadSignalSamples(signals, left_time_, right_time_);
   for (const auto *signal : signals) {
-    items_.insert(items_.begin() + pos, std::make_unique<ListItem>(signal));
-    items_[pos]->depth = new_depth;
-    UpdateValue(items_[pos].get());
+    items_.insert(items_.begin() + pos, ListItem(signal));
+    items_[pos].depth = new_depth;
+    UpdateValue(&items_[pos]);
     pos++;
   }
   UpdateVisibleSignals();
@@ -865,9 +894,9 @@ void WavesPanel::DeleteItem() {
                                 : visible_to_full_lookup_[multi_line_idx_];
   if (start_pos > end_pos) std::swap(start_pos, end_pos);
   // Delete the group and everying under it with greater depth.
-  if (items_[end_pos]->is_group) {
+  if (items_[end_pos].is_group || items_[end_pos].expandable_net) {
     while (end_pos != items_.size() &&
-           items_[end_pos + 1]->depth > items_[start_pos]->depth) {
+           items_[end_pos + 1].depth > items_[start_pos].depth) {
       end_pos++;
     }
   }
@@ -875,6 +904,7 @@ void WavesPanel::DeleteItem() {
   if (end_pos == items_.size() - 1) end_pos--;
   items_.erase(items_.begin() + start_pos, items_.begin() + end_pos + 1);
   if (multi_line_idx_ >= 0) line_idx_ = std::min(line_idx_, multi_line_idx_);
+  CheckMultiBit();
   UpdateVisibleSignals();
 }
 
@@ -905,9 +935,9 @@ void WavesPanel::MoveSignal(bool up) {
                                 : visible_to_full_lookup_[multi_line_idx_];
   if (start_pos > end_pos) std::swap(start_pos, end_pos);
   // Move the group and everying under it with greater depth.
-  if (items_[end_pos]->is_group) {
+  if (items_[end_pos].is_group || items_[end_pos].expandable_net) {
     while (end_pos != items_.size() &&
-           items_[end_pos + 1]->depth > items_[start_pos]->depth) {
+           items_[end_pos + 1].depth > items_[start_pos].depth) {
       end_pos++;
     }
   }
@@ -917,7 +947,7 @@ void WavesPanel::MoveSignal(bool up) {
   if (!up && end_pos >= items_.size() - 2) return;
   auto adjust_depth = [&](bool deeper) {
     for (int i = start_pos; i <= end_pos; ++i) {
-      items_[i]->depth += deeper ? 1 : -1;
+      items_[i].depth += deeper ? 1 : -1;
     }
   };
   int destination = start_pos;
@@ -929,7 +959,8 @@ void WavesPanel::MoveSignal(bool up) {
         1;
     const auto *above_item = visible_items_[above_pos];
     if (above_item->depth > item->depth ||
-        (above_item->depth == item->depth && above_item->is_group &&
+        (above_item->depth == item->depth &&
+         (above_item->is_group || above_item->expandable_net) &&
          !above_item->collapsed)) {
       adjust_depth(true);
     } else {
@@ -951,7 +982,8 @@ void WavesPanel::MoveSignal(bool up) {
     } else {
       destination = visible_to_full_lookup_[below_pos];
       // If the below item is a group, move deeper.
-      if (visible_items_[below_pos]->is_group &&
+      if ((visible_items_[below_pos]->is_group ||
+           visible_items_[below_pos]->expandable_net) &&
           !visible_items_[below_pos]->collapsed) {
         adjust_depth(true);
       }
@@ -961,22 +993,53 @@ void WavesPanel::MoveSignal(bool up) {
   if (destination != start_pos) {
     // Create a temporary vector to hold the items to be moved, clear out the
     // old range.
-    std::vector<std::unique_ptr<ListItem>> temp_list;
+    std::vector<ListItem> temp_list;
     for (int i = start_pos; i <= end_pos; ++i) {
-      temp_list.emplace_back(std::move(items_[i]));
+      temp_list.push_back(items_[i]);
     }
     items_.erase(items_.begin() + start_pos, items_.begin() + end_pos + 1);
     // Insert them at the new spot, accounting for the additional range that was
     // just deleted when moving down.
     const int insert_pos = destination - (up ? 0 : (end_pos - start_pos));
-    items_.insert(items_.begin() + insert_pos,
-                  std::make_move_iterator(temp_list.begin()),
-                  std::make_move_iterator(temp_list.end()));
+    items_.insert(items_.begin() + insert_pos, temp_list.begin(),
+                  temp_list.end());
     // Also move the selected line down.
     line_idx_ += up ? -1 : 1;
     if (multi_line_idx_ >= 0) multi_line_idx_ += up ? -1 : 1;
   }
+  CheckMultiBit();
   UpdateVisibleSignals();
+}
+
+void WavesPanel::ExpandMultiBit() {
+  auto *item = visible_items_[line_idx_];
+  if (item->signal == nullptr || item->signal->width == 1) return;
+  // Don't expand already-expanded signals.
+  if (item->expanded_bit_idx >= 0) return;
+  // Create a temp list of the new items, that are just copies of this one but
+  // with added depth and a bit index.
+  std::vector<ListItem> bitlist;
+  for (int i = item->signal->width - 1; i >= 0; --i) {
+    bitlist.push_back(*item);
+    bitlist.back().depth++;
+    bitlist.back().expanded_bit_idx = i;
+    bitlist.back().radix = Radix::kBinary;
+  }
+  item->expandable_net = true;
+  const int item_idx = visible_to_full_lookup_[line_idx_];
+  items_.insert(items_.begin() + item_idx + 1, bitlist.begin(), bitlist.end());
+  UpdateVisibleSignals();
+  UpdateValues(); // Bit values, not the full vector.
+}
+
+void WavesPanel::CheckMultiBit() {
+  // See if there are any expanded multi-bit signals with no children (moved or
+  // deleted). In that case, mark that signal as not being multi-bit.
+  for (int i = 0; i < items_.size() - 1; ++i) {
+    if (items_[i].expandable_net && items_[i + 1].depth <= items_[i].depth) {
+      items_[i].expandable_net = false;
+    }
+  }
 }
 
 void WavesPanel::UpdateWave(ListItem *item) {
@@ -984,14 +1047,18 @@ void WavesPanel::UpdateWave(ListItem *item) {
 }
 
 void WavesPanel::UpdateValue(ListItem *item) {
-  if (item->is_group || item->signal == nullptr) return;
+  if (item->signal == nullptr) return;
   auto &wave = wave_data_->Wave(item->signal);
   if (wave.empty()) {
     item->value = "Unavailable";
     return;
   }
   const uint64_t idx = FindSampleIndex(cursor_time_, wave, 0, wave.size() - 1);
-  item->value = FormatValue(wave[idx].value, item->radix, leading_zeroes_);
+  if (item->expanded_bit_idx >= 0) {
+    item->value = wave[idx].value[item->expanded_bit_idx];
+  } else {
+    item->value = FormatValue(wave[idx].value, item->radix, leading_zeroes_);
+  }
 }
 
 void WavesPanel::UpdateValues() {
@@ -1044,7 +1111,7 @@ void WavesPanel::AddGroup() {
   }
   for (int i = visible_to_full_lookup_[start_pos];
        i <= visible_to_full_lookup_[end_pos]; ++i) {
-    items_[i]->depth++;
+    items_[i].depth++;
   }
 }
 
@@ -1154,15 +1221,13 @@ bool WavesPanel::Search(bool search_down) {
   };
   while (1) {
     if (!search_preview_) step();
-    const auto pos = items_[idx]->Name().find(search_text_, 0);
+    const auto pos = visible_items_[idx]->Name().find(search_text_, 0);
     if (pos != std::string::npos) {
-      search_start_col_ = pos;
       SetLineAndScroll(idx);
       return true;
     }
     if (search_preview_) step();
     if (idx == start_idx) {
-      search_start_col_ = -1;
       return false;
     }
   }
@@ -1178,36 +1243,36 @@ void WavesPanel::LoadList(const std::string &file_name) {
   items_.clear();
   for (std::string line; std::getline(file, line);) {
     const int depth = line.find_first_not_of(' ');
-    items_.push_back(std::make_unique<ListItem>(nullptr));
+    items_.push_back(ListItem(nullptr));
     auto &item = items_.back();
-    item->depth = depth;
+    item.depth = depth;
     if (line[depth] == '-' || line[depth] == '+') {
-      item->is_group = true;
-      item->group_name = line.substr(depth + 1);
-      item->collapsed = line[depth] == '+';
+      item.is_group = true;
+      item.group_name = line.substr(depth + 1);
+      item.collapsed = line[depth] == '+';
     } else if (line.substr(depth) == kBlankMarkerInFile) {
       // Nothing else to do.
     } else {
       std::vector<std::string> elements =
           absl::StrSplit(line.substr(depth), ' ');
       if (auto signal = wave_data_->PathToSignal(elements[0])) {
-        item->signal = *signal;
+        item.signal = *signal;
         // Parse metadata flags.
         for (int i = 1; i < elements.size(); ++i) {
           if (elements[i].empty()) continue;
           if (elements[i][0] == 'c' && elements[i].size() > 1) {
-            item->custom_color = std::clamp(elements[i][1] - '0', 0, 9);
+            item.custom_color = std::clamp(elements[i][1] - '0', 0, 9);
           } else if (elements[i][0] == 'r' && elements[i].size() > 1) {
-            item->radix = CharToRadix(elements[i][1]);
+            item.radix = CharToRadix(elements[i][1]);
           }
         }
       } else {
-        item->unavailable_name = elements[0];
+        item.unavailable_name = elements[0];
       }
     }
   }
   // Restore the blank line at the end too.
-  items_.push_back(std::make_unique<ListItem>(nullptr));
+  items_.push_back(ListItem(nullptr));
   UpdateVisibleSignals();
   UpdateWaves();
   UpdateValues();
@@ -1218,19 +1283,19 @@ void WavesPanel::SaveList(const std::string &file_name) {
   // Don't write out the last item.
   for (int i = 0; i < items_.size() - 1; ++i) {
     const auto &item = items_[i];
-    std::string line(item->depth, ' ');
-    if (item->is_group) {
-      line += item->collapsed ? '+' : '-';
-      line += item->group_name;
-    } else if (item->signal == nullptr) {
+    std::string line(item.depth, ' ');
+    if (item.is_group) {
+      line += item.collapsed ? '+' : '-';
+      line += item.group_name;
+    } else if (item.signal == nullptr) {
       line += kBlankMarkerInFile;
     } else {
-      line += WaveData::SignalToPath(item->signal);
-      if (item->radix != Radix::kHex) {
-        line += absl::StrFormat(" r%c", RadixToChar(item->radix));
+      line += WaveData::SignalToPath(item.signal);
+      if (item.radix != Radix::kHex) {
+        line += absl::StrFormat(" r%c", RadixToChar(item.radix));
       }
-      if (item->custom_color >= 0) {
-        line += absl::StrFormat(" c%c", '0' + item->custom_color);
+      if (item.custom_color >= 0) {
+        line += absl::StrFormat(" c%c", '0' + item.custom_color);
       }
     }
     file << line << '\n';

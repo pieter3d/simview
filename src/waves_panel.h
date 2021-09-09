@@ -39,13 +39,15 @@ class WavesPanel : public Panel {
     Radix radix = Radix::kHex;
     const WaveData::Signal *signal = nullptr;
     int analog_size = 1;
+    int depth = 0;
+    int custom_color = -1;
     // Members when this item represents a group container.
     std::string unavailable_name;
     std::string group_name;
+    bool expandable_net = false;
+    int expanded_bit_idx = -1;
     bool is_group = false;
     bool collapsed = false;
-    int depth = 0;
-    int custom_color = -1;
     // Saved here instead of searched and derived every time.
     std::string value;
   };
@@ -60,14 +62,14 @@ class WavesPanel : public Panel {
   void UpdateValue(ListItem *item);
   void UpdateWave(ListItem *item);
   void SnapToValue();
+  void ExpandMultiBit();
+  void CheckMultiBit();
   void FindEdge(bool forward, bool &time_changed, bool &range_changed);
   void GoToTime(uint64_t time, bool &time_changed, bool &range_changed);
   void LoadList(const std::string &file_name);
   void SaveList(const std::string &file_name);
 
-  // Owned pointers here makes reordering the contents of the list a lot faster
-  // if the user adds groups etc. Otherwise there are copies of large datasets.
-  std::vector<std::unique_ptr<ListItem>> items_;
+  std::vector<ListItem> items_;
   // Flattened list of all signals, accounting for collapsed groups.
   std::vector<ListItem *> visible_items_;
   // Lookup table, mapping a line number in the signal list (with potentially
