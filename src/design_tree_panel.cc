@@ -1,5 +1,6 @@
 #include "design_tree_panel.h"
 #include "absl/strings/str_format.h"
+#include "utils.h"
 #include "workspace.h"
 #include <memory>
 #include <uhdm/headers/module.h>
@@ -71,7 +72,21 @@ void DesignTreePanel::SetItem(const UHDM::any *item) {
 void DesignTreePanel::UIChar(int ch) {
   switch (ch) {
   case 'i': load_instance_ = true; break;
-  case 'd': load_definition_ = true; break;
+  case 'd': {
+    // Make sure the definition exits.
+    auto *item =
+        dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem();
+    if (item->VpiType() == vpiModule) {
+      auto *m = dynamic_cast<const UHDM::module *>(item);
+      if (Workspace::Get().GetDefinition(m) == nullptr) {
+        // If not, do nothing.
+        error_message_ = absl::StrFormat("Definition of %s is not available.",
+                                         StripWorklib(m->VpiFullName()));
+        break;
+      }
+    }
+    load_definition_ = true;
+  } break;
   case 'S':
     Workspace::Get().SetMatchedDesignScope(
         dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem());

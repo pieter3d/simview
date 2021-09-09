@@ -23,6 +23,7 @@ void SetupColors() {
     init_pair(kHierTypePair, COLOR_CYAN, kBackground);
     init_pair(kHierShowMorePair, COLOR_YELLOW, kBackground);
     init_pair(kHierOtherPair, 13, kBackground);           // bright magenta
+    init_pair(kHierErrPair, 9, kBackground);              // bright red
     init_pair(kTooltipPair, COLOR_BLACK, COLOR_YELLOW);   // yellow background
     init_pair(kTooltipKeyPair, COLOR_RED, COLOR_YELLOW);  // yellow background
     init_pair(kSourceLineNrPair, 8, kBackground);         // grey

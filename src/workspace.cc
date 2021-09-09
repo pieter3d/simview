@@ -113,7 +113,7 @@ Workspace::~Workspace() {
   if (design_ != nullptr) delete design_;
 }
 
-void Workspace ::TryMatchDesignWithWaves() {
+void Workspace::TryMatchDesignWithWaves() {
   // Don't do anything unless there are both waves and design.
   if (wave_data_ == nullptr || design_ == nullptr) return;
   // Look for a scope with stuff in it.
@@ -130,12 +130,17 @@ void Workspace ::TryMatchDesignWithWaves() {
   // Okay, good enough. Now try to build a list of design scopes that look
   // interesting. Not considering generate blocks here for the auto-detect.
   std::vector<const UHDM::any *> design_scopes;
-  for (const auto *sub : *design_->TopModules()) {
-    design_scopes.push_back(sub);
+  for (const auto *top : *design_->TopModules()) {
+    design_scopes.push_back(top);
     // If the top module has some guts, add it's modules too.
-    if (sub->Modules() != nullptr && sub->Modules()->size() > 0) {
-      for (const auto *subsub : *sub->Modules()) {
-        design_scopes.push_back(subsub);
+    if (top->Modules() != nullptr && top->Modules()->size() > 0) {
+      for (const auto *sub : *top->Modules()) {
+        design_scopes.push_back(sub);
+        if (sub->Modules() != nullptr && sub->Modules()->size() > 0) {
+          for (const auto *subsub : *sub->Modules()) {
+            design_scopes.push_back(subsub);
+          }
+        }
       }
     }
   }
@@ -143,15 +148,25 @@ void Workspace ::TryMatchDesignWithWaves() {
   // matching signals.
   int max_common = 0;
   for (const auto *design_scope : design_scopes) {
+    const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
     for (const auto *signal_scope : signal_scopes) {
       if (signal_scope->signals.empty()) continue;
-      const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
-      if (m->Nets() == nullptr || m->Nets()->empty()) continue;
       int num_common_signals = 0;
-      for (const auto *n : *m->Nets()) {
-        for (const auto &s : signal_scope->signals) {
-          if (n->VpiName() == s.name) {
-            num_common_signals++;
+      if (m->Nets() != nullptr) {
+        for (const auto *n : *m->Nets()) {
+          for (const auto &s : signal_scope->signals) {
+            if (n->VpiName() == s.name) {
+              num_common_signals++;
+            }
+          }
+        }
+      }
+      if (m->Variables() != nullptr) {
+        for (const auto *v : *m->Variables()) {
+          for (const auto &s : signal_scope->signals) {
+            if (v->VpiName() == s.name) {
+              num_common_signals++;
+            }
           }
         }
       }

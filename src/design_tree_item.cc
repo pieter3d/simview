@@ -11,7 +11,6 @@ namespace sv {
 
 DesignTreeItem::DesignTreeItem(UHDM::any *item) : item_(item) {
   name_ = StripWorklib(item_->VpiName());
-  type_ = StripWorklib(item_->VpiDefName());
   if (item_->VpiType() == vpiGenScopeArray) {
     type_ = "[generate]";
   } else if (item_->VpiType() == vpiFunction) {
@@ -20,10 +19,22 @@ DesignTreeItem::DesignTreeItem(UHDM::any *item) : item_(item) {
     type_ = "[task]";
   } else if (item_->VpiType() != vpiModule) {
     type_ = absl::StrFormat("[%d]", item_->VpiType());
+  } else {
+    if (ErrType()) {
+      type_ = "[missing def]";
+    } else {
+      type_ = StripWorklib(item_->VpiDefName());
+    }
   }
 }
 
 bool DesignTreeItem::AltType() const { return item_->VpiType() != vpiModule; }
+
+bool DesignTreeItem::ErrType() const {
+  // If there's no compiled variant available, Surelog uses :: to place it in
+  // the scope of the parent module.
+  return item_->VpiDefName().find("::") != std::string::npos;
+}
 
 bool DesignTreeItem::Expandable() const {
   if (!children_built_) BuildChildren();

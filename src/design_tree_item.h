@@ -16,6 +16,7 @@ class DesignTreeItem : public TreeItem {
   int NumChildren() const final;
   TreeItem *Child(int idx) final;
   bool MatchColor() const final;
+  bool ErrType() const final;
 
 
 

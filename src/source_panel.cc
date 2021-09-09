@@ -1,4 +1,5 @@
 #include "source_panel.h"
+#include "absl/strings/str_format.h"
 #include "color.h"
 #include "uhdm_utils.h"
 #include "utils.h"
@@ -659,11 +660,19 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
         }
         }
       };
+  // Avoid trying to load a definition if it's not available.
+  bool definition_available = true;
+  if (item->VpiType() == vpiModule && show_def) {
+    auto m = dynamic_cast<const UHDM::module *>(item);
+    definition_available = Workspace::Get().GetDefinition(m) != nullptr;
+    error_message_ = absl::StrFormat("Definition of %s is not available.",
+                                     StripWorklib(m->VpiFullName()));
+  }
   // Top modules are always treated as a definition load since there is nothing
   // they are instanced in.
   int line_num = 1;
   if (item->VpiType() == vpiModule &&
-      (show_def || item->VpiParent() == nullptr)) {
+      ((show_def && definition_available) || item->VpiParent() == nullptr)) {
     auto m = dynamic_cast<const UHDM::module *>(item);
     // VpiDefFile isn't super useful here, still need the definition to get
     // the start and end line number.

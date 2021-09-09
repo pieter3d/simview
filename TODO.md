@@ -21,3 +21,6 @@ Stuff that is still pending to be fixed or implemented.
 * Search for value in wave.
 * Analog signals.
 * Detect arrays in waves, make them expandable in the waveforms
+* Expand multi-bit signals
+* Support missing modules in the UHDM.
+* alternate layout: left has waves and signals stacked vertically

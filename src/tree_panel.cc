@@ -66,7 +66,11 @@ void TreePanel::Draw() {
           mvwaddch(w_, y, x, '>');
         } else {
           if (j >= type_pos && j < type_pos + type_name.size()) {
-            SetColor(w_, item->AltType() ? kHierOtherPair : kHierTypePair);
+            const auto color =
+                item->ErrType()
+                    ? kHierErrPair
+                    : item->AltType() ? kHierOtherPair : kHierTypePair;
+            SetColor(w_, color);
           } else if (j >= inst_pos) {
             if (show_search && j == search_pos) {
               wattron(w_, A_REVERSE);
