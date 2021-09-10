@@ -16,10 +16,8 @@ Stuff that is still pending to be fixed or implemented.
 * tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`
 * Time multiplier for waves (e.g. wave 1 unit is really X us/ns/ps/)
 * Wave + source should be able to figure out enums in waves.
-* waveform color chooser.
 * Reload waves, and possibly live updates.
 * Search for value in wave.
 * Analog signals.
 * Detect arrays in waves, make them expandable in the waveforms
-* Expand multi-bit signals
 * alternate layout: left has waves and signals stacked vertically

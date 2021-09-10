@@ -10,6 +10,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 
 namespace sv {
 
@@ -490,7 +491,7 @@ void WavesPanel::Draw() {
       } else {
         int value_idx = 0;
         if (item->expanded_bit_idx >= 0) {
-          value_idx = item->expanded_bit_idx;
+          value_idx = item->signal->width - item->expanded_bit_idx - 1;
           if (num_transitions > 0) {
             num_transitions = 0;
             for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
@@ -1255,6 +1256,34 @@ void WavesPanel::LoadList(const std::string &file_name) {
     } else {
       std::vector<std::string> elements =
           absl::StrSplit(line.substr(depth), ' ');
+      // Look for a bit index.
+      const auto bit_bracket_start_pos = elements[0].find_first_of('[');
+      const auto bit_bracket_end_pos = elements[0].find_first_of(']');
+      if (bit_bracket_start_pos != std::string::npos &&
+          bit_bracket_end_pos != std::string::npos &&
+          bit_bracket_start_pos < bit_bracket_end_pos) {
+        // See if the above item is a signal at a lesser depth. In that case,
+        // it's the parent, so mark it as an expandable signal.
+        if (items_.size() > 1 &&
+            items_[items_.size() - 2].depth == item.depth - 1 &&
+            items_[items_.size() - 2].signal != nullptr) {
+          items_[items_.size() - 2].expandable_net = true;
+        }
+        // Attempt to parse the bit index itself.
+        try {
+          item.expanded_bit_idx = std::stoi(elements[0].substr(
+              bit_bracket_start_pos + 1,
+              bit_bracket_end_pos - bit_bracket_end_pos - 1));
+          // Strip the index from the name so that the rest of the code behaves
+          // as before.
+          elements[0].erase(bit_bracket_start_pos);
+        } catch (std::invalid_argument &e) {
+          // No need to do anything for badly formatted files. It won't match a
+          // signal name with the bracket so it will get treated as a missing
+          // signal which is appropriate.
+        } catch (std::out_of_range &e) {
+        }
+      }
       if (auto signal = wave_data_->PathToSignal(elements[0])) {
         item.signal = *signal;
         // Parse metadata flags.
@@ -1291,6 +1320,9 @@ void WavesPanel::SaveList(const std::string &file_name) {
       line += kBlankMarkerInFile;
     } else {
       line += WaveData::SignalToPath(item.signal);
+      if (item.expanded_bit_idx >= 0) {
+        line += absl::StrFormat("[%d]", item.expanded_bit_idx);
+      }
       if (item.radix != Radix::kHex) {
         line += absl::StrFormat(" r%c", RadixToChar(item.radix));
       }
