@@ -1,14 +1,14 @@
 #pragma once
 
-#include "vcd_parser.gen.hpp"
+#include "vcd_parser.gen.h"
 
 /*
  * Flex requires that yyFlexLexer is equivalent to
  * the lexer class we are using, before we include
- * FlexLexer.h.  See 'Generating C++ Scanners' in 
+ * FlexLexer.h.  See 'Generating C++ Scanners' in
  * the Flex manual.
  */
-#if ! defined(yyFlexLexerOnce)
+#if !defined(yyFlexLexerOnce)
 
 #undef yyFlexLexer
 /*
@@ -44,17 +44,18 @@
 namespace vcdparse {
 
 class Lexer : private yyFlexLexer {
-    //We use private inheritance to hide the flex
-    //implementation details from anyone using Lexer
-    public:
-        vcdparse::Parser::symbol_type next_token();
+  // We use private inheritance to hide the flex
+  // implementation details from anyone using Lexer
+ public:
+  vcdparse::Parser::symbol_type next_token();
 
-        using yyFlexLexer::switch_streams;
+  using yyFlexLexer::switch_streams;
 
-        location get_loc() { return loc_; }
-        void set_loc(location& loc) { loc_ = loc; }
-    private:
-        location loc_; 
+  location get_loc() { return loc_; }
+  void set_loc(location &loc) { loc_ = loc; }
+
+ private:
+  location loc_;
 };
 
-} //vcdparse
+} // namespace vcdparse

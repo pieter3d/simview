@@ -28,7 +28,7 @@
 /* Wrap everything in our namespace */
 %define api.namespace {vcdparse}
 
-%define parser_class_name {Parser}
+%define api.parser.class {Parser}
 
 /* Extra checks for correct usage */
 %define parse.assert
@@ -64,8 +64,8 @@
         class Loader;
     }
 
-    #include "vcd_error.hpp"
-    #include "vcd_data.hpp"
+    #include "vcd_error.h"
+    #include "vcd_data.h"
 
     //This is not defined by default for some reason...
     #define YY_NULLPTR nullptr
@@ -73,8 +73,8 @@
 
 %code top {
 
-    #include "vcd_lexer.hpp"
-    #include "vcd_loader.hpp"
+    #include "vcd_lexer.h"
+    #include "vcd_loader.h"
 
     //Bison calls yylex() to get the next token.
     //Since we have re-defined the equivalent function in the lexer

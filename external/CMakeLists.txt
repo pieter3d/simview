@@ -16,13 +16,5 @@ endif()
 # Add all expected submodules.
 add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
-
-# FST parsing
-find_package(ZLIB REQUIRED)
-add_library(fst
-  fst/fstapi.c
-  fst/fastlz.c
-  fst/lz4.c
-)
-target_link_libraries(fst INTERFACE z)
-target_include_directories(fst PUBLIC fst)
+add_subdirectory(fst)
+add_subdirectory(vcd)

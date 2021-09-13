@@ -2,8 +2,8 @@
     #include <iostream>
     #include <sstream>
     #include <cassert>
-    #include "vcd_lexer.hpp"
-    #include "vcd_parser.gen.hpp"
+    #include "vcd_lexer.h"
+    #include "vcd_parser.gen.h"
     #include "location.hh"
 
     using std::cout;
@@ -31,7 +31,7 @@
 /* isatty() doesn't exist on windows */
 %option never-interactive
 
-/* no default rule to echo unrecongaized tokens to output */
+/* no default rule to echo unrecognized tokens to output */
 %option nodefault
 
 /* 
