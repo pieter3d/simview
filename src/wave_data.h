@@ -58,8 +58,6 @@ class WaveData {
   virtual int Log10TimeUnits() const = 0;
   // Valid time range in the wave data.
   virtual std::pair<uint64_t, uint64_t> TimeRange() const = 0;
-  // Returns signal data as binary string of digits 01xz
-  virtual std::string SignalValue(const Signal *s, uint64_t time) const = 0;
   // Loads up the waves_ structure with sample data for the given Signal.
   virtual void LoadSignalSamples(const Signal *signal, uint64_t start_time,
                                  uint64_t end_time) const = 0;

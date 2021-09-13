@@ -84,14 +84,6 @@ std::pair<uint64_t, uint64_t> FstWaveData::TimeRange() const {
   return range;
 }
 
-std::string FstWaveData::SignalValue(const Signal *signal,
-                                     uint64_t time) const {
-  // Allocated space for a null terminated string is required
-  std::string val(signal->width + 1, '\0');
-  fstReaderGetValueFromHandleAtTime(reader_, time, signal->id, val.data());
-  return val;
-}
-
 void FstWaveData::LoadSignalSamples(const Signal *signal, uint64_t start_time,
                                     uint64_t end_time) const {
   // Use the batch version.
