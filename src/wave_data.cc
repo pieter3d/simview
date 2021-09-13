@@ -51,4 +51,12 @@ std::string WaveData::SignalToPath(const WaveData::Signal *signal) {
   return path;
 }
 
+void WaveData::LoadSignalSamples(const Signal *signal, uint64_t start_time,
+                                    uint64_t end_time) const {
+  // Use the batch version.
+  std::vector<const Signal *> sigs({signal});
+  LoadSignalSamples(sigs, start_time, end_time);
+}
+
+
 } // namespace sv

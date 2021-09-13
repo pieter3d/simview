@@ -52,17 +52,18 @@ class WaveData {
   const std::vector<SignalScope> &Roots() const { return roots_; }
   std::optional<const Signal *> PathToSignal(const std::string &path) const;
   static std::string SignalToPath(const WaveData::Signal *signal);
+  // Loads up the waves_ structure with sample data for the given Signal.
+  void LoadSignalSamples(const Signal *signal, uint64_t start_time,
+                         uint64_t end_time) const;
 
   // ------------- Implementation methods --------------
   // returns -9 for nanoseconds, -6 for microseconds, etc.
   virtual int Log10TimeUnits() const = 0;
   // Valid time range in the wave data.
   virtual std::pair<uint64_t, uint64_t> TimeRange() const = 0;
-  // Loads up the waves_ structure with sample data for the given Signal.
-  virtual void LoadSignalSamples(const Signal *signal, uint64_t start_time,
-                                 uint64_t end_time) const = 0;
-  // Batch processing variant, which is often significantly more efficient than
-  // iterating over a set of signal separately.
+  // Implementations use a batch processing variant of wave loading, which is
+  // generally a lot more efficient than reading the wave data for each signal
+  // separately.
   virtual void LoadSignalSamples(const std::vector<const Signal *> &signals,
                                  uint64_t start_time,
                                  uint64_t end_time) const = 0;

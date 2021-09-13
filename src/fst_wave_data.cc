@@ -84,13 +84,6 @@ std::pair<uint64_t, uint64_t> FstWaveData::TimeRange() const {
   return range;
 }
 
-void FstWaveData::LoadSignalSamples(const Signal *signal, uint64_t start_time,
-                                    uint64_t end_time) const {
-  // Use the batch version.
-  std::vector<const Signal *> sigs({signal});
-  LoadSignalSamples(sigs, start_time, end_time);
-}
-
 void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
                                     uint64_t start_time,
                                     uint64_t end_time) const {
