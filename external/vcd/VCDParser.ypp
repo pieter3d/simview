@@ -5,20 +5,20 @@
 
 %skeleton "lalr1.cc"
 %defines
-%define parser_class_name {parser}
+%define api.parser.class {parser}
 %define api.token.constructor
 %define api.value.type variant
 %define parse.assert
+%define api.prefix {VCDParser}
 %file-prefix "VCDParser"
-%name-prefix "VCDParser"
 
 %code requires 
 {
     #include <string>
     #include <map>
 
-    #include "VCDTypes.hpp"
-    #include "VCDFile.hpp"
+    #include "VCDTypes.h"
+    #include "VCDFile.h"
 
     class VCDFileParser;
 }
@@ -35,7 +35,7 @@
 
 %code{
 
-#include "VCDFileParser.hpp"
+#include "VCDFileParser.h"
 
 //! Current time while parsing the VCD file.
 VCDTime current_time = 0;

@@ -12,8 +12,8 @@
 #include <cstring>
 #include <cstdio>
 
-#include "VCDFileParser.hpp"
-#include "VCDParser.hpp"
+#include "VCDFileParser.h"
+#include "VCDParser.h"
 
 #undef yywrap
 #define yywrap() 1
