@@ -12,8 +12,8 @@ std::string kParameterString = "[P]";
 } // namespace
 
 SignalTreeItem::SignalTreeItem(const WaveData::Signal *s) : signal_(s) {
-  if (s->width > 1) {
-    name_ = s->name + absl::StrFormat("[%d:0]", s->width - 1);
+  if (s->width > 1 && !s->has_suffix) {
+    name_ = s->name + absl::StrFormat("[%d:%d]", s->width - 1 + s->lsb, s->lsb);
   } else {
     name_ = s->name;
   }

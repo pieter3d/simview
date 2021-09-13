@@ -32,6 +32,8 @@ add_executable(simview
   uhdm_utils.cc
   ui.cc
   utils.cc
+  vcd_tokenizer.cc
+  vcd_wave_data.cc
   wave_data.cc
   wavedata_tree_item.cc
   wavedata_tree_panel.cc

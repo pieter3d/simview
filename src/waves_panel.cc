@@ -81,8 +81,9 @@ std::string WavesPanel::ListItem::Name() const {
   std::string s = signal->name;
   if (expanded_bit_idx >= 0) {
     s += absl::StrFormat("[%d]", expanded_bit_idx);
-  } else if (signal->width > 1) {
-    s += absl::StrFormat("[%d:0]", signal->width - 1);
+  } else if (signal->width > 1 && !signal->has_suffix) {
+    s += absl::StrFormat("[%d:%d]", signal->width - 1 + signal->lsb,
+                         signal->lsb);
   }
   return s;
 }
@@ -1020,7 +1021,8 @@ void WavesPanel::ExpandMultiBit() {
   // Create a temp list of the new items, that are just copies of this one but
   // with added depth and a bit index.
   std::vector<ListItem> bitlist;
-  for (int i = item->signal->width - 1; i >= 0; --i) {
+  const int lsb = item->signal->lsb;
+  for (int i = item->signal->width - 1 + lsb; i >= lsb; --i) {
     bitlist.push_back(*item);
     bitlist.back().depth++;
     bitlist.back().expanded_bit_idx = i;

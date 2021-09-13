@@ -31,6 +31,9 @@ class WaveData {
     } type = Type::kNet;
     std::string name;
     uint32_t width;
+    uint32_t lsb = 0;
+    // Set if the signal name string already contains the [msb:lsb] suffix.
+    bool has_suffix = false;
     // General purpose identifier. May need to revisit the type since the
     // various wave database formats use different ways to look up signal data.
     uint32_t id;
@@ -73,6 +76,8 @@ class WaveData {
  protected:
   // Not directly constructable.
   WaveData() = default;
+  // Traverse the scopes and signals and assign parents. This can only be done after the structure has been fully created, since the parents are pointers to elements of vectors, and thus could be invalidated (point to garbage) if the signal and scope children vectors are modified.
+  void BuildParents();
   // Waveform data is stored per ID, which is potentially a subset of signals
   // in the wave. This avoids the need to hold copies of identical waveforms
   // for signals who are aliases of eachother. The canonical example here is

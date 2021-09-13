@@ -105,7 +105,7 @@ bool Workspace::ReadWaves(const std::string &wave_file) {
   } catch (std::runtime_error &e) {
     return false;
   }
-  return true;
+  return wave_data_ != nullptr;
 }
 
 Workspace::~Workspace() {

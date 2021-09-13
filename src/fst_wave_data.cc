@@ -55,20 +55,7 @@ FstWaveData::FstWaveData(const std::string &file_name) {
   // in parents. Can't do this on the fly since vectors get re-allocated and
   // shuffled around, so pointers derived there won't necessarily be correct
   // after wave data reading is finished.
-  std::function<void(SignalScope *)> recurse_assign_parents =
-      [&](SignalScope *scope) {
-        // Assign to all signals.
-        for (auto &sig : scope->signals) {
-          sig.scope = scope;
-        }
-        for (auto &sub : scope->children) {
-          sub.parent = scope;
-          recurse_assign_parents(&sub);
-        }
-      };
-  for (auto &root : roots_) {
-    recurse_assign_parents(&root);
-  }
+  BuildParents();
 }
 
 FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
