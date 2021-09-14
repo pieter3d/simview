@@ -21,22 +21,6 @@ constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
 const char *kBlankMarkerInFile = "[blank]";
 
-// Binary search for the right sample.
-int FindSampleIndex(uint64_t time, const std::vector<WaveData::Sample> &samples,
-                    int left, int right) {
-  if (samples.empty() || right < left) return -1;
-  if (right - left <= 1) {
-    // Use the new value when on the same time.
-    return time < samples[right].time ? left : right;
-  }
-  const int mid = (left + right) / 2;
-  if (time > samples[mid].time) {
-    return FindSampleIndex(time, samples, mid, right);
-  } else {
-    return FindSampleIndex(time, samples, left, mid);
-  }
-}
-
 } // namespace
 
 WavesPanel::WavesPanel() {
@@ -147,8 +131,8 @@ void WavesPanel::FindEdge(bool forward, bool &time_changed,
                           bool &range_changed) {
   if (visible_items_[line_idx_]->signal == nullptr) return;
   const auto &wave = wave_data_->Wave(visible_items_[line_idx_]->signal);
-  const int sample_idx =
-      FindSampleIndex(cursor_time_, wave, 0, wave.size() - 1);
+  const int sample_idx = wave_data_->FindSampleIndex(
+      cursor_time_, visible_items_[line_idx_]->signal);
   if (forward) {
     // No more data left.
     if (sample_idx == wave.size() - 1) return;
@@ -172,8 +156,8 @@ void WavesPanel::SnapToValue() {
   // See if there is an edge within the current cursor's character span
   const uint64_t left_time = left_time_ + cursor_pos_ * time_per_char;
   const uint64_t right_time = left_time_ + (cursor_pos_ + 1) * time_per_char;
-  const int left_idx = FindSampleIndex(left_time, wave, 0, wave.size() - 1);
-  const int right_idx = FindSampleIndex(right_time, wave, 0, wave.size() - 1);
+  const int left_idx = wave_data_->FindSampleIndex(left_time, item->signal);
+  const int right_idx = wave_data_->FindSampleIndex(right_time, item->signal);
   // Nothing to snap to if there is no transition within this character.
   if (left_idx == right_idx) return;
   // Find transition closest to left edge, but not before.
@@ -420,7 +404,7 @@ void WavesPanel::Draw() {
     const auto &wave = wave_data_->Wave(item->signal);
     const bool multi_bit =
         item->signal->width > 1 && item->expanded_bit_idx < 0;
-    int left_sample_idx = FindSampleIndex(left_time_, wave, 0, wave.size() - 1);
+    int left_sample_idx = wave_data_->FindSampleIndex(left_time_, item->signal);
     // Save the locations of transitions and times to fill in values.
     struct WaveValueInfo {
       int xpos;
@@ -450,9 +434,9 @@ void WavesPanel::Draw() {
     wmove(w_, row, wave_x);
     for (int x = 0; x < max_w - wave_x; ++x) {
       // Find what sample index corresponds to the right edge of this character.
-      const int right_sample_idx =
-          FindSampleIndex(left_time_ + (1 + x) * time_per_char, wave,
-                          left_sample_idx, wave.size() - 1);
+      const int right_sample_idx = wave_data_->FindSampleIndex(
+          left_time_ + (1 + x) * time_per_char, item->signal, left_sample_idx,
+          wave.size() - 1);
       int num_transitions = right_sample_idx - left_sample_idx;
       if (num_transitions > 0) {
         // See if anything has X or Z in it. Scan only the new values.
@@ -906,6 +890,7 @@ void WavesPanel::DeleteItem() {
   if (end_pos == items_.size() - 1) end_pos--;
   items_.erase(items_.begin() + start_pos, items_.begin() + end_pos + 1);
   if (multi_line_idx_ >= 0) line_idx_ = std::min(line_idx_, multi_line_idx_);
+  SetLineAndScroll(line_idx_);
   CheckMultiBit();
   UpdateVisibleSignals();
 }
@@ -1056,7 +1041,7 @@ void WavesPanel::UpdateValue(ListItem *item) {
     item->value = "Unavailable";
     return;
   }
-  const uint64_t idx = FindSampleIndex(cursor_time_, wave, 0, wave.size() - 1);
+  const uint64_t idx = wave_data_->FindSampleIndex(cursor_time_, item->signal);
   if (item->expanded_bit_idx >= 0) {
     item->value = wave[idx].value[item->expanded_bit_idx];
   } else {

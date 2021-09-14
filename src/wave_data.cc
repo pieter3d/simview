@@ -1,6 +1,7 @@
 #include "wave_data.h"
 #include "absl/strings/str_split.h"
 #include "fst_wave_data.h"
+#include "src/radix.h"
 #include "vcd_wave_data.h"
 #include <filesystem>
 
@@ -78,6 +79,27 @@ void WaveData::BuildParents() {
   for (auto &root : roots_) {
     recurse_assign_parents(&root);
   }
+}
+
+int WaveData::FindSampleIndex(uint64_t time, const Signal *signal, int left,
+                              int right) const {
+  auto &wave = waves_[signal->id];
+  // Binary search for the right sample.
+  if (wave.empty() || right < left) return -1;
+  if (right - left <= 1) {
+    // Use the new value when on the same time.
+    return time < wave[right].time ? left : right;
+  }
+  const int mid = (left + right) / 2;
+  if (time > wave[mid].time) {
+    return FindSampleIndex(time, signal, mid, right);
+  } else {
+    return FindSampleIndex(time, signal, left, mid);
+  }
+}
+
+int WaveData::FindSampleIndex(uint64_t time, const Signal *signal) const {
+  return FindSampleIndex(time, signal, 0, waves_[signal->id].size() - 1);
 }
 
 } // namespace sv

@@ -58,6 +58,14 @@ class WaveData {
   // Loads up the waves_ structure with sample data for the given Signal.
   void LoadSignalSamples(const Signal *signal, uint64_t start_time,
                          uint64_t end_time) const;
+  // Returns the sample index corresponding to the value at the given time.
+  // Search bounds can be constrained to a subset of the wave.
+  int FindSampleIndex(uint64_t time, const Signal *signal, int left,
+                      int right) const;
+  // Variant that searches the whole wave.
+  int FindSampleIndex(uint64_t time, const Signal *signal) const;
+  // Obtain the textual value of the signal at the given time.
+  std::string FindSampleValue(uint64_t time, const Signal *signal) const;
 
   // ------------- Implementation methods --------------
   // returns -9 for nanoseconds, -6 for microseconds, etc.
@@ -76,7 +84,10 @@ class WaveData {
  protected:
   // Not directly constructable.
   WaveData() = default;
-  // Traverse the scopes and signals and assign parents. This can only be done after the structure has been fully created, since the parents are pointers to elements of vectors, and thus could be invalidated (point to garbage) if the signal and scope children vectors are modified.
+  // Traverse the scopes and signals and assign parents. This can only be done
+  // after the structure has been fully created, since the parents are pointers
+  // to elements of vectors, and thus could be invalidated (point to garbage) if
+  // the signal and scope children vectors are modified.
   void BuildParents();
   // Waveform data is stored per ID, which is potentially a subset of signals
   // in the wave. This avoids the need to hold copies of identical waveforms
