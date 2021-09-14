@@ -11,6 +11,7 @@ Stuff that is still pending to be fixed or implemented.
   * Syntax highlighting of macros
 * Source window: Set a marker on a source line (press m), press A to add all
   signals between current line and marker.
+* alternate layout maybe: left has waves and signals stacked vertically
 * Expose nets in functions and tasks
 * Expose local variables in always blocks?
 * tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`
@@ -18,6 +19,7 @@ Stuff that is still pending to be fixed or implemented.
 * Wave + source should be able to figure out enums in waves.
 * Reload waves, and possibly live updates.
 * Search for value in wave.
+* Wave value in source, based on cursor time.
 * Analog signals.
 * Detect arrays in waves, make them expandable in the waveforms
-* alternate layout: left has waves and signals stacked vertically
+* Lazy / on-demand loading of VCD wave data.

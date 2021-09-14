@@ -1,10 +1,15 @@
 #include "vcd_wave_data.h"
+#include <filesystem>
+#include <ios>
 #include <stdexcept>
 
 namespace sv {
 namespace {
 const std::runtime_error kParseError("VCD file parsing error, file malformed.");
 }
+
+// Default: print.
+bool VcdWaveData::print_progress_ = true;
 
 VcdWaveData::VcdWaveData(const std::string &file_name)
     : tokenizer_(VcdTokenizer(file_name)) {
@@ -35,26 +40,15 @@ VcdWaveData::VcdWaveData(const std::string &file_name)
     scope_stack_.pop();
   // Traverse the completed scope/signal list, and assign parents.
   BuildParents();
-  // Save the current parsing position.
-  sim_commands_pos_ = tokenizer_.Position();
-  // Parse the first few sim tokens until there's time scale.
-  while (!tokenizer_.Eof()) {
-    auto tok = tokenizer_.Token();
-    if (tok[0] == '#') {
-      time_range_.first = std::stol(tok.substr(1));
-      break;
-    }
-  }
-  // Avoid start > end.
-  // TODO: find last time.
-  time_range_.second = time_range_.first + 1;
-  // Back to the start.
-  tokenizer_.SetPosition(sim_commands_pos_);
+  ParseSimCommands();
 }
 
 void VcdWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
                                     uint64_t start_time,
-                                    uint64_t end_time) const {}
+                                    uint64_t end_time) const {
+  // Do nothing, all waves are parsed in upon file load.
+  // TODO: Lazy / on-demand loading might be useful.
+}
 
 void VcdWaveData::ParseToEofCommand() {
   while (!tokenizer_.Eof()) {
@@ -173,6 +167,64 @@ void VcdWaveData::ParseTimescale() {
   tok = tokenizer_.Token();
   if (tok != "$end") {
     throw kParseError;
+  }
+}
+
+void VcdWaveData::ParseSimCommands() {
+  bool in_dump = false;
+  uint64_t time = 0;
+  bool first_time = true;
+  int prev_percentage = -1;
+  while (!tokenizer_.Eof()) {
+    auto tok = tokenizer_.Token();
+    if (tok.empty()) continue;
+    if (!in_dump && tok.find("$dump") == 0) {
+      in_dump = true;
+    } else if (in_dump && tok == "$end") {
+      in_dump = false;
+    } else if (tok == "$comment") {
+      ParseToEofCommand();
+    } else if (tok[0] == '#') {
+      time = std::stol(tok.substr(1));
+      if (first_time) {
+        first_time = false;
+        time_range_.first = time;
+      }
+    } else if (tok.find_first_of("bBrR") == 0) {
+      Sample s;
+      s.time = time;
+      s.value = tok.substr(1);
+      tok = tokenizer_.Token();
+      if (signal_id_by_code_.find(tok) == signal_id_by_code_.end()) {
+        throw kParseError;
+      }
+      waves_[signal_id_by_code_[tok]].push_back(s);
+    } else if (tok.find_first_of("01xXzZ") == 0) {
+      Sample s;
+      s.time = time;
+      s.value = tok[0];
+      const auto id_code = tok.substr(1);
+      const auto id = signal_id_by_code_.find(id_code);
+      if (id == signal_id_by_code_.end()) {
+        throw kParseError;
+      }
+      waves_[id->second].push_back(s);
+    } else {
+      throw kParseError;
+    }
+    if (print_progress_) {
+      int percentage = tokenizer_.PosPercentage();
+      if (percentage != prev_percentage) {
+        printf("%d%%\r", percentage);
+        fflush(stdout);
+        prev_percentage = percentage;
+      }
+    }
+  }
+  // Avoid start > end.
+  time_range_.second = std::max(time_range_.first + 1, time);
+  if (print_progress_) {
+    printf("\n");
   }
 }
 

@@ -402,6 +402,16 @@ void WavesPanel::Draw() {
     //   ||||=||||||=||||||||||||||||
     //
     const auto &wave = wave_data_->Wave(item->signal);
+    if (wave.empty()) {
+      SetColor(w_, kWavesXPair);
+      std::string msg(" No wave data available for " + item->Name());
+      wmove(w_, row, wave_x);
+      for (int i = 0; i < msg.size(); ++i) {
+        if (wave_x + i >= max_w) break;
+        waddch(w_, msg[i]);
+      }
+      continue; // Nothing more to do.
+    }
     const bool multi_bit =
         item->signal->width > 1 && item->expanded_bit_idx < 0;
     int left_sample_idx = wave_data_->FindSampleIndex(left_time_, item->signal);
@@ -677,9 +687,12 @@ void WavesPanel::UIChar(int ch) {
     case 'h':
     case 0x104: { // left
       const int step = (ch == 'H' || ch == 0x189) ? 10 : 1;
-      if (cursor_pos_ == 0 && left_time_ > 0) {
-        left_time_ = std::max(0.0, left_time_ - step * time_per_char);
-        right_time_ = std::max(0.0, right_time_ - step * time_per_char);
+      const uint64_t min_time = wave_data_->TimeRange().first;
+      if (cursor_pos_ == 0 && left_time_ > min_time) {
+        left_time_ =
+            std::max((double)min_time, left_time_ - step * time_per_char);
+        right_time_ =
+            std::max((double)min_time, right_time_ - step * time_per_char);
         range_changed = true;
       } else if (cursor_pos_ > 0) {
         cursor_pos_ = std::max(0, cursor_pos_ - step);
