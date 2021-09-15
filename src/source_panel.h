@@ -40,6 +40,8 @@ class SourcePanel : public Panel {
   void SelectItem();
   // Generates a nice header that probably fits in the current window width.
   void BuildHeader();
+  // Read all wave data for the nets in the current item.
+  void UpdateWaveData();
 
   // Textual representation of the current item. For things like nets the
   // containing scope is used.

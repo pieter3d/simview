@@ -23,7 +23,7 @@ const char *kBlankMarkerInFile = "[blank]";
 
 } // namespace
 
-WavesPanel::WavesPanel() {
+WavesPanel::WavesPanel() : cursor_time_(Workspace::Get().WaveCursorTime()) {
   wave_data_ = Workspace::Get().Waves();
   std::tie(left_time_, right_time_) = wave_data_->TimeRange();
   for (int i = 0; i < 10; ++i) {

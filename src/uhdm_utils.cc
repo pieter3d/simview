@@ -20,6 +20,7 @@
 #include <uhdm/headers/ref_obj.h>
 #include <uhdm/headers/task_call.h>
 #include <uhdm/headers/tf_call.h>
+#include <uhdm/headers/uhdm_vpi_user.h>
 #include <uhdm/headers/while_stmt.h>
 #include <uhdm/include/sv_vpi_user.h>
 #include <uhdm/include/vpi_user.h>
@@ -226,12 +227,12 @@ const UHDM::any *GetScopeForUI(const UHDM::any *item) {
 
 bool IsTraceable(const UHDM::any *item) {
   const int type = item->VpiType();
-  return type == vpiNet || type == vpiPort || type == vpiLongIntVar ||
-         type == vpiArrayVar || type == vpiArrayNet || type == vpiShortIntVar ||
-         type == vpiIntVar || type == vpiShortRealVar || type == vpiByteVar ||
-         type == vpiClassVar || type == vpiStringVar || type == vpiEnumVar ||
-         type == vpiStructVar || type == vpiUnionVar || type == vpiBitVar ||
-         type == vpiRefObj;
+  return type == vpiNet || type == vpiPort || type == vpiLogicVar ||
+         type == vpiArrayVar || type == vpiLongIntVar || type == vpiArrayVar ||
+         type == vpiArrayNet || type == vpiShortIntVar || type == vpiIntVar ||
+         type == vpiShortRealVar || type == vpiByteVar || type == vpiClassVar ||
+         type == vpiStringVar || type == vpiEnumVar || type == vpiStructVar ||
+         type == vpiUnionVar || type == vpiBitVar || type == vpiRefObj;
 }
 
 bool EquivalentNet(const UHDM::any *a, const UHDM::any *b) {

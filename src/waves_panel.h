@@ -78,8 +78,9 @@ class WavesPanel : public Panel {
   // Build the flat list and lookup table. Must be called when manipulating the
   // tree.
   void UpdateVisibleSignals();
+  // Current time is held by the workspace.
+  uint64_t &cursor_time_;
   int cursor_pos_ = 0;
-  uint64_t cursor_time_ = 0;
   uint64_t marker_time_ = 0;
   uint64_t numbered_marker_times_[10];
   uint64_t left_time_ = 0;

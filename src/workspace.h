@@ -23,6 +23,7 @@ class Workspace {
   const UHDM::design *Design() const { return design_; }
   // Find the definition of the module that contains the given item.
   const UHDM::module *GetDefinition(const UHDM::module *m);
+  uint64_t &WaveCursorTime() { return wave_cursor_time_; }
 
   void AddIncludeDir(std::string d) { include_paths_.push_back(d); }
   const auto &IncludeDirs() const { return include_paths_; }
@@ -54,6 +55,8 @@ class Workspace {
   std::unique_ptr<WaveData> wave_data_;
   const WaveData::SignalScope *matched_signal_scope_ = nullptr;
   const UHDM::any *matched_design_scope_ = nullptr;
+  // Wave time is used in source too, so it's held here.
+  uint64_t wave_cursor_time_ = 0;
 };
 
 } // namespace sv

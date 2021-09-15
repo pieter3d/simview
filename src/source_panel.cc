@@ -1,6 +1,7 @@
 #include "source_panel.h"
 #include "absl/strings/str_format.h"
 #include "color.h"
+#include "radix.h"
 #include "uhdm_utils.h"
 #include "utils.h"
 #include <curses.h>
@@ -236,13 +237,34 @@ void SourcePanel::Draw() {
     }
     wattroff(w_, highlight_attr);
   }
+
   // Draw the current value of the selected item.
-  // TODO: Also wave values, when sel_ is not null and a net/var.
-  if (show_vals_ && !sel_param_.empty()) {
-    std::string val;
+  std::string val;
+  if (show_vals_ &&
+      (!sel_param_.empty() ||
+       (sel_ != nullptr && Workspace::Get().Waves() != nullptr))) {
     if (!sel_param_.empty()) {
       val = params_[sel_param_];
+    } else {
+      std::vector<const WaveData::Signal *> signals =
+          Workspace::Get().DesignToSignals(sel_);
+      // Don't bother with large arrays.
+      // TODO: Is it useful to try to do something here?
+      if (signals.size() == 1) {
+        const auto &wave = Workspace::Get().Waves()->Wave(signals[0]);
+        if (wave.empty()) {
+          val = "No data";
+        } else {
+          const uint64_t idx = Workspace::Get().Waves()->FindSampleIndex(
+              Workspace::Get().WaveCursorTime(), signals[0]);
+          // TODO: How to allow for other radix values?
+          val = FormatValue(wave[idx].value, Radix::kHex,
+                            /* leading_zeroes*/ false);
+        }
+      }
     }
+  }
+  if (!val.empty()) {
     // Draw a nice box, with an empty value all around it, including the
     // connecting line:
     //
@@ -665,8 +687,10 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
   if (item->VpiType() == vpiModule && show_def) {
     auto m = dynamic_cast<const UHDM::module *>(item);
     definition_available = Workspace::Get().GetDefinition(m) != nullptr;
-    error_message_ = absl::StrFormat("Definition of %s is not available.",
-                                     StripWorklib(m->VpiFullName()));
+    if (!definition_available) {
+      error_message_ = absl::StrFormat("Definition of %s is not available.",
+                                       StripWorklib(m->VpiFullName()));
+    }
   }
   // Top modules are always treated as a definition load since there is nothing
   // they are instanced in.
@@ -725,6 +749,21 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
   }
   SetLineAndScroll(line_num - 1);
   BuildHeader();
+  UpdateWaveData();
+}
+
+void SourcePanel::UpdateWaveData() {
+  if (Workspace::Get().Waves() == nullptr) return;
+  std::vector<const WaveData::Signal *> signals;
+  for (auto &[id, item] : nav_) {
+    auto signals_for_item = Workspace::Get().DesignToSignals(item);
+    signals.insert(signals.end(), signals_for_item.begin(),
+                   signals_for_item.end());
+  }
+  auto *waves = Workspace::Get().Waves();
+  // TODO: Loading for the full range here. Is there a way to bound it?
+  waves->LoadSignalSamples(signals, waves->TimeRange().first,
+                           waves->TimeRange().second);
 }
 
 bool SourcePanel::Search(bool search_down) {
