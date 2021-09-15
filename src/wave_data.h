@@ -5,9 +5,11 @@
 #include <vector>
 
 namespace sv {
-
+// The WaveData is an abstract class that holds wave data to be loaded from a
+// file. Implementations exist for VCD and FST wave formats.
 class WaveData {
  public:
+  // Picks the right subclass based on file extension.
   static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name);
 
   struct SignalScope;

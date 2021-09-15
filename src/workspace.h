@@ -8,8 +8,11 @@
 
 namespace sv {
 
+// Holds the application-level global data, namely the UHDM design and / or the
+// wave file.
 class Workspace {
  public:
+  // Obtain the singleton.
   static Workspace &Get() {
     static Workspace w;
     return w;

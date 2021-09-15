@@ -5,6 +5,8 @@
 
 namespace sv {
 
+// A panel that shows a tree and allows for searching, expanding/collapsing
+// nodes.
 class TreePanel : public Panel {
  public:
   void Draw() override;

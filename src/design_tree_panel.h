@@ -7,17 +7,18 @@
 
 namespace sv {
 
+// A Panel that shows the design hierarchy.
 class DesignTreePanel : public TreePanel {
  public:
   DesignTreePanel();
-  void UIChar(int ch) override;
-  std::string Tooltip() const override;
+  void UIChar(int ch) final;
+  std::string Tooltip() const final;
   // Get the item that should be shown in the source panel, if any.
   // The bool indicates to load the definition instead of the instance location.
   std::optional<std::pair<const UHDM::any *, bool>> ItemForSource();
   // Opens the tree to the selected item.
   void SetItem(const UHDM::any *item);
-  bool Searchable() const override { return true; }
+  bool Searchable() const final { return true; }
 
  private:
   std::vector<std::unique_ptr<DesignTreeItem>> roots_;

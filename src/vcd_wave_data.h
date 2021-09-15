@@ -8,6 +8,7 @@
 
 namespace sv {
 
+// VCD implementation of the WaveData interface. Full blown parser.
 class VcdWaveData : public WaveData {
  public:
   static void PrintLoadProgress(bool b) { print_progress_ = b; }

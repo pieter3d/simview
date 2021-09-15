@@ -7,6 +7,10 @@
 
 namespace sv {
 
+// A generic UI panel. It has a notion of list data, thus maintains a currently
+// selected line, facilities to scroll and handles keypresses for vertical line
+// movement/selection. It also has basic hooks to enable search of whatever data
+// is shown by derived classes.
 class Panel : public TextReceiver {
  public:
   // The NCurses window is created with a size of 1x1 at 0,0 initially.

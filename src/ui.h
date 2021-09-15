@@ -10,11 +10,17 @@
 
 namespace sv {
 
+// This is the main UI. It owns all UI sub elements, all of which decend from
+// sv::Panel. It responds to terminal resizing and attempts to keep the layout
+// properly balanced.
 class UI {
  public:
+  // Constructor enters NCurses mode.
   UI();
   ~UI();
 
+  // This is the main event loop. This function doesn't return until the user
+  // has pressed Ctrl-Q to exit the UI.
   void EventLoop();
 
  private:

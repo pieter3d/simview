@@ -5,7 +5,9 @@
 
 namespace sv {
 
-// Flat view of a slice of a tree, depending on which items are expanded or not.
+// Holds a representation of a tree structure as a linear list, dropping out
+// anything that hasn't been expanded. Expanding or collapsing nodes results in
+// the list being re-built.
 class TreeData {
  public:
   int ListSize() const { return list_.size(); }

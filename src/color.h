@@ -4,6 +4,9 @@
 
 namespace sv {
 
+// All colors in the UI are defined with NCurses pairs, which sets both
+// foreground and backgound.
+// TODO: Support custom colors with a settings file.
 constexpr int kBorderPair = 1;
 constexpr int kFocusBorderPair = 2;
 constexpr int kPanelErrorPair = 3;

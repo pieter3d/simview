@@ -6,6 +6,7 @@
 
 namespace sv {
 
+// Tree item that holds an entry in the design hierarchy.
 class DesignTreeItem : public TreeItem {
  public:
   explicit DesignTreeItem(UHDM::any *item);
@@ -18,8 +19,6 @@ class DesignTreeItem : public TreeItem {
   bool MatchColor() const final;
   bool ErrType() const final;
 
-
-
   const UHDM::any *DesignItem() const { return item_; }
 
  private:
@@ -28,8 +27,8 @@ class DesignTreeItem : public TreeItem {
   // Computed strings.
   std::string name_;
   std::string type_;
-  // Lazy build for this. Has to be marked const since it gets called from const
-  // methods.
+  // Lazy build for this. Has to be marked mutable since it gets called from
+  // const methods.
   void BuildChildren() const;
   mutable bool children_built_ = false;
   mutable std::vector<DesignTreeItem> children_;

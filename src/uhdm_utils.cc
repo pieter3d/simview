@@ -235,15 +235,4 @@ bool IsTraceable(const UHDM::any *item) {
          type == vpiUnionVar || type == vpiBitVar || type == vpiRefObj;
 }
 
-bool EquivalentNet(const UHDM::any *a, const UHDM::any *b) {
-  if (a == nullptr || b == nullptr) return false;
-  if (a == b) return true;
-  auto mod_a = GetContainingModule(a);
-  auto mod_b = GetContainingModule(b);
-  // Why all this? int_var (and similar) still should be considered equivalent
-  // to logic_var, Surelog seems to use them interchangeably. And not every UHDM
-  // thing has VpiFullName, so make sure the containing module is the same.
-  return a->VpiName() == b->VpiName() && mod_a == mod_b;
-}
-
 } // namespace sv

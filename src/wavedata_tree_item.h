@@ -5,6 +5,8 @@
 
 namespace sv {
 
+// Tree data for the WaveData, allowing browsing of the scopes in a WaveData
+// object.
 class WaveDataTreeItem : public TreeItem {
  public:
   explicit WaveDataTreeItem(const WaveData::SignalScope &signal_scope);

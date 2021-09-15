@@ -10,7 +10,6 @@ namespace sv {
 // SystemVerilog source file, in order with none skipped. It will identify
 // comment ranges, identifiers and keywords, knowing to skip over string
 // literals and compiler directives / macros.
-//
 class SimpleTokenizer {
  public:
   void ProcessLine(const std::string &s);

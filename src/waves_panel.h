@@ -8,6 +8,7 @@
 
 namespace sv {
 
+// Renders the wave forms in the UI.
 // The constructor pulls data from the Workspace wave data. Bad things happen if
 // there is none.
 class WavesPanel : public Panel {

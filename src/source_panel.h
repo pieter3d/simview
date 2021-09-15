@@ -9,22 +9,23 @@
 
 namespace sv {
 
+// This panel displays source code for a UHDM item.
 class SourcePanel : public Panel {
  public:
-  void Draw() override;
-  void UIChar(int ch) override;
-  int NumLines() const override { return lines_.size(); }
-  std::optional<std::pair<int, int>> CursorLocation() const override;
-  std::string Tooltip() const override;
+  void Draw() final;
+  void UIChar(int ch) final;
+  int NumLines() const final { return lines_.size(); }
+  std::optional<std::pair<int, int>> CursorLocation() const final;
+  std::string Tooltip() const final;
   void SetItem(const UHDM::any *item, bool show_def = false);
-  std::pair<int, int> ScrollArea() const override;
+  std::pair<int, int> ScrollArea() const final;
   std::optional<const UHDM::any *> ItemForDesignTree();
   std::optional<const UHDM::any *> ItemForWaves();
-  bool Search(bool search_down) override;
-  bool Searchable() const override { return true; }
+  bool Search(bool search_down) final;
+  bool Searchable() const final { return true; }
   // Need to look for stuff under the cursor when changing lines.
-  void SetLineAndScroll(int l) override;
-  void Resized() override;
+  void SetLineAndScroll(int l) final;
+  void Resized() final;
 
  private:
   // Push the current state onto the stack.

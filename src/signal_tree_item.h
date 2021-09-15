@@ -5,6 +5,10 @@
 
 namespace sv {
 
+// Holds a signal for the signal list that comes from a single scope. The
+// TreeItem API is used to have a consistent list navigating UI eventhough this
+// data isn't actually hierarchical (just a flat list of signals for the given
+// scope).
 class SignalTreeItem : public TreeItem {
  public:
   SignalTreeItem(const WaveData::Signal *s);

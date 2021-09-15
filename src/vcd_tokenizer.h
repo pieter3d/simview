@@ -6,6 +6,7 @@
 
 namespace sv {
 
+// Reads token from a VCD file.
 class VcdTokenizer {
  public:
   explicit VcdTokenizer(const std::string &file_name);

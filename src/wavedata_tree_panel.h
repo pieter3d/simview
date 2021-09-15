@@ -12,9 +12,9 @@ namespace sv {
 class WaveDataTreePanel : public TreePanel {
  public:
   WaveDataTreePanel();
-  void UIChar(int ch) override;
-  std::string Tooltip() const override;
-  bool Searchable() const override { return true; }
+  void UIChar(int ch) final;
+  std::string Tooltip() const final;
+  bool Searchable() const final { return true; }
   std::optional<const WaveData::SignalScope *> ScopeForSignals();
 
  private:

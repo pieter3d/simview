@@ -6,6 +6,9 @@ your favorite terminal emulator. Control of the UI is intuitive and fully
 keyboard shortcut driven. While that may sound contradictory, there is nice
 contextual help for every function.
 
+Simview is generally meant to debug and analyze hardware designs written in
+SystemVerilog. Support for non-synthesizable testbench code is limited.
+
 ![Screenshot](simview.png)
 
 ## Features
@@ -15,6 +18,14 @@ contextual help for every function.
 * Automatic (or manual) matching of wave file hierarchy to design hierarchy.
 * Send signals from source code to the wave viewer and vice versa.
 * Search source code and signal lists.
+
+## Usage
+Simview can be launched with either a VCD/FST wave file, a SystemVerilog
+design, or both. To load a wave file use the `-waves <file>` command line
+option. All other command line options are passed to the Surelog parser. These
+generally match most EDA tools, with things like `-timescale`, `+incdir`,
+`+define=val` etc. Use `-help` to get the full list of parsing options from
+Surelog.
 
 ## Build
 Simview is written with C++17 and uses CMake as the build system. Linux is
