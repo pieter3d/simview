@@ -240,7 +240,6 @@ void UI::EventLoop() {
         case 'N': focused_panel->Search(/*search_down*/ false); break;
         case 0x3:  // Ctrl-C
         case 0x11: // Ctrl-Q
-        case 'q':  // TODO For now, remove eventually.
           quit = true;
           break;
         default: focused_panel->UIChar(ch); break;
