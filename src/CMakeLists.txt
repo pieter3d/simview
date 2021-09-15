@@ -4,8 +4,6 @@ set(CMAKE_CXX_FLAGS "-Werror \
                      -Wall \
                      -Wextra \
                      -Wno-sign-compare \
-                     -Wno-final-dtor-non-final-class \
-                     -Wno-inconsistent-missing-override \
                      -Wno-unused-parameter")
 
 find_package(Curses REQUIRED)
