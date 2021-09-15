@@ -128,16 +128,6 @@ void UI::EventLoop() {
       error_message_.clear();
     }
 
-    // TODO: remove
-    if (ch != ERR) {
-      const auto now = absl::Now();
-      if (now - last_ch > absl::Milliseconds(50)) {
-        tmp_ch.clear();
-      }
-      tmp_ch.push_back(ch);
-      last_ch = now;
-    }
-
     if (ch == ERR) {
       // TODO: Update async things?
     } else if (ch == KEY_RESIZE) {
@@ -406,14 +396,6 @@ void UI::Draw() {
       SetColor(stdscr, is_key ? kTooltipKeyPair : kTooltipPair);
       mvaddch(term_h - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
     }
-
-    // Display most recent key codes for development ease. TODO: remove
-    std::string s;
-    for (int code : tmp_ch) {
-      s.append(absl::StrFormat("0x%x ", code));
-    }
-    SetColor(stdscr, kFocusBorderPair);
-    mvprintw(term_h - 1, 2 * term_w / 3, "codes: %s", s.c_str());
   }
 
   wnoutrefresh(stdscr);

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "absl/time/time.h"
 #include "design_tree_panel.h"
 #include "source_panel.h"
 #include "text_input.h"
@@ -23,9 +22,6 @@ class UI {
   void LayoutPanels();
   void Draw();
   void CycleFocus(bool fwd);
-
-  std::vector<int> tmp_ch; // TODO: remove
-  absl::Time last_ch;
 
   std::unique_ptr<DesignTreePanel> design_tree_panel_;
   std::unique_ptr<SourcePanel> source_panel_;
