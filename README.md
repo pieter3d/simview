@@ -6,6 +6,8 @@ your favorite terminal emulator. Control of the UI is intuitive and fully
 keyboard shortcut driven. While that may sound contradictory, there is nice
 contextual help for every function.
 
+![Screenshot](simview.png)
+
 ## Features
 * Full design parsing and elaboration, powered by [Surelog](https://github.com/chipsalliance/Surelog).
 * Trace signal drivers or loads.
@@ -22,7 +24,7 @@ moment.
 1. Build simview:
   * `mkdir build`
   * `cmake ..`
-  * make
+  * `make`
 
 ## TODO
 A list of features that have not yet been implemented.
