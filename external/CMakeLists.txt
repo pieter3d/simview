@@ -14,6 +14,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 # Add all expected submodules.
+set(ABSL_PROPAGATE_CXX_STD ON)
 add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 add_subdirectory(fst)
