@@ -1,5 +1,4 @@
-# Enable all warnings as errors, except sign compare.
-# Additional warning suppressions due to coding style in Surelog & UHDM
+# Enable all warnings as errors, except sign compare and unused params
 set(CMAKE_CXX_FLAGS "-Werror \
                      -Wall \
                      -Wextra \
