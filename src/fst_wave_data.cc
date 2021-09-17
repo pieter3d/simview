@@ -1,16 +1,27 @@
 #include "fst_wave_data.h"
 #include <functional>
+#include <limits>
 #include <stack>
 #include <stdexcept>
 #include <unordered_map>
 
 namespace sv {
 
-FstWaveData::FstWaveData(const std::string &file_name) {
+FstWaveData::FstWaveData(const std::string &file_name) : WaveData(file_name) {
   reader_ = fstReaderOpen(file_name.c_str());
   if (reader_ == nullptr) {
     throw std::runtime_error("Unable to read wave file.");
   }
+  ReadScopes();
+}
+
+FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
+
+int FstWaveData::Log10TimeUnits() const {
+  return fstReaderGetTimescale(reader_);
+}
+
+void FstWaveData::ReadScopes() {
   std::stack<SignalScope *> stack;
   fstHier *h;
   while ((h = fstReaderIterateHier(reader_))) {
@@ -56,12 +67,6 @@ FstWaveData::FstWaveData(const std::string &file_name) {
   // shuffled around, so pointers derived there won't necessarily be correct
   // after wave data reading is finished.
   BuildParents();
-}
-
-FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
-
-int FstWaveData::Log10TimeUnits() const {
-  return fstReaderGetTimescale(reader_);
 }
 
 std::pair<uint64_t, uint64_t> FstWaveData::TimeRange() const {
@@ -114,6 +119,18 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
     s->valid_start_time = std::min(s->valid_start_time, wave.front().time);
     s->valid_end_time = std::max(s->valid_end_time, wave.back().time);
   }
+}
+
+void FstWaveData::Reload() {
+  // First, re-create the reader.
+  fstReaderClose(reader_);
+  reader_ = fstReaderOpen(file_name_.c_str());
+  if (reader_ == nullptr) {
+    throw std::runtime_error("Unable to read wave file.");
+  }
+  waves_.clear();
+  roots_.clear();
+  ReadScopes();
 }
 
 } // namespace sv

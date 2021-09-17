@@ -60,6 +60,7 @@ class WavesPanel : public Panel {
   void AddGroup();
   void UpdateValues();
   void UpdateWaves();
+  void ReloadWaves();
   void UpdateValue(ListItem *item);
   void UpdateWave(ListItem *item);
   void SnapToValue();

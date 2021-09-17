@@ -31,6 +31,8 @@ class Workspace {
   void AddIncludeDir(std::string d) { include_paths_.push_back(d); }
   const auto &IncludeDirs() const { return include_paths_; }
   const WaveData *Waves() const { return wave_data_.get(); }
+  // Non-const version allows for reload.
+  WaveData *Waves() { return wave_data_.get(); }
 
   void TryMatchDesignWithWaves();
   auto MatchedDesignScope() const { return matched_design_scope_; }

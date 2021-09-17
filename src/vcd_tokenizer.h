@@ -18,7 +18,7 @@ class VcdTokenizer {
 
  private:
   uint64_t file_size_;
-  uint64_t chars_read_;
+  uint64_t chars_read_ = 0;
   std::unique_ptr<std::ifstream> in_;
 };
 

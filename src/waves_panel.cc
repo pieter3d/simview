@@ -12,6 +12,8 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
+#include <vector>
 
 namespace sv {
 
@@ -843,6 +845,10 @@ void WavesPanel::UIChar(int ch) {
       filename_input_.SetPrompt("Save:");
       inputting_save_ = true;
       break;
+    // TODO: This doesn't work well yet.
+    // case 0x12: // Ctrl-r
+    //  ReloadWaves();
+    //  break;
     default: Panel::UIChar(ch);
     }
   }
@@ -1139,9 +1145,9 @@ std::string WavesPanel::Tooltip() const {
 void WavesPanel::DrawHelp() const {
   // TODO: Missing features
   // "aA:  Adjust analog signal height",
-  // "C-r: Reload",
   // "
   std::vector<std::string> keys({
+      "C-r: Reload",
       "zZ:  Zoom about the cursor",
       "F:   Zoom full range",
       "eE:  Previous / next signal edge",
@@ -1238,6 +1244,31 @@ bool WavesPanel::Search(bool search_down) {
       return false;
     }
   }
+}
+
+void WavesPanel::ReloadWaves() {
+  // After the wave file is reloaded, the signal pointers are no longer valid.
+  // Save the signal hierarchical paths so they can re-discovered.
+  std::unordered_map<int, std::string> signal_paths;
+  for (int i = 0; i < items_.size(); ++i) {
+    if (items_[i].signal != nullptr) {
+      signal_paths[i] = WaveData::SignalToPath(items_[i].signal);
+    }
+  }
+  // Do the actual reload...
+  Workspace::Get().Waves()->Reload();
+  // Redo all the pointers.
+  for (auto &[idx, path] : signal_paths) {
+    auto &item = items_[idx];
+    if (auto signal = wave_data_->PathToSignal(path)) {
+      item.signal = *signal;
+    } else {
+      item.signal = nullptr;
+      item.unavailable_name = path;
+    }
+  }
+  UpdateWaves();
+  UpdateValues();
 }
 
 void WavesPanel::LoadList(const std::string &file_name) {

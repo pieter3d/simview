@@ -12,7 +12,20 @@ const std::runtime_error kParseError("VCD file parsing error, file malformed.");
 bool VcdWaveData::print_progress_ = true;
 
 VcdWaveData::VcdWaveData(const std::string &file_name)
-    : tokenizer_(VcdTokenizer(file_name)) {
+    : WaveData(file_name), tokenizer_(VcdTokenizer(file_name)) {
+  Parse();
+}
+
+void VcdWaveData::Reload() {
+  VcdWaveData::PrintLoadProgress(false);
+  // Re-load the file and reparse.
+  tokenizer_ = VcdTokenizer(file_name_);
+  waves_.clear();
+  roots_.clear();
+  Parse();
+}
+
+void VcdWaveData::Parse() {
   // Start reading declaration commands until all declarations are done.
   while (true) {
     auto tok = tokenizer_.Token();

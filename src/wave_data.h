@@ -80,12 +80,13 @@ class WaveData {
   virtual void LoadSignalSamples(const std::vector<const Signal *> &signals,
                                  uint64_t start_time,
                                  uint64_t end_time) const = 0;
+  virtual void Reload() = 0;
 
   virtual ~WaveData() {}
 
  protected:
   // Not directly constructable.
-  WaveData() = default;
+  WaveData(const std::string file_name) : file_name_(file_name) {}
   // Traverse the scopes and signals and assign parents. This can only be done
   // after the structure has been fully created, since the parents are pointers
   // to elements of vectors, and thus could be invalidated (point to garbage) if
@@ -102,6 +103,8 @@ class WaveData {
   mutable std::unordered_map<uint32_t, std::vector<Sample>> waves_;
   // Signals owned from here.
   std::vector<SignalScope> roots_;
+  // File name saved for convenience, for reloads etc.
+  std::string file_name_;
 };
 
 } // namespace sv

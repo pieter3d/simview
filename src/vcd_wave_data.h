@@ -12,14 +12,16 @@ namespace sv {
 class VcdWaveData : public WaveData {
  public:
   static void PrintLoadProgress(bool b) { print_progress_ = b; }
-  VcdWaveData(const std::string &file_name);
+  explicit VcdWaveData(const std::string &file_name);
   int Log10TimeUnits() const final { return time_units_; }
   std::pair<uint64_t, uint64_t> TimeRange() const final { return time_range_; }
   void LoadSignalSamples(const std::vector<const Signal *> &signals,
                          uint64_t start_time, uint64_t end_time) const final;
+  void Reload() final;
 
  private:
   // Parse and discard tokens until and $end is encountered.
+  void Parse();
   void ParseToEofCommand();
   void ParseVariable();
   void ParseScope();
