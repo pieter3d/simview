@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "workspace.h"
 #include <algorithm>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -64,6 +65,10 @@ std::string WavesPanel::ListItem::Name() const {
   }
   std::string s = signal->name;
   if (expanded_bit_idx >= 0) {
+    // Remove the suffix from expanded nets.
+    if (signal->has_suffix) {
+      s.erase(s.find_last_of('['));
+    }
     s += absl::StrFormat("[%d]", expanded_bit_idx);
   } else if (signal->width > 1 && !signal->has_suffix) {
     s += absl::StrFormat("[%d:%d]", signal->width - 1 + signal->lsb,
@@ -108,16 +113,17 @@ void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
     cursor_time_ = time;
     time_changed = true;
     const uint64_t current_time_span = right_time_ - left_time_;
-    // Ajust left and right bounds if the new time is outside the
-    // currently displaye range. Attempt to keep the same zoom scale by
+    // Adjust left and right bounds if the new time is outside the
+    // currently displayed range. Attempt to keep the same zoom scale by
     // keep the time difference between left and right the same.
     if (cursor_time_ > right_time_) {
       right_time_ = cursor_time_;
-      left_time_ = right_time_ - current_time_span;
+      left_time_ = std::max(0ul, right_time_ - current_time_span);
       range_changed = true;
     } else if (cursor_time_ < left_time_) {
       left_time_ = cursor_time_;
-      right_time_ = left_time_ + current_time_span;
+      right_time_ = std::min(wave_data_->TimeRange().second,
+                             left_time_ + current_time_span);
       range_changed = true;
     }
     // Don't let the cursor go off the screen.
@@ -1240,9 +1246,33 @@ void WavesPanel::LoadList(const std::string &file_name) {
     error_message_ = "Failed to open file " + file_name;
     return;
   }
+  auto read_time = [&](const std::string &s) {
+    auto pos = s.find_first_of('=');
+    if (pos < s.size() - 1 && pos > 0) {
+      return std::stol(s.substr(pos + 1));
+    }
+    return -1l;
+  };
   // Clear everything
   items_.clear();
   for (std::string line; std::getline(file, line);) {
+    if (line[0] == '$') {
+      if (line.find("$time") == 0) {
+        cursor_time_ = read_time(line);
+      } else if (line.find("$tmin") == 0) {
+        left_time_ = read_time(line);
+      } else if (line.find("$tmax") == 0) {
+        right_time_ = read_time(line);
+      } else if (line.find("$m") == 0) {
+        if (line[2] >= '0' && line[2] <= '9') {
+          numbered_marker_times_[line[2] - '0'] = read_time(line);
+        } else {
+          marker_time_ = read_time(line);
+        }
+      }
+      // Finished with the config parse.
+      continue;
+    }
     const int depth = line.find_first_not_of(' ');
     items_.push_back(ListItem(nullptr));
     auto &item = items_.back();
@@ -1256,36 +1286,45 @@ void WavesPanel::LoadList(const std::string &file_name) {
     } else {
       std::vector<std::string> elements =
           absl::StrSplit(line.substr(depth), ' ');
-      // Look for a bit index.
-      const auto bit_bracket_start_pos = elements[0].find_first_of('[');
-      const auto bit_bracket_end_pos = elements[0].find_first_of(']');
+      // Look for something that looks like a bit index.
+      bool maybe_has_bit_index = false;
+      int bit_index = 0;
+      const auto bit_bracket_start_pos = elements[0].find_last_of('[');
+      const auto bit_bracket_end_pos = elements[0].find_last_of(']');
       if (bit_bracket_start_pos != std::string::npos &&
           bit_bracket_end_pos != std::string::npos &&
-          bit_bracket_start_pos < bit_bracket_end_pos) {
-        // See if the above item is a signal at a lesser depth. In that case,
-        // it's the parent, so mark it as an expandable signal.
-        if (items_.size() > 1 &&
+          bit_bracket_end_pos - bit_bracket_start_pos > 1) {
+        maybe_has_bit_index = true;
+        for (int i = bit_bracket_start_pos + 1; i < bit_bracket_end_pos; ++i) {
+          maybe_has_bit_index &= elements[0][i] >= '0' && elements[0][i] <= '9';
+          if (maybe_has_bit_index) {
+            bit_index = bit_index * 10 + elements[0][i] - '0';
+          }
+        }
+      }
+      // Still might not be a bit index, could just be part of the signal name.
+      bool has_bit_index = false;
+      if (auto signal = wave_data_->PathToSignal(elements[0])) {
+        item.signal = *signal;
+      } else if (maybe_has_bit_index) {
+        if (auto signal = wave_data_->PathToSignal(
+                elements[0].substr(0, bit_bracket_start_pos))) {
+          // Only if the name + suffix didn't match, but it does with the suffix
+          // removed can it be considered an expanded bit index.
+          has_bit_index = true;
+          item.signal = *signal;
+          item.expanded_bit_idx = bit_index;
+        }
+      }
+      if (item.signal != nullptr) {
+        // If this is an expanded bit see if the above item is a signal at a
+        // lesser depth. In that case it's the parent so mark it as an
+        // expandable signal.
+        if (has_bit_index && items_.size() > 1 &&
             items_[items_.size() - 2].depth == item.depth - 1 &&
             items_[items_.size() - 2].signal != nullptr) {
           items_[items_.size() - 2].expandable_net = true;
         }
-        // Attempt to parse the bit index itself.
-        try {
-          item.expanded_bit_idx = std::stoi(elements[0].substr(
-              bit_bracket_start_pos + 1,
-              bit_bracket_end_pos - bit_bracket_end_pos - 1));
-          // Strip the index from the name so that the rest of the code behaves
-          // as before.
-          elements[0].erase(bit_bracket_start_pos);
-        } catch (std::invalid_argument &e) {
-          // No need to do anything for badly formatted files. It won't match a
-          // signal name with the bracket so it will get treated as a missing
-          // signal which is appropriate.
-        } catch (std::out_of_range &e) {
-        }
-      }
-      if (auto signal = wave_data_->PathToSignal(elements[0])) {
-        item.signal = *signal;
         // Parse metadata flags.
         for (int i = 1; i < elements.size(); ++i) {
           if (elements[i].empty()) continue;
@@ -1300,6 +1339,17 @@ void WavesPanel::LoadList(const std::string &file_name) {
       }
     }
   }
+  // Make sure cursor times all make sense.
+  if (left_time_ > right_time_) {
+    std::swap(left_time_, right_time_);
+  }
+  if (cursor_time_ < left_time_ || cursor_time_ > right_time_) {
+    cursor_time_ = (left_time_ + right_time_) / 2;
+  }
+  // Make sure the cursor screen position matches.
+  const int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
+  cursor_pos_ = std::min((double)max_cursor_pos,
+                         (cursor_time_ - left_time_) / TimePerChar());
   // Restore the blank line at the end too.
   items_.push_back(ListItem(nullptr));
   UpdateVisibleSignals();
@@ -1309,6 +1359,17 @@ void WavesPanel::LoadList(const std::string &file_name) {
 
 void WavesPanel::SaveList(const std::string &file_name) {
   std::ofstream file(file_name);
+  file << "$time=" << cursor_time_ << "\n";
+  file << "$tmin=" << left_time_ << "\n";
+  file << "$tmax=" << right_time_ << "\n";
+  if (marker_time_ > 0) {
+    file << "$m=" << marker_time_ << "\n";
+  }
+  for (int i = 0; i < 10; ++i) {
+    if (numbered_marker_times_[i] > 0) {
+      file << "$m" << i << "=" << numbered_marker_times_[i] << "\n";
+    }
+  }
   // Don't write out the last item.
   for (int i = 0; i < items_.size() - 1; ++i) {
     const auto &item = items_[i];
