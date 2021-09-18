@@ -103,8 +103,7 @@ class WavesPanel : public Panel {
   const WaveData::Signal *signal_for_source_ = nullptr;
 
   // Charachters reserved for the signal name and value.
-  int name_size_ = 20;
-  int value_size_ = 16;
+  int name_value_size_ = 30;
   // Convenience to avoid repeated workspace Get() calls.
   const WaveData *wave_data_;
 };

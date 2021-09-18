@@ -94,7 +94,7 @@ void WavesPanel::CycleTimeUnits() {
 }
 
 double WavesPanel::TimePerChar() const {
-  const int wave_x = name_size_ + value_size_;
+  const int wave_x = name_value_size_;
   const int wave_width = std::max(1, getmaxx(w_) - wave_x);
   return (right_time_ - left_time_) / (double)wave_width;
 }
@@ -102,7 +102,7 @@ double WavesPanel::TimePerChar() const {
 void WavesPanel::Resized() {
   Panel::Resized();
   rename_input_.SetDims(line_idx_, visible_items_[line_idx_]->depth,
-                        name_size_ - visible_items_[line_idx_]->depth);
+                        name_value_size_ - visible_items_[line_idx_]->depth);
   time_input_.SetDims(0, 0, getmaxx(w_));
   filename_input_.SetDims(0, 0, getmaxx(w_));
 }
@@ -129,7 +129,7 @@ void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
       range_changed = true;
     }
     // Don't let the cursor go off the screen.
-    const int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
+    const int max_cursor_pos = getmaxx(w_) - 1 - (name_value_size_);
     cursor_pos_ = std::min((double)max_cursor_pos,
                            (cursor_time_ - left_time_) / TimePerChar());
   }
@@ -216,7 +216,7 @@ void WavesPanel::Draw() {
     return;
   }
   werase(w_);
-  const int wave_x = name_size_ + value_size_;
+  const int wave_x = name_value_size_;
   const int max_w = getmaxx(w_);
   const int max_h = getmaxy(w_);
   const double time_per_char = TimePerChar();
@@ -334,7 +334,7 @@ void WavesPanel::Draw() {
       for (int i = 0; i < item->group_name.size(); ++i) {
         // Expander takes up a charachter too.
         const int xpos = item->depth + i + 1;
-        if (xpos >= name_size_) break;
+        if (xpos >= name_value_size_) break;
         waddch(w_, item->group_name[i]);
       }
     } else {
@@ -346,13 +346,12 @@ void WavesPanel::Draw() {
       // Completely empty lines get a full width of blank spaces. This avoid
       // highlighting nothing, which would look like the selected line
       // disappeared.
-      const int len = name.empty() ? name_size_ : name.size();
+      const int len = name.empty() ? name_value_size_ : name.size();
       SetColor(w_, kWavesSignalNamePair);
       for (int i = 0; i < len; ++i) {
-        const int xpos = item->depth + i;
-        if (xpos >= name_size_) break;
+        if (getcurx(w_) >= name_value_size_) break;
         // Show an overflow indicator if too narrow.
-        if (xpos == name_size_ - 1 && i < len - 1) {
+        if (getcurx(w_) == name_value_size_ - 1 && i < len - 1) {
           SetColor(w_, kOverflowTextPair);
           waddch(w_, '>');
         } else {
@@ -362,15 +361,15 @@ void WavesPanel::Draw() {
     }
     wattrset(w_, A_NORMAL);
 
-    // Render the signal value.
+    // Render the signal value in the remaining space.
     const int val_start =
-        std::max(0, (int)item->value.size() - value_size_ + 1);
-    wmove(w_, row,
-          std::max(name_size_,
-                   name_size_ + value_size_ - 1 - (int)item->value.size()));
+        item->value.size() - (name_value_size_ - getcurx(w_)) + 1;
     SetColor(w_, kWavesSignalValuePair);
-    for (int i = val_start; i < item->value.size(); ++i) {
-      if (i == val_start && val_start > 0) {
+    for (int i = val_start; i < (int)item->value.size(); ++i) {
+      if (getcurx(w_) >= name_value_size_) break;
+      if (i < 0 || i >= item->value.size()) {
+        waddch(w_, ' ');
+      } else if (i == val_start && val_start > 0) {
         SetColor(w_, kOverflowTextPair);
         waddch(w_, '<');
         SetColor(w_, kWavesSignalValuePair);
@@ -686,7 +685,7 @@ void WavesPanel::UIChar(int ch) {
       break;
     case 0x168: // End
     case '$':
-      cursor_pos_ = getmaxx(w_) - 1 - (name_size_ + value_size_);
+      cursor_pos_ = getmaxx(w_) - 1 - name_value_size_;
       cursor_time_ = left_time_ + cursor_pos_ * TimePerChar();
       time_changed = true;
       break;
@@ -713,7 +712,7 @@ void WavesPanel::UIChar(int ch) {
     case 'l':
     case 0x105: { // right
       const int step = (ch == 'L' || ch == 0x192) ? 10 : 1;
-      const int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
+      const int max_cursor_pos = getmaxx(w_) - 1 - name_value_size_;
       const int max_time = wave_data_->TimeRange().second;
       if (cursor_pos_ == max_cursor_pos && right_time_ < max_time) {
         left_time_ =
@@ -760,16 +759,10 @@ void WavesPanel::UIChar(int ch) {
       range_changed = true;
     } break;
     case 's':
-      if (name_size_ + value_size_ < getmaxx(w_) - 20) name_size_++;
+      if (name_value_size_ < getmaxx(w_) - 20) name_value_size_++;
       break;
     case 'S':
-      if (name_size_ > 5) name_size_--;
-      break;
-    case 'v':
-      if (name_size_ + value_size_ < getmaxx(w_) - 20) value_size_++;
-      break;
-    case 'V':
-      if (value_size_ > 5) value_size_--;
+      if (name_value_size_ > 10) name_value_size_--;
       break;
     case 'm': marker_time_ = cursor_time_; break;
     case 'M': marker_selection_ = true; break;
@@ -1110,7 +1103,7 @@ void WavesPanel::AddGroup() {
   rename_item_ = visible_items_[line_idx_];
   rename_item_->is_group = true;
   rename_input_.SetDims(line_idx_ + 1 - scroll_row_, rename_item_->depth,
-                        name_size_ - rename_item_->depth);
+                        name_value_size_ - rename_item_->depth);
   rename_input_.SetText("");
   if (multi_line_idx_ < 0) return;
   // If mutliple lines were selected and they are all the same depth, move them
@@ -1151,8 +1144,7 @@ void WavesPanel::DrawHelp() const {
       "zZ:  Zoom about the cursor",
       "F:   Zoom full range",
       "eE:  Previous / next signal edge",
-      "sS:  Adjust signal name size",
-      "vV:  Adjust value size",
+      "sS:  Adjust signal name & value size",
       "0:   Show leading zeroes",
       "c:   Change signal color",
       "p:   Show full signal path",
@@ -1378,7 +1370,7 @@ void WavesPanel::LoadList(const std::string &file_name) {
     cursor_time_ = (left_time_ + right_time_) / 2;
   }
   // Make sure the cursor screen position matches.
-  const int max_cursor_pos = getmaxx(w_) - 1 - (name_size_ + value_size_);
+  const int max_cursor_pos = getmaxx(w_) - 1 - name_value_size_;
   cursor_pos_ = std::min((double)max_cursor_pos,
                          (cursor_time_ - left_time_) / TimePerChar());
   // Restore the blank line at the end too.
