@@ -838,10 +838,6 @@ void WavesPanel::UIChar(int ch) {
       filename_input_.SetPrompt("Save:");
       inputting_save_ = true;
       break;
-    // TODO: This doesn't work well yet.
-    // case 0x12: // Ctrl-r
-    //  ReloadWaves();
-    //  break;
     default: Panel::UIChar(ch);
     }
   }
@@ -1137,10 +1133,10 @@ std::string WavesPanel::Tooltip() const {
 
 void WavesPanel::DrawHelp() const {
   // TODO: Missing features
+  // "C-r: Reload",
   // "aA:  Adjust analog signal height",
   // "
   std::vector<std::string> keys({
-      "C-r: Reload",
       "zZ:  Zoom about the cursor",
       "F:   Zoom full range",
       "eE:  Previous / next signal edge",
@@ -1240,7 +1236,7 @@ bool WavesPanel::Search(bool search_down) {
 
 void WavesPanel::ReloadWaves() {
   // After the wave file is reloaded, the signal pointers are no longer valid.
-  // Save the signal hierarchical paths so they can re-discovered.
+  // Save the signal hierarchical paths so they can be re-discovered.
   std::unordered_map<int, std::string> signal_paths;
   for (int i = 0; i < items_.size(); ++i) {
     if (items_[i].signal != nullptr) {
