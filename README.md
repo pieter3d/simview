@@ -26,6 +26,12 @@ option. All other command line options are passed to the Surelog parser. These
 generally match most EDA tools, with things like `-timescale`, `+incdir`,
 `+define=val` etc. Use `-help` to get the full list of parsing options from
 Surelog.
+Tips for UI navigation:
+  * Use Tab to cycle through the available panes.
+  * Keep an eye on the bottom tooltip bar for available commands.
+  * Ctrl-arrow keys to resize UI panes.
+  * Enter/space to expand collapse tree items.
+  * vim-style hjkl keys generally work. Also $^ for horizontal and gG for vertical movement.
 
 ## Build
 Simview is written with C++17 and uses CMake as the build system. Linux is
@@ -44,6 +50,7 @@ A list of features that have not yet been implemented.
   * Sort instances by name or by position in file
   * Customizable colors.
   * Source search: whole file or active scope?
+  * Save UI layout dimensions?
 * A colorscheme that works with white backgrounds.
 * Polish: Syntax highlighting of macros
 * Source window: Need a clean way to add multiple signals from the source to the waves at once.
@@ -61,3 +68,4 @@ A list of features that have not yet been implemented.
   loading anything requires parsing the whole file anyway.
 * Someday: Support FSDB via dynamically loading the necessary .so's on systems
   that have them installed with a valid license.
+* Command line option to load a saved signal list file at startup.
