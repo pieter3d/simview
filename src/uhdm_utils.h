@@ -1,7 +1,7 @@
 #pragma once
 
-#include <uhdm/headers/module.h>
-#include <uhdm/headers/uhdm_types.h>
+#include <uhdm/module.h>
+#include <uhdm/uhdm_types.h>
 
 namespace sv {
 

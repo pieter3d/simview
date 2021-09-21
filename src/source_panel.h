@@ -4,7 +4,7 @@
 #include "simple_tokenizer.h"
 #include "workspace.h"
 #include <deque>
-#include <uhdm/headers/uhdm_types.h>
+#include <uhdm/uhdm_types.h>
 #include <vector>
 
 namespace sv {

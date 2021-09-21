@@ -1,7 +1,7 @@
 #pragma once
 
 #include "tree_item.h"
-#include <uhdm/headers/uhdm_types.h>
+#include <uhdm/uhdm_types.h>
 #include <vector>
 
 namespace sv {

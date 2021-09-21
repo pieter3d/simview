@@ -2,7 +2,7 @@
 
 #include "wave_data.h"
 #include <surelog/surelog.h>
-#include <uhdm/headers/design.h>
+#include <uhdm/design.h>
 #include <unordered_map>
 #include <vector>
 

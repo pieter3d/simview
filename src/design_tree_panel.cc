@@ -3,7 +3,7 @@
 #include "utils.h"
 #include "workspace.h"
 #include <memory>
-#include <uhdm/headers/module.h>
+#include <uhdm/module.h>
 
 namespace sv {
 

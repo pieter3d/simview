@@ -2,10 +2,10 @@
 #include "absl/strings/str_format.h"
 #include "utils.h"
 #include "workspace.h"
-#include <uhdm/headers/gen_scope.h>
-#include <uhdm/headers/gen_scope_array.h>
-#include <uhdm/headers/module.h>
-#include <uhdm/headers/task_func.h>
+#include <uhdm/gen_scope.h>
+#include <uhdm/gen_scope_array.h>
+#include <uhdm/module.h>
+#include <uhdm/task_func.h>
 
 namespace sv {
 

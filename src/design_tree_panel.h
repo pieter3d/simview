@@ -3,7 +3,7 @@
 #include "design_tree_item.h"
 #include "tree_panel.h"
 #include <memory>
-#include <uhdm/headers/uhdm_types.h>
+#include <uhdm/uhdm_types.h>
 
 namespace sv {
 

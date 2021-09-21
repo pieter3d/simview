@@ -1,12 +1,12 @@
 #include "workspace.h"
 #include "uhdm_utils.h"
 #include "utils.h"
-#include <gen_scope_array.h>
 #include <stdexcept>
 #include <surelog/surelog.h>
-#include <uhdm/headers/ElaboratorListener.h>
-#include <uhdm/headers/module.h>
-#include <uhdm/headers/vpi_uhdm.h>
+#include <uhdm/ElaboratorListener.h>
+#include <uhdm/gen_scope_array.h>
+#include <uhdm/module.h>
+#include <uhdm/vpi_uhdm.h>
 
 namespace sv {
 

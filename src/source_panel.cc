@@ -10,18 +10,18 @@
 #include <functional>
 #include <optional>
 #include <string>
-#include <uhdm/headers/array_net.h>
-#include <uhdm/headers/array_var.h>
-#include <uhdm/headers/constant.h>
-#include <uhdm/headers/function.h>
-#include <uhdm/headers/gen_scope.h>
-#include <uhdm/headers/gen_scope_array.h>
-#include <uhdm/headers/module.h>
-#include <uhdm/headers/net.h>
-#include <uhdm/headers/param_assign.h>
-#include <uhdm/headers/parameter.h>
-#include <uhdm/headers/scope.h>
-#include <uhdm/headers/variables.h>
+#include <uhdm/array_net.h>
+#include <uhdm/array_var.h>
+#include <uhdm/constant.h>
+#include <uhdm/function.h>
+#include <uhdm/gen_scope.h>
+#include <uhdm/gen_scope_array.h>
+#include <uhdm/module.h>
+#include <uhdm/net.h>
+#include <uhdm/param_assign.h>
+#include <uhdm/parameter.h>
+#include <uhdm/scope.h>
+#include <uhdm/variables.h>
 
 namespace sv {
 namespace {
