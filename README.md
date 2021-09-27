@@ -34,14 +34,23 @@ Tips for UI navigation:
   * vim-style hjkl keys generally work. Also $^ for horizontal and gG for vertical movement.
 
 ## Build
-Simview is written with C++17 and uses CMake as the build system. Linux is
-currently the only supported platform, no Windows or MacOSX support at the
+Simview is written with C++17 and uses CMake as the build system. Linux or Linux under WSL are
+currently the only supported platforms, no native Windows or MacOSX support at the
 moment.
+
+1. Install pre-requisite packages (Ubuntu 20.04 LTS)
+  * `sudo apt install build-essential cmake git pkg-config tclsh swig uuid-dev
+      libgoogle-perftools-dev python3 python3-dev default-jre lcov libncurses-dev`
 1. Build and install [Surelog](https://github.com/chipsalliance/Surelog)
+  * `git clone git@github.com:chipsalliance/Surelog.git`
+  * `cd Surelog && git submodule update --init --recursive`
+  * `cd Surelog && make debug`
+  * `cd Surelog && sudo make install`
 1. Build simview:
-  * `mkdir build`
-  * `cmake ..`
-  * `make`
+  * `git clone git@github.com:pieter3d/simview.git`
+  * `mkdir simview/build`
+  * `cd build && cmake ..`
+  * `cd build && make`
 
 ## TODO
 A list of features that have not yet been implemented.
