@@ -1,11 +1,17 @@
 #include "workspace.h"
 #include "uhdm_utils.h"
 #include "utils.h"
+#include <algorithm>
 #include <stdexcept>
 #include <surelog/surelog.h>
 #include <uhdm/ElaboratorListener.h>
+#include <uhdm/array_net.h>
+#include <uhdm/array_var.h>
+#include <uhdm/gen_scope.h>
 #include <uhdm/gen_scope_array.h>
 #include <uhdm/module.h>
+#include <uhdm/net.h>
+#include <uhdm/variables.h>
 #include <uhdm/vpi_uhdm.h>
 
 namespace sv {
@@ -54,7 +60,7 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   vpiHandle design = nullptr;
   if (!success || clp.help()) {
     if (!clp.help()) {
-      std::cout << "Problems parsing argumnets." << std::endl;
+      std::cout << "Problems parsing arguments." << std::endl;
     }
     return false;
   }
