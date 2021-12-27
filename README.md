@@ -43,14 +43,17 @@ moment.
       libgoogle-perftools-dev python3 python3-dev default-jre lcov libncurses-dev`
 1. Build and install [Surelog](https://github.com/chipsalliance/Surelog)
   * `git clone git@github.com:chipsalliance/Surelog.git`
-  * `cd Surelog && git submodule update --init --recursive`
-  * `cd Surelog && make debug`
-  * `cd Surelog && sudo make install`
+  * `cd Surelog`
+  * `git submodule update --init --recursive`
+  * `make`
+  * `sudo make install`
 1. Build simview:
   * `git clone git@github.com:pieter3d/simview.git`
-  * `mkdir simview/build`
-  * `cd build && cmake ..`
-  * `cd build && make`
+  * `cd simview`
+  * `mkdir build`
+  * `cd build`
+  * `cmake ..`
+  * `make`
 
 ## TODO
 A list of features that have not yet been implemented.
