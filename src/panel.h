@@ -7,7 +7,8 @@
 
 namespace sv {
 
-// UI panels hit their functionality with a set of tooltips.
+// UI panels hint at their functionality
+// with a set of tooltips.
 struct Tooltip {
   std::string hotkeys;
   std::string description;
