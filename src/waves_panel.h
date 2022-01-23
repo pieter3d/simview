@@ -16,7 +16,7 @@ class WavesPanel : public Panel {
   WavesPanel();
   void Draw() final;
   void UIChar(int ch) final;
-  std::string Tooltip() const final;
+  std::vector<Tooltip> Tooltips() const final;
   void Resized() final;
   std::optional<std::pair<int, int>> CursorLocation() const final;
   bool Modal() const final;
@@ -53,7 +53,6 @@ class WavesPanel : public Panel {
     std::string value;
   };
   double TimePerChar() const;
-  void DrawHelp() const;
   void CycleTimeUnits();
   void DeleteItem();
   void MoveSignal(bool up);
@@ -94,7 +93,6 @@ class WavesPanel : public Panel {
   TextInput filename_input_;
   ListItem *rename_item_ = nullptr;
   bool inputting_time_ = false;
-  bool showing_help_ = false;
   bool showing_path_ = false;
   bool inputting_open_ = false;
   bool inputting_save_ = false;

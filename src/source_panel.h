@@ -16,7 +16,7 @@ class SourcePanel : public Panel {
   void UIChar(int ch) final;
   int NumLines() const final { return lines_.size(); }
   std::optional<std::pair<int, int>> CursorLocation() const final;
-  std::string Tooltip() const final;
+  std::vector<Tooltip> Tooltips() const final;
   void SetItem(const UHDM::any *item, bool show_def = false);
   std::pair<int, int> ScrollArea() const final;
   std::optional<const UHDM::any *> ItemForDesignTree();

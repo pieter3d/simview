@@ -211,10 +211,6 @@ void WavesPanel::UpdateVisibleSignals() {
 }
 
 void WavesPanel::Draw() {
-  if (showing_help_) {
-    DrawHelp();
-    return;
-  }
   werase(w_);
   const int wave_x = name_value_size_;
   const int max_w = getmaxx(w_);
@@ -614,9 +610,7 @@ void WavesPanel::UIChar(int ch) {
   bool range_changed = false;
   // Most actions cancel multi-line.
   bool cancel_multi_line = true;
-  if (showing_help_) {
-    showing_help_ = false;
-  } else if (showing_path_) {
+  if (showing_path_) {
     showing_path_ = false;
   } else if (color_selection_) {
     int start = line_idx_;
@@ -810,7 +804,6 @@ void WavesPanel::UIChar(int ch) {
         UpdateValue(item);
       }
       break;
-    case '?': showing_help_ = true; break;
     case 'p': showing_path_ = true; break;
     case 'b': AddSignal(nullptr); break;
     case 'c':
@@ -1118,71 +1111,47 @@ void WavesPanel::AddGroup() {
 }
 
 bool WavesPanel::Modal() const {
-  return rename_item_ != nullptr || inputting_time_ || showing_help_ ||
+  return rename_item_ != nullptr || inputting_time_ || 
          showing_path_ || inputting_open_ || inputting_save_;
 }
 
-std::string WavesPanel::Tooltip() const {
+std::vector<Tooltip> WavesPanel::Tooltips() const {
   if (marker_selection_) {
-    return "0-9:marker selection";
+    return {{"0-9", "marker selection"}};
   } else if (color_selection_) {
-    return "0-9:color selection  -:default color  ";
+    return {
+        {"0-9", "color selection"},
+        {"-", "default color"},
+    };
   }
-  return "?:show help  ";
-}
-
-void WavesPanel::DrawHelp() const {
   // TODO: Missing features
   // "C-r: Reload",
   // "aA:  Adjust analog signal height",
-  // "
-  std::vector<std::string> keys({
-      "zZ:  Zoom about the cursor",
-      "F:   Zoom full range",
-      "eE:  Previous / next signal edge",
-      "sS:  Adjust signal name & value size",
-      "0:   Show leading zeroes",
-      "c:   Change signal color",
-      "p:   Show full signal path",
-      "T:   Go to time",
-      "t:   Cycle time units",
-      "m:   Place marker",
-      "M:   Place numbered marker",
-      "C-g: Create group",
-      "R:   Rename group",
-      "UD:  Move signal up / down",
-      "b:   Insert blank signal",
-      "x:   Delete highlighted signal",
-      "r:   Cycle signal radix",
-      "C-o: Open list file",
-      "C-s: Save list file",
-  });
+  std::vector<Tooltip> tt{
+      {"zZ", "Zoom about the cursor"},
+      {"F", "Zoom full range"},
+      {"eE", "Previous / next signal edge"},
+      {"sS", "Adjust signal name & value size"},
+      {"0", "Show leading zeroes"},
+      {"c", "Change signal color"},
+      {"p", "Show full signal path"},
+      {"T", "Go to time"},
+      {"t", "Cycle time units"},
+      {"m", "Place marker"},
+      {"M", "Place numbered marker"},
+      {"C-g", "Create group"},
+      {"R", "Rename group"},
+      {"UD", "Move signal up / down"},
+      {"b", "Insert blank signal"},
+      {"x", "Delete highlighted signal"},
+      {"r", "Cycle signal radix"},
+      {"C-o", "Open list file"},
+      {"C-s", "Save list file"},
+  };
   if (Workspace::Get().Design() != nullptr) {
-    keys.push_back("d:   Show signal declaration in source");
+    tt.push_back({"d", "Show signal declaration in source"});
   }
-  // Find the widest signal.
-  int widest_text = 0;
-  for (auto s : keys) {
-    widest_text = std::max(widest_text, (int)s.size());
-  }
-  widest_text += 2; // margin around the help box.
-  const int max_w = getmaxx(w_);
-  const int max_h = getmaxy(w_);
-  const int x_start = std::max(0, max_w / 2 - widest_text / 2);
-  const int x_stop = std::min(max_w - 1, max_w / 2 + widest_text / 2);
-  const int y_start = std::max(0, max_h / 2 - (int)keys.size() / 2);
-  const int y_stop = std::min(max_h - 1, max_h / 2 + (int)keys.size() / 2);
-  for (int y = 0; y <= std::min((int)keys.size() - 1, y_stop - y_start); ++y) {
-    wmove(w_, y_start + y, x_start);
-    SetColor(w_, kTooltipPair);
-    waddch(w_, ' ');
-    SetColor(w_, kTooltipKeyPair);
-    const auto &s = keys[y];
-    for (int x = 0; x <= x_stop - x_start; ++x) {
-      if (s[x] == ':') SetColor(w_, kTooltipPair);
-      waddch(w_, x < s.size() ? s[x] : ' ');
-    }
-  }
+  return tt;
 }
 
 void WavesPanel::ListItem::CycleRadix() {

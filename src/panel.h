@@ -7,6 +7,13 @@
 
 namespace sv {
 
+// UI panels hit their functionality with a set of tooltips.
+struct Tooltip {
+  std::string hotkeys;
+  std::string description;
+  int Width() const { return hotkeys.size() + 1 + description.size(); }
+};
+
 // A generic UI panel. It has a notion of list data, thus maintains a currently
 // selected line, facilities to scroll and handles keypresses for vertical line
 // movement/selection. It also has basic hooks to enable search of whatever data
@@ -21,7 +28,7 @@ class Panel : public TextReceiver {
   virtual std::optional<std::pair<int, int>> CursorLocation() const;
   // Handle keypress.
   virtual void UIChar(int ch);
-  virtual std::string Tooltip() const { return ""; };
+  virtual std::vector<Tooltip> Tooltips() const = 0;
   virtual void SetFocus(bool f) { has_focus_ = f; }
   WINDOW *Window() const { return w_; }
   // Optional actions to take when the panel is resized, besides redraw.

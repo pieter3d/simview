@@ -829,19 +829,20 @@ void SourcePanel::SetLineAndScroll(int l) {
   SelectItem();
 }
 
-std::string SourcePanel ::Tooltip() const {
-  std::string tt;
+std::vector<Tooltip> SourcePanel::Tooltips() const {
+  std::vector<Tooltip> tt;
   if (Workspace::Get().Waves() != nullptr) {
-    tt += "w:add to waves  ";
+    tt.push_back({"w", "add to waves"});
   }
-  tt += "u:up scope  ";
-  tt += "d:goto def  ";
-  tt += "D:drivers  ";
-  tt += "L:loads  ";
-  tt += "b:back  ";
-  tt += "f:forward  ";
-  tt +=
-      "v:" + (show_vals_ ? std::string("SHOW/hide") : "show/HIDE") + " vals  ";
+  tt.push_back({"u", "up scope"});
+  tt.push_back({"d", "goto def"});
+  tt.push_back({"D", "drivers"});
+  tt.push_back({"L", "loads"});
+  tt.push_back({"b", "back"});
+  tt.push_back({"f", "forward"});
+  tt.push_back(
+      {"v",
+       "" + (show_vals_ ? std::string("SHOW/hide") : "show/HIDE") + " vals"});
   return tt;
 }
 

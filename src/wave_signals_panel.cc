@@ -171,13 +171,12 @@ void WaveSignalsPanel::UIChar(int ch) {
   if (cancel_multi_line) multi_line_idx_ = -1;
 }
 
-std::string WaveSignalsPanel::Tooltip() const {
-  std::string tt = "w:add to waves  ";
-  tt += "W:add all to waves  ";
-  tt += "f:filter  ";
-  tt += "1234:toggle types  ";
-  tt += "s:toggle sort  ";
-  if (Workspace::Get().Design() != nullptr) tt += "d:source  "; // TODO
+std::vector<Tooltip> WaveSignalsPanel::Tooltips() const {
+  std::vector<Tooltip> tt{{"w", "add to waves"},
+                          {"W", "add all to waves"},
+                          {"f", "filter"},
+                          {"1234", "toggle types"},
+                          {"s", "toggle sort"}};
   return tt;
 }
 

@@ -13,7 +13,7 @@ class WaveDataTreePanel : public TreePanel {
  public:
   WaveDataTreePanel();
   void UIChar(int ch) final;
-  std::string Tooltip() const final;
+  std::vector<Tooltip> Tooltips() const final;
   bool Searchable() const final { return true; }
   std::optional<const WaveData::SignalScope *> ScopeForSignals();
 

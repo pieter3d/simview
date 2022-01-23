@@ -8,6 +8,9 @@
 #include <ncurses.h>
 
 namespace sv {
+namespace {
+const Tooltip kHelpTT = {.hotkeys = "?", .description = "help"};
+}
 
 void UI::CalcLayout(bool update_frac) {
   int tw, th;
@@ -56,6 +59,39 @@ void UI::LayoutPanels() {
   }
   // Make the search box fit the bottom width of the screen.
   search_box_.SetDims(th - 1, 0, tw);
+}
+
+void UI::UpdateTooltips() {
+  int term_w = getmaxx(stdscr);
+  tooltips_.clear();
+  // Add the tooltips that are always present.
+  tooltips_.push_back({"C-q", "quit"});
+  if (layout_.has_waves) {
+    tooltips_.push_back(
+        {.hotkeys = "C-p",
+         .description =
+             std::string(layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE") +
+             " picker"});
+  }
+  if (panels_[focused_panel_idx_]->Searchable()) {
+    tooltips_.push_back({"/nN", "search"});
+  }
+  auto panel_tooltips = panels_[focused_panel_idx_]->Tooltips();
+  tooltips_.insert(tooltips_.end(), panel_tooltips.begin(),
+                   panel_tooltips.end());
+  tooltips_to_show = tooltips_.size();
+  int tt_width = 0;
+  for (auto tt : tooltips_) {
+    tt_width += tt.Width() + 1;
+  }
+  tt_width--; // no trailing space.
+  const int help_width = kHelpTT.Width();
+  if (tt_width > term_w) {
+    while ((tt_width + 1 + help_width) > term_w && tooltips_to_show > 0) {
+      tt_width -= tooltips_[tooltips_to_show - 1].Width() + 1;
+      tooltips_to_show--;
+    }
+  }
 }
 
 void UI::CycleFocus(bool fwd) {
@@ -109,6 +145,7 @@ UI::UI() : search_box_("/") {
   if (!panels_.empty()) panels_[focused_panel_idx_]->SetFocus(true);
 
   // Initial render
+  UpdateTooltips();
   CalcLayout();
   LayoutPanels();
   Draw();
@@ -133,6 +170,9 @@ void UI::EventLoop() {
     } else if (ch == KEY_RESIZE) {
       CalcLayout();
       LayoutPanels();
+      UpdateTooltips();
+    } else if (draw_tooltips_) {
+      draw_tooltips_ = false;
     } else if (searching_) {
       // Searching is modal, so do nothing else until that is handled.
       const auto search_state = search_box_.HandleKey(ch);
@@ -228,6 +268,7 @@ void UI::EventLoop() {
         case 0x161: { // shift-tab
           const bool fwd = ch == 0x9;
           CycleFocus(fwd);
+          UpdateTooltips();
         } break;
         case '/':
           if (focused_panel->Searchable()) {
@@ -241,6 +282,9 @@ void UI::EventLoop() {
         case 0x3:  // Ctrl-C
         case 0x11: // Ctrl-Q
           quit = true;
+          break;
+        case '?':
+          if (tooltips_to_show < tooltips_.size()) draw_tooltips_ = true;
           break;
         default: focused_panel->UIChar(ch); break;
         }
@@ -290,7 +334,50 @@ void UI::EventLoop() {
   }
 }
 
-void UI::Draw() {
+void UI::DrawHelp(int panel_idx) const {
+  WINDOW *w = panels_[panel_idx]->Window();
+  // Find the widest signal.
+  size_t widest_key = 0;
+  size_t widest_description = 0;
+  for (auto tt : tooltips_) {
+    widest_key = std::max(widest_key, tt.hotkeys.size());
+    widest_description = std::max(widest_description, tt.description.size());
+  }
+  // Width of the help box accounts for the colon and a left + right margin.
+  const int widest_text = widest_key + widest_description + 3;
+  const int max_w = getmaxx(w);
+  const int max_h = getmaxy(w);
+  const int x_start = std::max(0, max_w / 2 - widest_text / 2);
+  const int x_stop = std::min(max_w - 1, max_w / 2 + widest_text / 2);
+  const int y_start = std::max(0, max_h / 2 - (int)tooltips_.size() / 2);
+  const int y_stop = std::min(max_h - 1, max_h / 2 + (int)tooltips_.size() / 2);
+  for (int y = 0; y <= std::min((int)tooltips_.size() - 1, y_stop - y_start);
+       ++y) {
+    wmove(w, y_start + y, x_start);
+    SetColor(w, kTooltipPair);
+    waddch(w, ' ');
+    SetColor(w, kTooltipKeyPair);
+    const auto &tt = tooltips_[y];
+    const bool overflow = y == (max_h - 1) && y < (tooltips_.size() - 1);
+    for (int x = 0; x <= x_stop - x_start; ++x) {
+      if (overflow) {
+        static std::string more = "... more ...";
+        int pos = x - (x_stop - x_start + 1 - more.size()) / 2;
+        waddch(w, (pos < 0 || pos >= more.size()) ? ' ' : more[pos]);
+      } else if (x < widest_key) {
+        waddch(w, x < tt.hotkeys.size() ? tt.hotkeys[x] : ' ');
+      } else if (x == widest_key) {
+        SetColor(w, kTooltipPair);
+        waddch(w, ':');
+      } else {
+        int pos = x - widest_key - 1;
+        waddch(w, pos < tt.description.size() ? tt.description[pos] : ' ');
+      }
+    }
+  }
+}
+
+void UI::Draw() const {
   erase();
   const auto *focused_panel = panels_[focused_panel_idx_];
   // Render the dividing lines
@@ -371,29 +458,47 @@ void UI::Draw() {
   if (searching_) {
     search_box_.Draw(stdscr);
   } else {
-    // Render the tooltip when not searching.
-    std::string tooltip = "C-q:quit  ";
-    if (layout_.has_waves) {
-      tooltip += "C-P:";
-      tooltip += layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE";
-      tooltip += " picker  ";
-    }
-    if (focused_panel->Searchable()) tooltip += "/nN:search  ";
-    tooltip += focused_panel->Tooltip();
+    // Render the tooltips when not searching.
+    int tt_idx = 0;
+    int tt_key_idx = 0;
+    int tt_description_idx = 0;
+    // If not all tooltips can be shown, include an extra index for the trailing
+    // help tooltip.
+    const int num_tt_to_draw =
+        tooltips_to_show + (tooltips_to_show < tooltips_.size() ? 1 : 0);
+    enum { KEY, COLON, DESCRIPTION, SPACE } tt_state = KEY;
+    SetColor(stdscr, kTooltipKeyPair);
     for (int x = 0; x < term_w; ++x) {
-      // Look for a key (indicated by colon following).
-      bool is_key = false;
-      for (int i = x + 1; i < tooltip.size(); ++i) {
-        if (tooltip[i] == ':') {
-          is_key = true;
-          break;
-        } else if (tooltip[i] == ' ') {
-          is_key = false;
-          break;
+      const auto &tt = tt_idx >= tooltips_to_show ? kHelpTT : tooltips_[tt_idx];
+      switch (tt_state) {
+      case KEY:
+        mvaddch(term_h - 1, x, tt.hotkeys[tt_key_idx++]);
+        if (tt_key_idx == tt.hotkeys.size()) {
+          tt_key_idx = 0;
+          SetColor(stdscr, kTooltipPair);
+          tt_state = COLON;
         }
+        break;
+      case COLON:
+        mvaddch(term_h - 1, x, ':');
+        tt_state = DESCRIPTION;
+        break;
+      case DESCRIPTION:
+        mvaddch(term_h - 1, x, tt.description[tt_description_idx++]);
+        if (tt_description_idx == tt.description.size()) {
+          tt_description_idx = 0;
+          tt_idx++;
+          tt_state = SPACE;
+        }
+        break;
+      case SPACE:
+        mvaddch(term_h - 1, x, ' ');
+        if (tt_idx < num_tt_to_draw) {
+          SetColor(stdscr, kTooltipKeyPair);
+          tt_state = KEY;
+        }
+        break;
       }
-      SetColor(stdscr, is_key ? kTooltipKeyPair : kTooltipPair);
-      mvaddch(term_h - 1, x, x >= tooltip.size() ? ' ' : tooltip[x]);
     }
   }
 
@@ -404,7 +509,11 @@ void UI::Draw() {
         (p == wave_tree_panel_.get() || p == wave_signals_panel_.get())) {
       continue;
     }
-    p->Draw();
+    if (draw_tooltips_ && p == panels_[focused_panel_idx_]) {
+      DrawHelp(focused_panel_idx_);
+    } else {
+      p->Draw();
+    }
     wnoutrefresh(p->Window());
   }
   // Update cursor position, if there is one.

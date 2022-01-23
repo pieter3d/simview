@@ -26,8 +26,10 @@ class UI {
  private:
   void CalcLayout(bool update_frac = false);
   void LayoutPanels();
-  void Draw();
   void CycleFocus(bool fwd);
+  void UpdateTooltips();
+  void Draw() const;
+  void DrawHelp(int panel_idx) const;
 
   std::unique_ptr<DesignTreePanel> design_tree_panel_;
   std::unique_ptr<SourcePanel> source_panel_;
@@ -53,6 +55,10 @@ class UI {
   std::vector<Panel *> panels_;
   int focused_panel_idx_ = 0;
   std::string error_message_;
+  // State for tooltips
+  int tooltips_to_show;
+  std::vector<Tooltip> tooltips_;
+  bool draw_tooltips_ = false;
 
   // Search state.
   bool searching_ = false;

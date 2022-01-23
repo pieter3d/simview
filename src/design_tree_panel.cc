@@ -88,8 +88,10 @@ void DesignTreePanel::UIChar(int ch) {
     load_definition_ = true;
   } break;
   case 'S':
-    Workspace::Get().SetMatchedDesignScope(
-        dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem());
+    if (Workspace::Get().Waves() != nullptr) {
+      Workspace::Get().SetMatchedDesignScope(
+          dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem());
+    }
     break;
   default: TreePanel::UIChar(ch);
   }
@@ -108,12 +110,16 @@ DesignTreePanel::ItemForSource() {
   return std::nullopt;
 }
 
-std::string DesignTreePanel::Tooltip() const {
-  std::string tt = "i:instance  d:definition  u:up scope  ";
+std::vector<Tooltip> DesignTreePanel::Tooltips() const {
+  std::vector<Tooltip> tooltips{
+      {"i", "instance"},
+      {"d", "definition"},
+      {"u", "up scope"},
+  };
   if (Workspace::Get().Waves() != nullptr) {
-    tt += "S:set scope for waves  ";
+    tooltips.push_back({"S", "set scope for waves"});
   }
-  return tt;
+  return tooltips;
 }
 
 } // namespace sv

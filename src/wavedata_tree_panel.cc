@@ -34,8 +34,8 @@ void WaveDataTreePanel::UIChar(int ch) {
   }
 }
 
-std::string WaveDataTreePanel::Tooltip() const {
-  return "S:set scope for source  ";
+std::vector<Tooltip> WaveDataTreePanel::Tooltips() const {
+  return std::vector<Tooltip>{{"S", "set scope for source"}};
 }
 
 std::optional<const WaveData::SignalScope *>
