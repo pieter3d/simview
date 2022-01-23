@@ -351,8 +351,8 @@ void UI::DrawHelp(int panel_idx) const {
   const int x_stop = std::min(max_w - 1, max_w / 2 + widest_text / 2);
   const int y_start = std::max(0, max_h / 2 - (int)tooltips_.size() / 2);
   const int y_stop = std::min(max_h - 1, max_h / 2 + (int)tooltips_.size() / 2);
-  for (int y = 0; y <= std::min((int)tooltips_.size() - 1, y_stop - y_start);
-       ++y) {
+  const int max_tt_idx = std::min((int)tooltips_.size() - 1, y_stop - y_start);
+  for (int y = 0; y <= max_tt_idx; ++y) {
     wmove(w, y_start + y, x_start);
     SetColor(w, kTooltipPair);
     waddch(w, ' ');
