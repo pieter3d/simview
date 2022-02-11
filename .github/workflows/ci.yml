@@ -6,6 +6,71 @@ on:
   pull_request:
 
 jobs:
+  linux-build:
+    name: Build and Test
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Cancel previous
+      uses: styfle/cancel-workflow-action@0.9.1
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Install build dependencies for simview and surelog
+      run: |
+        sudo apt-get update -qq
+        sudo apt install -y \
+          build-essential cmake ninja-build \
+          g++ default-jre \
+          google-perftools \
+          libgoogle-perftools-dev \
+          uuid-dev
+
+    - name: Setup Python for Surelog build
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+        architecture: x64
+
+    - name: Setup Python Packages
+      run: |
+        pip3 install orderedmultidict
+        pip3 install psutil
+
+    - name: Checkout simview
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use ccache
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: build-cache
+
+    - name: Configure shell
+      run: |
+        echo 'PATH=/usr/lib/ccache:'"$PATH" >> $GITHUB_ENV
+        echo 'PREFIX=${GITHUB_WORKSPACE}/surelog-install' >> $GITHUB_ENV
+
+    - name: Show shell configuration
+      run: |
+        env
+
+    - name: Build Surelog
+      run: |
+        git clone --recursive https://github.com/chipsalliance/Surelog.git
+        (cd Surelog ; make install)
+
+    - name: Build
+      run: |
+        cmake -B build -GNinja -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/surelog-install -DCMAKE_CXX_FLAGS="-Wall -W -Wextra -Werror"  .
+        ninja -C build
+
+    - name: Test
+      run: |
+        ninja -C build test
+
   CodeFormatting:
     runs-on: ubuntu-latest
 
