@@ -40,7 +40,7 @@ moment.
 
 1. Install pre-requisite packages (Ubuntu 20.04 LTS)
   * `sudo apt install build-essential cmake git pkg-config tclsh swig uuid-dev
-      libgoogle-perftools-dev python3 python3-dev default-jre lcov libncurses-dev`
+      libgoogle-perftools-dev python3 python3-orderedmultidict python3-dev default-jre lcov libncurses-dev`
 1. Build and install [Surelog](https://github.com/chipsalliance/Surelog)
   * `git clone git@github.com:chipsalliance/Surelog.git`
   * `cd Surelog`
