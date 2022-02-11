@@ -18,12 +18,12 @@
 #include <uhdm/port.h>
 #include <uhdm/process_stmt.h>
 #include <uhdm/ref_obj.h>
+#include <uhdm/sv_vpi_user.h>
 #include <uhdm/task_call.h>
 #include <uhdm/tf_call.h>
 #include <uhdm/uhdm_vpi_user.h>
-#include <uhdm/while_stmt.h>
-#include <uhdm/sv_vpi_user.h>
 #include <uhdm/vpi_user.h>
+#include <uhdm/while_stmt.h>
 
 namespace sv {
 namespace {

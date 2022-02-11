@@ -3,6 +3,7 @@
 #include <deque>
 #include <functional>
 #include <ncurses.h>
+#include <string>
 
 namespace sv {
 
