@@ -81,3 +81,4 @@ A list of features that have not yet been implemented.
 * Someday: Support FSDB via dynamically loading the necessary .so's on systems
   that have them installed with a valid license.
 * Command line option to load a saved signal list file at startup.
+* Investigate including Surelog as a git submodule, to avoid breakages.
