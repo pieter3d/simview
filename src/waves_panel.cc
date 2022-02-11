@@ -1111,8 +1111,8 @@ void WavesPanel::AddGroup() {
 }
 
 bool WavesPanel::Modal() const {
-  return rename_item_ != nullptr || inputting_time_ || 
-         showing_path_ || inputting_open_ || inputting_save_;
+  return rename_item_ != nullptr || inputting_time_ || showing_path_ ||
+         inputting_open_ || inputting_save_;
 }
 
 std::vector<Tooltip> WavesPanel::Tooltips() const {

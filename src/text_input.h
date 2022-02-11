@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
 #include <deque>
 #include <functional>
 #include <ncurses.h>
+#include <string>
 
 namespace sv {
 
