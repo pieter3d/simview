@@ -1,7 +1,9 @@
 #include "workspace.h"
 #include "uhdm_utils.h"
 #include "utils.h"
+
 #include <algorithm>
+#include <stack>
 #include <stdexcept>
 #include <surelog/surelog.h>
 #include <uhdm/ElaboratorListener.h>
