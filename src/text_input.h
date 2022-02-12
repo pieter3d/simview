@@ -32,11 +32,11 @@ class TextInput {
     kDone,
   };
   TextInput() = default;
-  TextInput(const std::string &prompt) : prompt_(prompt) {}
+  explicit TextInput(const std::string &prompt) : prompt_(prompt) {}
   void SetPrompt(const std::string &prompt) { prompt_ = prompt; }
   void SetDims(int row, int col, int width);
   void SetReceiver(TextReceiver *receiver) { receiver_ = receiver; };
-  void SetValdiator(Validator v) { validator_ = v; };
+  void SetValdiator(const Validator &v) { validator_ = v; };
   void Reset();
   void Draw(WINDOW *w) const;
   std::pair<int, int> CursorPos() const;

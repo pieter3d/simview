@@ -38,7 +38,7 @@ class Panel : public TextReceiver {
   // Returns true if search_text_ is found in this panel. Searching must start
   // from the the current line_idx_ and search_start_col_ should be set
   // accordingly.
-  virtual bool Search(bool search_down) { return false; }
+  virtual bool Search(bool /*search_down*/) { return false; }
   virtual bool Searchable() const { return false; }
   // When this returns true and this panel has focus, it recieves all keyboard
   // input, global shortcuts are bypassed.

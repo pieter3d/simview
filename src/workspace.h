@@ -28,7 +28,7 @@ class Workspace {
   const UHDM::module *GetDefinition(const UHDM::module *m);
   uint64_t &WaveCursorTime() { return wave_cursor_time_; }
 
-  void AddIncludeDir(std::string d) { include_paths_.push_back(d); }
+  void AddIncludeDir(const std::string &d) { include_paths_.push_back(d); }
   const auto &IncludeDirs() const { return include_paths_; }
   const WaveData *Waves() const { return wave_data_.get(); }
   // Non-const version allows for reload.

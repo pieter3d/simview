@@ -338,7 +338,7 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
       // charachter. Needs to be handled here. There are no 1-letter keywords so
       // it can just be assumed to be an identifier.
       if (i == s.size() - 1 && !last_token_was_dot_) {
-        std::string one_letter_id = "";
+        std::string one_letter_id;
         one_letter_id += s[i];
         identifiers_[line_num_].push_back({i, one_letter_id});
       }

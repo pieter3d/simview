@@ -2,6 +2,7 @@
 #include "uhdm_utils.h"
 #include "utils.h"
 #include <algorithm>
+#include <stack>
 #include <stdexcept>
 #include <surelog/surelog.h>
 #include <uhdm/ElaboratorListener.h>
@@ -116,7 +117,7 @@ bool Workspace::ReadWaves(const std::string &wave_file) {
 
 Workspace::~Workspace() {
   if (compiler_ != nullptr) SURELOG::shutdown_compiler(compiler_);
-  if (design_ != nullptr) delete design_;
+  delete design_;
 }
 
 void Workspace::TryMatchDesignWithWaves() {
@@ -139,10 +140,10 @@ void Workspace::TryMatchDesignWithWaves() {
   for (const auto *top : *design_->TopModules()) {
     design_scopes.push_back(top);
     // If the top module has some guts, add it's modules too.
-    if (top->Modules() != nullptr && top->Modules()->size() > 0) {
+    if (top->Modules() != nullptr && !top->Modules()->empty()) {
       for (const auto *sub : *top->Modules()) {
         design_scopes.push_back(sub);
-        if (sub->Modules() != nullptr && sub->Modules()->size() > 0) {
+        if (sub->Modules() != nullptr && !sub->Modules()->empty()) {
           for (const auto *subsub : *sub->Modules()) {
             design_scopes.push_back(subsub);
           }
@@ -304,7 +305,6 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
       }
       // Not considering anything else
       design_scope = nullptr;
-      return;
     }();
     stack.pop();
   }

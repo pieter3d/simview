@@ -65,8 +65,8 @@ class WavesPanel : public Panel {
   void SnapToValue();
   void ExpandMultiBit();
   void CheckMultiBit();
-  void FindEdge(bool forward, bool &time_changed, bool &range_changed);
-  void GoToTime(uint64_t time, bool &time_changed, bool &range_changed);
+  void FindEdge(bool forward, bool *time_changed, bool *range_changed);
+  void GoToTime(uint64_t time, bool *time_changed, bool *range_changed);
   void LoadList(const std::string &file_name);
   void SaveList(const std::string &file_name);
 

@@ -7,7 +7,7 @@ namespace {
 std::string kInputString = "->";
 std::string kInoutString = "<>";
 std::string kOutputString = "<-";
-std::string kNetString = "";
+std::string kNetString;
 std::string kParameterString = "[P]";
 } // namespace
 

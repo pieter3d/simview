@@ -81,7 +81,7 @@ void UI::UpdateTooltips() {
                    panel_tooltips.end());
   tooltips_to_show = tooltips_.size();
   int tt_width = 0;
-  for (auto tt : tooltips_) {
+  for (auto &tt : tooltips_) {
     tt_width += tt.Width() + 1;
   }
   tt_width--; // no trailing space.
@@ -339,7 +339,7 @@ void UI::DrawHelp(int panel_idx) const {
   // Find the widest signal.
   size_t widest_key = 0;
   size_t widest_description = 0;
-  for (auto tt : tooltips_) {
+  for (auto &tt : tooltips_) {
     widest_key = std::max(widest_key, tt.hotkeys.size());
     widest_description = std::max(widest_description, tt.description.size());
   }

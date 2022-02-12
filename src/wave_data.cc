@@ -1,4 +1,5 @@
 #include "wave_data.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "fst_wave_data.h"
 #include "src/radix.h"
@@ -21,13 +22,14 @@ std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name) {
 
 std::optional<const WaveData::Signal *>
 WaveData::PathToSignal(const std::string &path) const {
-  std::vector<std::string> levels = absl::StrSplit(path, ".");
+  std::vector<std::string> levels = absl::StrSplit(path, '.');
   const std::vector<SignalScope> *candidates = &roots_;
   const SignalScope *candidate = nullptr;
   int level_idx = 0;
   for (auto &level : levels) {
     // Match against the signals for the last element.
     if (level_idx == levels.size() - 1) {
+      if (candidate == nullptr) break;
       for (const auto &signal : candidate->signals) {
         if (signal.name == level) return &signal;
       }
@@ -51,7 +53,7 @@ std::string WaveData::SignalToPath(const WaveData::Signal *signal) {
   std::string path = signal->name;
   auto scope = signal->scope;
   while (scope != nullptr) {
-    path = scope->name + "." + path;
+    path = absl::StrCat(scope->name, ".", path);
     scope = scope->parent;
   }
   return path;

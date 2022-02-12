@@ -9,7 +9,7 @@ namespace sv {
 class FstWaveData : public WaveData {
  public:
   explicit FstWaveData(const std::string &file_name);
-  ~FstWaveData();
+  ~FstWaveData() override;
   int Log10TimeUnits() const final;
   std::pair<uint64_t, uint64_t> TimeRange() const final;
   void LoadSignalSamples(const std::vector<const Signal *> &signals,

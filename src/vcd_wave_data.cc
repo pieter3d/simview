@@ -3,10 +3,15 @@
 #include <ios>
 #include <stdexcept>
 
+#include "absl/strings/match.h"
+
 namespace sv {
 namespace {
-const std::runtime_error kParseError("VCD file parsing error, file malformed.");
+std::runtime_error MakeParseError(const std::string &s) {
+  const std::string msg = "VCD file parsing error, file malformed: ";
+  return std::runtime_error(msg + s);
 }
+} // namespace
 
 // Default: print.
 bool VcdWaveData::print_progress_ = true;
@@ -78,7 +83,7 @@ void VcdWaveData::ParseScope() {
     name = tokenizer_.Token();
     std::string end = tokenizer_.Token();
     if (end != "$end") {
-      throw kParseError;
+      throw MakeParseError("Expecting $end after parsing scope name");
     }
   }
   if (scope_stack_.empty()) {
@@ -96,7 +101,8 @@ void VcdWaveData::ParseScope() {
 void VcdWaveData::ParseUpScope() {
   auto tok = tokenizer_.Token();
   if (scope_stack_.empty() || tok != "$end") {
-    throw kParseError;
+    throw MakeParseError("Expecting $end after parsing upscope");
+    ;
   }
   scope_stack_.pop();
 }
@@ -118,7 +124,7 @@ void VcdWaveData::ParseVariable() {
     name += tok;
   }
   if (tok != "$end") {
-    throw kParseError;
+    throw MakeParseError("Expecting $end after parsing variable name");
   }
   scope_stack_.top()->signals.push_back({});
   auto &s = scope_stack_.top()->signals.back();
@@ -149,7 +155,7 @@ void VcdWaveData::ParseTimescale() {
   size_t chars_read;
   int val = std::stoi(tok, &chars_read);
   if (val != 1 && val != 10 && val != 100) {
-    throw kParseError;
+    throw MakeParseError("Invalid timescale value");
   }
   // Time unit could be another token.
   if (chars_read < tok.size()) {
@@ -170,7 +176,8 @@ void VcdWaveData::ParseTimescale() {
   } else if (tok == "fs") {
     time_units_ = -15;
   } else {
-    throw kParseError;
+    throw MakeParseError("Unknown time unit");
+    ;
   }
   if (val == 10) {
     time_units_ += 1;
@@ -179,7 +186,7 @@ void VcdWaveData::ParseTimescale() {
   }
   tok = tokenizer_.Token();
   if (tok != "$end") {
-    throw kParseError;
+    throw MakeParseError("Expecting $end after parsing timescale");
   }
 }
 
@@ -191,7 +198,7 @@ void VcdWaveData::ParseSimCommands() {
   while (!tokenizer_.Eof()) {
     auto tok = tokenizer_.Token();
     if (tok.empty()) continue;
-    if (!in_dump && tok.find("$dump") == 0) {
+    if (!in_dump && absl::StartsWith(tok, "$dump")) {
       in_dump = true;
     } else if (in_dump && tok == "$end") {
       in_dump = false;
@@ -209,7 +216,8 @@ void VcdWaveData::ParseSimCommands() {
       s.value = tok.substr(1);
       tok = tokenizer_.Token();
       if (signal_id_by_code_.find(tok) == signal_id_by_code_.end()) {
-        throw kParseError;
+        throw MakeParseError(
+            "multi-bit signal value references unknown signal");
       }
       waves_[signal_id_by_code_[tok]].push_back(s);
     } else if (tok.find_first_of("01xXzZ") == 0) {
@@ -219,11 +227,12 @@ void VcdWaveData::ParseSimCommands() {
       const auto id_code = tok.substr(1);
       const auto id = signal_id_by_code_.find(id_code);
       if (id == signal_id_by_code_.end()) {
-        throw kParseError;
+        throw MakeParseError(
+            "single-bit signal value references unknown signal");
       }
       waves_[id->second].push_back(s);
     } else {
-      throw kParseError;
+      throw MakeParseError("Unknown simulation command.");
     }
     if (print_progress_) {
       int percentage = tokenizer_.PosPercentage();

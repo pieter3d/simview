@@ -30,7 +30,7 @@ namespace {
 
 // Forward declare the recurse call
 void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
-                     bool drivers, std::vector<const UHDM::any *> &list);
+                     bool drivers, std::vector<const UHDM::any *> *list);
 
 // Both Modules and GenScopes can work as the Haystack here, they have the same
 // set of methods. However, they are not virtual, so it's not possible to use
@@ -38,7 +38,7 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
 // to suffice instead.
 template <typename T>
 void FindInContainer(T *haystack, const UHDM::any *needle, bool drivers,
-                     std::vector<const UHDM::any *> &list) {
+                     std::vector<const UHDM::any *> *list) {
   // Look through all continuous assignments.
   if (haystack->Cont_assigns() != nullptr) {
     for (auto &ca : *haystack->Cont_assigns()) {
@@ -69,7 +69,7 @@ void FindInContainer(T *haystack, const UHDM::any *needle, bool drivers,
 }
 
 void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
-                     bool drivers, std::vector<const UHDM::any *> &list) {
+                     bool drivers, std::vector<const UHDM::any *> *list) {
   if (haystack == nullptr) return;
   auto type = haystack->VpiType();
   if (type == vpiModule) {
@@ -137,7 +137,7 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
   } else if (type == vpiBitSelect) {
     auto bs = dynamic_cast<const UHDM::bit_select *>(haystack);
     if (bs->VpiName() == needle->VpiName()) {
-      list.push_back(haystack);
+      list->push_back(haystack);
     }
     // if (bs->VpiParent() != nullptr && bs->VpiParent()->VpiType() ==
     // vpiRefObj) {
@@ -153,13 +153,13 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
     if (ps->VpiParent() != nullptr && ps->VpiParent()->VpiType() == vpiRefObj) {
       auto ro = dynamic_cast<const UHDM::ref_obj *>(ps->VpiParent());
       if (ro->Actual_group() == needle) {
-        list.push_back(haystack);
+        list->push_back(haystack);
       }
     }
   } else if (type == vpiRefObj) {
     auto ro = dynamic_cast<const UHDM::ref_obj *>(haystack);
     if (ro->Actual_group() == needle) {
-      list.push_back(haystack);
+      list->push_back(haystack);
     }
   }
 }
@@ -167,8 +167,8 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
 } // namespace
 
 void GetDriversOrLoads(const UHDM::any *item, bool drivers,
-                       std::vector<const UHDM::any *> &list) {
-  list.clear();
+                       std::vector<const UHDM::any *> *list) {
+  list->clear();
   if (item == nullptr) return;
   // For RefObjects, trace the actual net it's referring to.
   if (item->VpiType() == vpiRefObj) {
@@ -189,7 +189,7 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
         if (ro->Actual_group() == item &&
             (p->VpiDirection() == vpiInout ||
              p->VpiDirection() == (drivers ? vpiInput : vpiOutput))) {
-          list.push_back(p);
+          list->push_back(p);
         }
       }
     }
@@ -228,8 +228,8 @@ const UHDM::any *GetScopeForUI(const UHDM::any *item) {
 bool IsTraceable(const UHDM::any *item) {
   const int type = item->VpiType();
   return type == vpiNet || type == vpiPort || type == vpiLogicVar ||
-         type == vpiArrayVar || type == vpiLongIntVar || type == vpiArrayVar ||
-         type == vpiArrayNet || type == vpiShortIntVar || type == vpiIntVar ||
+         type == vpiLongIntVar || type == vpiArrayVar || type == vpiArrayNet ||
+         type == vpiShortIntVar || type == vpiIntVar ||
          type == vpiShortRealVar || type == vpiByteVar || type == vpiClassVar ||
          type == vpiStringVar || type == vpiEnumVar || type == vpiStructVar ||
          type == vpiUnionVar || type == vpiBitVar || type == vpiRefObj;

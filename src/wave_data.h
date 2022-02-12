@@ -88,7 +88,7 @@ class WaveData {
 
  protected:
   // Not directly constructable.
-  WaveData(const std::string file_name) : file_name_(file_name) {}
+  explicit WaveData(const std::string &file_name) : file_name_(file_name) {}
   // Traverse the scopes and signals and assign parents. This can only be done
   // after the structure has been fully created, since the parents are pointers
   // to elements of vectors, and thus could be invalidated (point to garbage) if

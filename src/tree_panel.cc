@@ -25,8 +25,8 @@ void TreePanel::Draw() {
       SetColor(w_, kHierShowMorePair);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
-      std::string type_name = item->Type();
-      std::string name = item->Name();
+      const std::string &type_name = item->Type();
+      const std::string &name = item->Name();
       char exp = item->Expandable() ? (item->Expanded() ? '-' : '+') : ' ';
       std::string s = indent;
       if (show_expanders_) s += exp;
@@ -34,10 +34,14 @@ void TreePanel::Draw() {
         if (type_name.empty()) {
           s += name;
         } else {
-          s += type_name + ' ' + name;
+          s += type_name;
+          s += " ";
+          s += name;
         }
       } else {
-        s += name + ' ' + type_name;
+        s += name;
+        s += " ";
+        s += type_name;
       }
       max_string_len = std::max(max_string_len, static_cast<int>(s.size()));
       int expand_pos = indent.size();

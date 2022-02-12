@@ -1,4 +1,5 @@
 #include "design_tree_item.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "utils.h"
 #include "workspace.h"
@@ -33,7 +34,7 @@ bool DesignTreeItem::AltType() const { return item_->VpiType() != vpiModule; }
 bool DesignTreeItem::ErrType() const {
   // If there's no compiled variant available, Surelog uses :: to place it in
   // the scope of the parent module.
-  return item_->VpiDefName().find("::") != std::string::npos;
+  return absl::StrContains(item_->VpiDefName(), "::");
 }
 
 bool DesignTreeItem::Expandable() const {

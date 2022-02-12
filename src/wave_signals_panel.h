@@ -16,7 +16,7 @@ class WaveSignalsPanel : public TreePanel {
   void Draw() final;
   void SetScope(const WaveData::SignalScope *s);
   bool Searchable() const final { return true; }
-  virtual void UIChar(int ch) final;
+  void UIChar(int ch) final;
   std::vector<Tooltip> Tooltips() const final;
   std::pair<int, int> ScrollArea() const final;
   std::optional<std::pair<int, int>> CursorLocation() const final;

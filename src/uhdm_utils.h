@@ -14,7 +14,7 @@ bool IsTraceable(const UHDM::any *item);
 // Trace the drivers or loads of a given net (or do nothing if the item isn't a
 // net).
 void GetDriversOrLoads(const UHDM::any *item, bool drivers,
-                       std::vector<const UHDM::any *> &list);
+                       std::vector<const UHDM::any *> *list);
 
 // Find the containg module of any item, moving up through generate blocks if
 // necessary.

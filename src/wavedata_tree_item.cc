@@ -12,7 +12,7 @@ WaveDataTreeItem::WaveDataTreeItem(const WaveData::SignalScope &signal_scope)
 const std::string &WaveDataTreeItem::Name() const { return signal_scope_.name; }
 
 const std::string &WaveDataTreeItem::Type() const {
-  static std::string empty = "";
+  static std::string empty;
   return empty;
 }
 

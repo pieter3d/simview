@@ -1,5 +1,6 @@
 #include "waves_panel.h"
 
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "color.h"
@@ -107,13 +108,13 @@ void WavesPanel::Resized() {
   filename_input_.SetDims(0, 0, getmaxx(w_));
 }
 
-void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
-                          bool &range_changed) {
+void WavesPanel::GoToTime(uint64_t time, bool *time_changed,
+                          bool *range_changed) {
   // Make sure the parsed time actually is inside the wave data.
   if (time >= wave_data_->TimeRange().first &&
       time <= wave_data_->TimeRange().second) {
     cursor_time_ = time;
-    time_changed = true;
+    *time_changed = true;
     const uint64_t current_time_span = right_time_ - left_time_;
     // Adjust left and right bounds if the new time is outside the
     // currently displayed range. Attempt to keep the same zoom scale by
@@ -121,12 +122,12 @@ void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
     if (cursor_time_ > right_time_) {
       right_time_ = cursor_time_;
       left_time_ = std::max(0ul, right_time_ - current_time_span);
-      range_changed = true;
+      *range_changed = true;
     } else if (cursor_time_ < left_time_) {
       left_time_ = cursor_time_;
       right_time_ = std::min(wave_data_->TimeRange().second,
                              left_time_ + current_time_span);
-      range_changed = true;
+      *range_changed = true;
     }
     // Don't let the cursor go off the screen.
     const int max_cursor_pos = getmaxx(w_) - 1 - (name_value_size_);
@@ -135,8 +136,8 @@ void WavesPanel::GoToTime(uint64_t time, bool &time_changed,
   }
 }
 
-void WavesPanel::FindEdge(bool forward, bool &time_changed,
-                          bool &range_changed) {
+void WavesPanel::FindEdge(bool forward, bool *time_changed,
+                          bool *range_changed) {
   if (visible_items_[line_idx_]->signal == nullptr) return;
   const auto &wave = wave_data_->Wave(visible_items_[line_idx_]->signal);
   const int sample_idx = wave_data_->FindSampleIndex(
@@ -664,7 +665,7 @@ void WavesPanel::UIChar(int ch) {
       inputting_time_ = false;
       if (state == TextInput::kDone) {
         if (auto parsed = ParseTime(time_input_.Text(), time_unit_)) {
-          GoToTime(*parsed, time_changed, range_changed);
+          GoToTime(*parsed, &time_changed, &range_changed);
         }
       }
       time_input_.Reset();
@@ -797,7 +798,7 @@ void WavesPanel::UIChar(int ch) {
       }
       break;
     case 'e':
-    case 'E': FindEdge(ch == 'e', time_changed, range_changed); break;
+    case 'E': FindEdge(ch == 'e', &time_changed, &range_changed); break;
     case 'r':
       if (item->signal != nullptr) {
         item->CycleRadix();
@@ -1245,13 +1246,13 @@ void WavesPanel::LoadList(const std::string &file_name) {
   items_.clear();
   for (std::string line; std::getline(file, line);) {
     if (line[0] == '$') {
-      if (line.find("$time") == 0) {
+      if (absl::StartsWith(line, "$time")) {
         cursor_time_ = read_time(line);
-      } else if (line.find("$tmin") == 0) {
+      } else if (absl::StartsWith(line, "$tmin")) {
         left_time_ = read_time(line);
-      } else if (line.find("$tmax") == 0) {
+      } else if (absl::StartsWith(line, "$tmax")) {
         right_time_ = read_time(line);
-      } else if (line.find("$m") == 0) {
+      } else if (absl::StartsWith(line, "$m")) {
         if (line[2] >= '0' && line[2] <= '9') {
           numbered_marker_times_[line[2] - '0'] = read_time(line);
         } else {

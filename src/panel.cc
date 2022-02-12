@@ -19,7 +19,6 @@ void Panel::UIChar(int ch) {
   switch (ch) {
   case 'h':
   case 0x104: // left
-    break;
   case 'l':
   case 0x105: // right
     break;
@@ -110,12 +109,10 @@ void Panel::SetLineAndScroll(int l) {
   line_idx_ = l;
   const int win_h = ScrollArea().first;
   const int lines_remaining = NumLines() - line_idx_ - 1;
-  if (NumLines() <= win_h - 1) {
+  if ((NumLines() <= win_h - 1) || (line_idx_ < win_h / 3)) {
     // If all lines fit on the screen, accounting for the header, then just
     // don't scroll.
-    scroll_row_ = 0;
-  } else if (line_idx_ < win_h / 3) {
-    // Go as far down to the 1/3rd line as possible.
+    // Also if scrolling to near the top, ensure the lines above are visible.
     scroll_row_ = 0;
   } else if (lines_remaining < 2 * win_h / 3) {
     // If there are aren't many lines after the current location, scroll as

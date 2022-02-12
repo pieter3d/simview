@@ -29,12 +29,9 @@ namespace {
 constexpr int kMaxStateStackSize = 500;
 
 // Remove newline characters from the start or end of the string.
-void trim_string(std::string &s) {
-  if (s.empty()) return;
-  if (s.size() > 1 && s[s.size() - 2] == '\r' && s[s.size() - 1] == '\n') {
-    s.erase(s.size() - 2, 1);
-  }
-  if (s[s.size() - 1] == '\n') s.erase(s.size() - 1, 1);
+void trim_string(std::string *s) { // NOLINT
+  s->erase(std::remove(s->begin(), s->end(), '\n'), s->end());
+  s->erase(std::remove(s->begin(), s->end(), '\r'), s->end());
 }
 
 } // namespace
@@ -158,7 +155,7 @@ void SourcePanel::Draw() {
       if (pos >= s.size()) {
         // Put a space after an empty line so there is a place to show the
         // cursor.
-        if (s.size() == 0) {
+        if (s.empty()) {
           waddch(w_, ' ');
           wattroff(w_, highlight_attr);
         }
@@ -377,13 +374,13 @@ void SourcePanel::UIChar(int ch) {
       // Only trace when not tracing the same item, or when switching between
       // drivers and loads.
       trace_drivers_ = ch == 'D';
-      GetDriversOrLoads(sel_, trace_drivers_, drivers_or_loads_);
+      GetDriversOrLoads(sel_, trace_drivers_, &drivers_or_loads_);
       trace_net_ = sel_;
       trace_idx_ = 0;
-    } else if (drivers_or_loads_.size() > 0) {
+    } else if (!drivers_or_loads_.empty()) {
       trace_idx_ = (trace_idx_ + 1) % drivers_or_loads_.size();
     }
-    if (drivers_or_loads_.size() > 0 && trace_net_ != nullptr) {
+    if (!drivers_or_loads_.empty() && trace_net_ != nullptr) {
       item_for_design_tree_ = sel_;
       SetLocation(drivers_or_loads_[trace_idx_]);
     }
@@ -734,7 +731,7 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
   std::string s;
   int n = 0;
   while (std::getline(is, s)) {
-    trim_string(s);
+    trim_string(&s);
     tokenizer_.ProcessLine(s);
     lines_.push_back(std::move(s));
     // Add all useful identifiers in this line to the appropriate list.
