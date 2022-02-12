@@ -96,7 +96,7 @@ void TreePanel::UIChar(int ch) {
   case 'u': {
     int current_depth = data_[line_idx_]->Depth();
     if (current_depth != 0 && line_idx_ != 0) {
-      while (data_[line_idx_]->Depth() >= current_depth) {
+      while (data_[line_idx_]->Depth() >= current_depth && line_idx_ > 0) {
         line_idx_--;
       }
       if (line_idx_ - scroll_row_ < 0) {

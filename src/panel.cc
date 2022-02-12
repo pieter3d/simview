@@ -95,7 +95,7 @@ bool Panel::ReceiveText(const std::string &s, bool preview) {
     }
     return found;
   } else {
-    if (search_text_.empty()) {
+    if (search_text_.empty() && search_orig_col_idx_ >= 0) {
       SetLineAndScroll(search_orig_line_idx_);
       col_idx_ = search_orig_col_idx_;
     }
@@ -120,9 +120,9 @@ void Panel::SetLineAndScroll(int l) {
   } else if (lines_remaining < 2 * win_h / 3) {
     // If there are aren't many lines after the current location, scroll as
     // far up as possible.
-    scroll_row_ = NumLines() - win_h;
+    scroll_row_ = std::max(0, NumLines() - win_h);
   } else {
-    scroll_row_ = line_idx_ - win_h / 3;
+    scroll_row_ = std::max(0, line_idx_ - win_h / 3);
   }
 }
 
