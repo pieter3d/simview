@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "workspace.h"
 #include <cstring>
+#include <iostream>
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {

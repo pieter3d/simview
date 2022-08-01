@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wave_data.h"
-#include <surelog/surelog.h>
+#include <Surelog/surelog.h>
 #include <uhdm/design.h>
 #include <unordered_map>
 #include <vector>

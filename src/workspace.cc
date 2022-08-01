@@ -3,9 +3,9 @@
 #include "utils.h"
 
 #include <algorithm>
+#include <iostream>
 #include <stack>
 #include <stdexcept>
-#include <surelog/surelog.h>
 #include <uhdm/ElaboratorListener.h>
 #include <uhdm/array_net.h>
 #include <uhdm/array_var.h>
@@ -100,7 +100,7 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
     return false;
   }
 
-  for (auto id : clp.getIncludePaths()) {
+  for (const auto &id : clp.getIncludePaths()) {
     AddIncludeDir(symbol_table_.getSymbol(id));
   }
 
