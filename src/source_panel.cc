@@ -428,7 +428,7 @@ void SourcePanel::UIChar(int ch) {
     // Go to the next highlightable thing.
     int param_pos = -1;
     int identifier_pos = -1;
-    // Look for naviable items
+    // Look for navigable items
     if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
       for (auto &item : nav_by_line_[line_idx_]) {
         if (item.first > col_idx_) {
