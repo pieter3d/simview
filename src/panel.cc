@@ -36,8 +36,13 @@ void Panel::UIChar(int ch) {
     break;
   case 0x15:    // Ctrl-U
   case 0x153: { // PgUp
-    if (scroll_row_ == 0) break;
-    scroll_row_ -= std::min(scroll_row_, max_h - 2);
+    if (scroll_row_ == 0) {
+      // Back to the top if there's nowhere left to scroll up.
+      line_idx_ = 0;
+      break;
+    }
+    const int scroll_decrement = std::min(scroll_row_, max_h - 2);
+    scroll_row_ -= scroll_decrement;
     if (line_idx_ - scroll_row_ >= max_h) {
       line_idx_ = scroll_row_ + max_h - 2;
     }
@@ -46,9 +51,15 @@ void Panel::UIChar(int ch) {
   case 0x4:     // Ctrl-D
   case 0x152: { // PgDn
     if (NumLines() <= max_h) break;
-    scroll_row_ += std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
+    const int scroll_increment =
+        std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
+    scroll_row_ += scroll_increment;
     if (line_idx_ - scroll_row_ < 0) {
       line_idx_ = scroll_row_ + 1;
+    }
+    // Move the selected to the end if there's nowhere left to scroll down.
+    if (scroll_increment == 0) {
+      line_idx_ = NumLines() - 1;
     }
     break;
   }
