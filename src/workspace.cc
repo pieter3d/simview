@@ -2,6 +2,7 @@
 #include "uhdm_utils.h"
 #include "utils.h"
 
+#include <Surelog/Common/FileSystem.h>
 #include <algorithm>
 #include <iostream>
 #include <stack>
@@ -100,8 +101,10 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
     return false;
   }
 
+
+  SURELOG::FileSystem *fs = SURELOG::FileSystem::getInstance();
   for (const auto &id : clp.getIncludePaths()) {
-    AddIncludeDir(symbol_table_.getSymbol(id));
+    AddIncludeDir(fs->toPath(id));
   }
 
   return true;

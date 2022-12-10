@@ -28,7 +28,7 @@ class Workspace {
   const UHDM::module *GetDefinition(const UHDM::module *m);
   uint64_t &WaveCursorTime() { return wave_cursor_time_; }
 
-  void AddIncludeDir(const std::string &d) { include_paths_.push_back(d); }
+  void AddIncludeDir(std::string_view d) { include_paths_.push_back(d); }
   const auto &IncludeDirs() const { return include_paths_; }
   const WaveData *Waves() const { return wave_data_.get(); }
   // Non-const version allows for reload.
@@ -56,7 +56,7 @@ class Workspace {
   UHDM::design *design_ = nullptr;
   SURELOG::SymbolTable symbol_table_;
   SURELOG::scompiler *compiler_ = nullptr;
-  std::vector<std::string> include_paths_;
+  std::vector<std::string_view> include_paths_;
   std::unique_ptr<WaveData> wave_data_;
   const WaveData::SignalScope *matched_signal_scope_ = nullptr;
   const UHDM::any *matched_design_scope_ = nullptr;
