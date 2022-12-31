@@ -5,6 +5,24 @@
 #include <stdexcept>
 
 namespace sv {
+namespace {
+
+std::string ParseSignalLsb(const std::string &s, int *lsb) {
+  auto range_pos = s.find_last_of('[');
+  auto colon_pos = s.find_last_of(':');
+  if (range_pos != std::string::npos && colon_pos != std::string::npos &&
+      range_pos < colon_pos) {
+    *lsb = std::stoi(s.substr(colon_pos + 1));
+    while (range_pos > 0 && s[range_pos - 1] == ' ') {
+      range_pos--;
+    }
+    return s.substr(0, range_pos + 1);
+  } else {
+    return s;
+  }
+}
+
+} // namespace
 
 FstWaveData::FstWaveData(const std::string &file_name) : WaveData(file_name) {
   reader_ = fstReaderOpen(file_name.c_str());
@@ -48,7 +66,7 @@ void FstWaveData::ReadScopes() {
       auto &signal = stack.top()->signals.back();
       signal.id = h->u.var.handle;
       signal.width = h->u.var.length;
-      signal.name = name;
+      signal.name = ParseSignalLsb(name, &signal.lsb);
       printf("signal: %s\n", name.c_str());
       switch (h->u.var.direction) {
       case FST_VD_IMPLICIT: signal.direction = Signal::kInternal; break;

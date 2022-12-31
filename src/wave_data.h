@@ -34,8 +34,8 @@ class WaveData {
       kParameter,
     } type = Type::kNet;
     std::string name;
-    uint32_t width;
-    uint32_t lsb = 0;
+    int width;
+    int lsb = 0;
     // Set if the signal name string already contains the [msb:lsb] suffix.
     bool has_suffix = false;
     // General purpose identifier. May need to revisit the type since the
