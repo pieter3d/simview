@@ -3,7 +3,6 @@
 #include <limits>
 #include <stack>
 #include <stdexcept>
-#include <unordered_map>
 
 namespace sv {
 
@@ -50,6 +49,7 @@ void FstWaveData::ReadScopes() {
       signal.id = h->u.var.handle;
       signal.width = h->u.var.length;
       signal.name = name;
+      printf("signal: %s\n", name.c_str());
       switch (h->u.var.direction) {
       case FST_VD_IMPLICIT: signal.direction = Signal::kInternal; break;
       case FST_VD_INOUT: signal.direction = Signal::kInout; break;

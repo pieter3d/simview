@@ -16,7 +16,7 @@
 #include <uhdm/function.h>
 #include <uhdm/gen_scope.h>
 #include <uhdm/gen_scope_array.h>
-#include <uhdm/module.h>
+#include <uhdm/module_inst.h>
 #include <uhdm/net.h>
 #include <uhdm/param_assign.h>
 #include <uhdm/parameter.h>
@@ -50,7 +50,7 @@ void SourcePanel::BuildHeader() {
   if (scope_ == nullptr) return;
   std::string type;
   switch (scope_->VpiType()) {
-  case vpiModule: {
+  case vpiModuleInst: {
     auto s = dynamic_cast<const UHDM::scope *>(scope_);
     type = s->VpiFullName();
     break;
@@ -170,7 +170,7 @@ void SourcePanel::Draw() {
             col_idx_ < (identifiers[id_idx].first + id.size()) &&
             !(search_preview_ && search_start_col_ < 0);
         if (nav_.find(id) != nav_.end()) {
-          if (nav_[id]->VpiType() == vpiModule ||
+          if (nav_[id]->VpiType() == vpiModuleInst ||
               nav_[id]->VpiType() == vpiTask ||
               nav_[id]->VpiType() == vpiFunction) {
             SetColor(w_, kSourceInstancePair);
@@ -360,7 +360,7 @@ void SourcePanel::UIChar(int ch) {
     // Go to definition of a module instance.
     if (sel_ != nullptr) {
       // For modules, load the definition.
-      if (sel_->VpiType() == vpiModule) {
+      if (sel_->VpiType() == vpiModuleInst) {
         item_for_design_tree_ = GetScopeForUI(sel_);
         SetItem(sel_, true);
       } else {
@@ -584,8 +584,8 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
   std::function<void(const UHDM::any *)> find_navigable_items =
       [&](const UHDM::any *item) {
         switch (item->VpiType()) {
-        case vpiModule: {
-          auto m = dynamic_cast<const UHDM::module *>(item);
+        case vpiModuleInst: {
+          auto m = dynamic_cast<const UHDM::module_inst *>(item);
           if (m->Variables() != nullptr) {
             for (auto &v : *m->Variables()) {
               nav_[v->VpiName()] = v;
@@ -681,8 +681,8 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
       };
   // Avoid trying to load a definition if it's not available.
   bool definition_available = true;
-  if (item->VpiType() == vpiModule && show_def) {
-    auto m = dynamic_cast<const UHDM::module *>(item);
+  if (item->VpiType() == vpiModuleInst && show_def) {
+    auto m = dynamic_cast<const UHDM::module_inst *>(item);
     definition_available = Workspace::Get().GetDefinition(m) != nullptr;
     if (!definition_available) {
       error_message_ = absl::StrFormat("Definition of %s is not available.",
@@ -692,9 +692,9 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
   // Top modules are always treated as a definition load since there is nothing
   // they are instanced in.
   int line_num = 1;
-  if (item->VpiType() == vpiModule &&
+  if (item->VpiType() == vpiModuleInst &&
       ((show_def && definition_available) || item->VpiParent() == nullptr)) {
-    auto m = dynamic_cast<const UHDM::module *>(item);
+    auto m = dynamic_cast<const UHDM::module_inst *>(item);
     // VpiDefFile isn't super useful here, still need the definition to get
     // the start and end line number.
     auto def = Workspace::Get().GetDefinition(m);
@@ -716,11 +716,11 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
       item = item->VpiParent();
       if (item == nullptr) break;
       find_navigable_items(item);
-      if (item->VpiType() == vpiModule) break;
+      if (item->VpiType() == vpiModuleInst) break;
     }
     if (item != nullptr) {
       auto def = Workspace::Get().GetDefinition(
-          dynamic_cast<const UHDM::module *>(item));
+          dynamic_cast<const UHDM::module_inst *>(item));
       start_line_ = def->VpiLineNo();
       end_line_ = def->VpiEndLineNo();
     }

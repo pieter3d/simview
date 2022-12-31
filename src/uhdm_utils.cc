@@ -11,7 +11,7 @@
 #include <uhdm/gen_scope_array.h>
 #include <uhdm/if_else.h>
 #include <uhdm/if_stmt.h>
-#include <uhdm/module.h>
+#include <uhdm/module_inst.h>
 #include <uhdm/named_begin.h>
 #include <uhdm/operation.h>
 #include <uhdm/part_select.h>
@@ -72,8 +72,8 @@ void RecurseFindItem(const UHDM::any *haystack, const UHDM::any *needle,
                      bool drivers, std::vector<const UHDM::any *> *list) {
   if (haystack == nullptr) return;
   auto type = haystack->VpiType();
-  if (type == vpiModule) {
-    auto m = dynamic_cast<const UHDM::module *>(haystack);
+  if (type == vpiModuleInst) {
+    auto m = dynamic_cast<const UHDM::module_inst *>(haystack);
     FindInContainer(m, needle, drivers, list);
   } else if (type == vpiGenScopeArray) {
     auto ga = dynamic_cast<const UHDM::gen_scope_array *>(haystack);
@@ -196,10 +196,10 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
   }
 }
 
-const UHDM::module *GetContainingModule(const UHDM::any *item) {
+const UHDM::module_inst *GetContainingModule(const UHDM::any *item) {
   bool keep_going = false;
   do {
-    if (keep_going && item->VpiType() == vpiModule) {
+    if (keep_going && item->VpiType() == vpiModuleInst) {
       keep_going = false;
     }
     auto prev_item = item;
@@ -213,12 +213,12 @@ const UHDM::module *GetContainingModule(const UHDM::any *item) {
         keep_going = true;
       }
     }
-  } while (!(item == nullptr || (item->VpiType() == vpiModule && !keep_going)));
-  return dynamic_cast<const UHDM::module *>(item);
+  } while (!(item == nullptr || (item->VpiType() == vpiModuleInst && !keep_going)));
+  return dynamic_cast<const UHDM::module_inst *>(item);
 }
 
 const UHDM::any *GetScopeForUI(const UHDM::any *item) {
-  while (!(item == nullptr || item->VpiType() == vpiModule ||
+  while (!(item == nullptr || item->VpiType() == vpiModuleInst ||
            item->VpiType() == vpiGenScopeArray)) {
     item = item->VpiParent();
   }

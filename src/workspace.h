@@ -1,9 +1,10 @@
 #pragma once
 
+#include "absl/container/flat_hash_map.h"
 #include "wave_data.h"
 #include <Surelog/surelog.h>
 #include <uhdm/design.h>
-#include <unordered_map>
+#include <uhdm/module_inst.h>
 #include <vector>
 
 namespace sv {
@@ -25,7 +26,7 @@ class Workspace {
   bool ReadWaves(const std::string &wave_file);
   const UHDM::design *Design() const { return design_; }
   // Find the definition of the module that contains the given item.
-  const UHDM::module *GetDefinition(const UHDM::module *m);
+  const UHDM::module_inst *GetDefinition(const UHDM::module_inst *m);
   uint64_t &WaveCursorTime() { return wave_cursor_time_; }
 
   void AddIncludeDir(std::string_view d) { include_paths_.push_back(d); }
@@ -52,7 +53,7 @@ class Workspace {
   // Track all definitions of any given module instance.
   // This serves as a cache to avoid iterating over the
   // design's list of all module definitions.
-  std::unordered_map<std::string, const UHDM::module *> module_defs_;
+  absl::flat_hash_map<std::string, const UHDM::module_inst *> module_defs_;
   UHDM::design *design_ = nullptr;
   SURELOG::SymbolTable symbol_table_;
   SURELOG::scompiler *compiler_ = nullptr;

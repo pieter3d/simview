@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uhdm/module.h>
+#include <uhdm/module_inst.h>
 #include <uhdm/uhdm_types.h>
 
 namespace sv {
@@ -18,7 +18,7 @@ void GetDriversOrLoads(const UHDM::any *item, bool drivers,
 
 // Find the containg module of any item, moving up through generate blocks if
 // necessary.
-const UHDM::module *GetContainingModule(const UHDM::any *item);
+const UHDM::module_inst *GetContainingModule(const UHDM::any *item);
 
 // Find the containing scope (module or genblock) of any item.
 const UHDM::any *GetScopeForUI(const UHDM::any *item);

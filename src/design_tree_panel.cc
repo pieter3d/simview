@@ -3,7 +3,7 @@
 #include "utils.h"
 #include "workspace.h"
 #include <memory>
-#include <uhdm/module.h>
+#include <uhdm/module_inst.h>
 
 namespace sv {
 
@@ -18,8 +18,8 @@ DesignTreePanel::DesignTreePanel() {
       roots_.begin(), roots_.end(),
       [](const std::unique_ptr<DesignTreeItem> &a,
          const std::unique_ptr<DesignTreeItem> &b) {
-        auto ma = dynamic_cast<const UHDM::module *>(a->DesignItem());
-        auto mb = dynamic_cast<const UHDM::module *>(b->DesignItem());
+        auto ma = dynamic_cast<const UHDM::module_inst *>(a->DesignItem());
+        auto mb = dynamic_cast<const UHDM::module_inst *>(b->DesignItem());
         bool a_has_subs = ma->Modules() != nullptr || ma->Gen_scope_arrays();
         bool b_has_subs = mb->Modules() != nullptr || mb->Gen_scope_arrays();
         if (a_has_subs == b_has_subs) {
@@ -76,8 +76,8 @@ void DesignTreePanel::UIChar(int ch) {
     // Make sure the definition exits.
     auto *item =
         dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem();
-    if (item->VpiType() == vpiModule) {
-      auto *m = dynamic_cast<const UHDM::module *>(item);
+    if (item->VpiType() == vpiModuleInst) {
+      auto *m = dynamic_cast<const UHDM::module_inst *>(item);
       if (Workspace::Get().GetDefinition(m) == nullptr) {
         // If not, do nothing.
         error_message_ = absl::StrFormat("Definition of %s is not available.",

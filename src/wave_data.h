@@ -1,9 +1,9 @@
 #pragma once
 
+#include "absl/container/flat_hash_map.h"
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace sv {
@@ -102,7 +102,7 @@ class WaveData {
   // This is marked mutable so that classes that hold a const reference or
   // pointer to this WaveData object can index the map (which is a non-const
   // operation since it may create new empty vectors for new IDs).
-  mutable std::unordered_map<uint32_t, std::vector<Sample>> waves_;
+  mutable absl::flat_hash_map<uint32_t, std::vector<Sample>> waves_;
   // Signals owned from here.
   std::vector<SignalScope> roots_;
   // File name saved for convenience, for reloads etc.

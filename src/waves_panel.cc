@@ -1,5 +1,6 @@
 #include "waves_panel.h"
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
@@ -13,7 +14,6 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
-#include <unordered_map>
 #include <vector>
 
 namespace sv {
@@ -1207,7 +1207,7 @@ bool WavesPanel::Search(bool search_down) {
 void WavesPanel::ReloadWaves() {
   // After the wave file is reloaded, the signal pointers are no longer valid.
   // Save the signal hierarchical paths so they can be re-discovered.
-  std::unordered_map<int, std::string> signal_paths;
+  absl::flat_hash_map<int, std::string> signal_paths;
   for (int i = 0; i < items_.size(); ++i) {
     if (items_[i].signal != nullptr) {
       signal_paths[i] = WaveData::SignalToPath(items_[i].signal);

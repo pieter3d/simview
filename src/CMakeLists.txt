@@ -10,6 +10,7 @@ find_package(Threads REQUIRED)
 find_package(Surelog REQUIRED)
 
 add_library(simple_tokenizer simple_tokenizer.cc)
+target_link_libraries(simple_tokenizer PUBLIC absl::flat_hash_map)
 simview_add_test(simple_tokenizer_test simple_tokenizer_test.cc)
 target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
 
@@ -43,6 +44,7 @@ target_link_libraries(simview PRIVATE
   simple_tokenizer
   absl::str_format
   absl::time
+  absl::flat_hash_map
   fst
   surelog
   ${CURSES_LIBRARIES}

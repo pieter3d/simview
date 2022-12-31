@@ -12,7 +12,7 @@
 #include <uhdm/array_var.h>
 #include <uhdm/gen_scope.h>
 #include <uhdm/gen_scope_array.h>
-#include <uhdm/module.h>
+#include <uhdm/module_inst.h>
 #include <uhdm/net.h>
 #include <uhdm/variables.h>
 #include <uhdm/vpi_uhdm.h>
@@ -22,8 +22,8 @@ namespace sv {
 namespace {
 
 // Helper match, since the design names have a "work@" prefix.
-bool ScopeMatch(const std::string &design_scope,
-                const std::string &signal_scope) {
+bool ScopeMatch(std::string_view design_scope,
+                std::string_view signal_scope) {
   auto pos = design_scope.find(signal_scope);
   if (pos == std::string::npos) return false;
   if (design_scope.size() == signal_scope.size() || pos == 0) return true;
@@ -32,10 +32,10 @@ bool ScopeMatch(const std::string &design_scope,
 
 } // namespace
 
-const UHDM::module *Workspace::GetDefinition(const UHDM::module *m) {
+const UHDM::module_inst *Workspace::GetDefinition(const UHDM::module_inst *m) {
   // Top modules don't have a separate definition.
   if (m->VpiTopModule()) return m;
-  const std::string &def_name = m->VpiDefName();
+  std::string_view def_name = m->VpiDefName();
   if (module_defs_.find(def_name) == module_defs_.end()) {
     // Find the module definition in the UHDB.
     for (auto &candidate_module : *design_->AllModules()) {
@@ -159,7 +159,7 @@ void Workspace::TryMatchDesignWithWaves() {
   // matching signals.
   int max_common = 0;
   for (const auto *design_scope : design_scopes) {
-    const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
+    const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
     for (const auto *signal_scope : signal_scopes) {
       if (signal_scope->signals.empty()) continue;
       int num_common_signals = 0;
@@ -264,8 +264,8 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
     [&] {
       if (ScopeMatch(design_scope->VpiName(), signal_scope->name)) {
         return;
-      } else if (design_scope->VpiType() == vpiModule) {
-        const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
+      } else if (design_scope->VpiType() == vpiModuleInst) {
+        const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
         if (m->Modules() != nullptr) {
           for (const auto *sub : *m->Modules()) {
             if (ScopeMatch(sub->VpiName(), signal_scope->name)) {
@@ -316,16 +316,16 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   if (design_scope == nullptr) return nullptr;
   // Helper to match without [n] suffix, since the design does not contain
   // unrolled net arrays.
-  auto array_match = [](const std::string &val,
-                        const std::string &val_with_suffix) {
+  auto array_match = [](std::string_view val,
+                        std::string_view val_with_suffix) {
     const auto pos = val_with_suffix.find(val);
     if (pos == std::string::npos) return false;
     if (val.size() == val_with_suffix.size()) return true;
     return val_with_suffix[val.size()] == '[';
   };
   // Look for nets, variables.
-  if (design_scope->VpiType() == vpiModule) {
-    const auto *m = dynamic_cast<const UHDM::module *>(design_scope);
+  if (design_scope->VpiType() == vpiModuleInst) {
+    const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
     if (m->Nets() != nullptr) {
       for (const auto *n : *m->Nets()) {
         if (n->VpiName() == signal->name) return n;

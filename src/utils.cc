@@ -6,10 +6,11 @@
 
 namespace sv {
 
-std::string StripWorklib(const std::string &s) {
+std::string StripWorklib(std::string_view s) {
+  std::string lib(s);
   const int lib_delimieter_pos = s.find('@');
-  if (lib_delimieter_pos == std::string::npos) return s;
-  return s.substr(lib_delimieter_pos + 1);
+  if (lib_delimieter_pos == std::string::npos) return lib;
+  return lib.substr(lib_delimieter_pos + 1);
 }
 
 int NumDecimalDigits(int n) {

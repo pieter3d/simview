@@ -7,7 +7,7 @@
 namespace sv {
 
 // Removes the work@ prefix from a string.
-std::string StripWorklib(const std::string &s);
+std::string StripWorklib(std::string_view s);
 
 // Number of actual digits needed to represent the given value.
 int NumDecimalDigits(int n);

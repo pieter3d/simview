@@ -1,10 +1,10 @@
 #pragma once
 
+#include "absl/container/flat_hash_map.h"
 #include "vcd_tokenizer.h"
 #include "wave_data.h"
 #include <map>
 #include <stack>
-#include <unordered_map>
 
 namespace sv {
 
@@ -30,7 +30,7 @@ class VcdWaveData : public WaveData {
   void ParseSimCommands();
 
   // Identifier codes vs IDs
-  std::unordered_map<std::string, uint32_t> signal_id_by_code_;
+  absl::flat_hash_map<std::string, uint32_t> signal_id_by_code_;
   std::pair<uint64_t, uint64_t> time_range_ = {0, 0};
   int time_units_;
   VcdTokenizer tokenizer_;

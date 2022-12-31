@@ -1,5 +1,6 @@
 #pragma once
 
+#include "absl/container/flat_hash_map.h"
 #include "panel.h"
 #include "simple_tokenizer.h"
 #include "workspace.h"
@@ -70,12 +71,12 @@ class SourcePanel : public Panel {
   // These are stored in a hash by identifier so they can be appropriately
   // syntax-highlighted. Also stored by line to allow for fast lookup under the
   // cursor.
-  std::unordered_map<std::string, const UHDM::any *> nav_;
-  std::unordered_map<int, std::vector<std::pair<int, const UHDM::any *>>>
+  absl::flat_hash_map<std::string, const UHDM::any *> nav_;
+  absl::flat_hash_map<int, std::vector<std::pair<int, const UHDM::any *>>>
       nav_by_line_;
   // Map of all textual parameters and their definitions.
-  std::unordered_map<std::string, std::string> params_;
-  std::unordered_map<int, std::vector<std::pair<int, std::string>>>
+  absl::flat_hash_map<std::string, std::string> params_;
+  absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>>
       params_by_line_;
   // Tokenizer that holds identifiers and keywords for each line. This
   // simplifies syntax highlighting for keywords and comments.
