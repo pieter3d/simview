@@ -3,6 +3,7 @@ set(CMAKE_CXX_FLAGS "-Werror \
                      -Wall \
                      -Wextra \
                      -Wno-sign-compare \
+                     -Wno-maybe-uninitialized \
                      -Wno-unused-parameter")
 
 find_package(Curses REQUIRED)
