@@ -336,6 +336,8 @@ void UI::EventLoop() {
 
 void UI::DrawHelp(int panel_idx) const {
   WINDOW *w = panels_[panel_idx]->Window();
+  // Clear old stuff in the window, it can show if the terminal is resized.
+  werase(w);
   // Find the widest signal.
   size_t widest_key = 0;
   size_t widest_description = 0;

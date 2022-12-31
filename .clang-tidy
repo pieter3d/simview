@@ -35,6 +35,7 @@ Checks: >
   -bugprone-narrowing-conversions,
   -bugprone-string-integer-assignment,
   -bugprone-parent-virtual-call,
+  -bugprone-easily-swappable-parameters,
   modernize-use-override,
   misc-*,
   -misc-non-private-member-variables-in-classes,
