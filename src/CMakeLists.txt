@@ -3,12 +3,13 @@ set(CMAKE_CXX_FLAGS "-Werror \
                      -Wall \
                      -Wextra \
                      -Wno-sign-compare \
-                     -Wno-maybe-uninitialized \
                      -Wno-unused-parameter")
 
 find_package(Curses REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Surelog REQUIRED)
+find_package(UHDM REQUIRED)
+find_package(CapnProto)  # Optional for UHDM depending on how it was built
 
 add_library(simple_tokenizer simple_tokenizer.cc)
 target_link_libraries(simple_tokenizer PUBLIC absl::flat_hash_map)
@@ -40,14 +41,15 @@ add_executable(simview
   waves_panel.cc
   workspace.cc
 )
-target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
+target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR} ${UHDM_INCLUDE_DIR} ${SURELOG_INCLUDE_DIR})
 target_link_libraries(simview PRIVATE
   simple_tokenizer
   absl::str_format
   absl::time
   absl::flat_hash_map
   fst
-  surelog
+  surelog::surelog
+  uhdm::uhdm
   ${CURSES_LIBRARIES}
 )
 set_target_properties(simview PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

@@ -121,7 +121,7 @@ void WavesPanel::GoToTime(uint64_t time, bool *time_changed,
     // keep the time difference between left and right the same.
     if (cursor_time_ > right_time_) {
       right_time_ = cursor_time_;
-      left_time_ = std::max(0ul, right_time_ - current_time_span);
+      left_time_ = std::max<uint64_t>(0ul, right_time_ - current_time_span);
       *range_changed = true;
     } else if (cursor_time_ < left_time_) {
       left_time_ = cursor_time_;
