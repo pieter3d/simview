@@ -10,6 +10,7 @@ find_package(Threads REQUIRED)
 find_package(Surelog REQUIRED)
 find_package(UHDM REQUIRED)
 find_package(CapnProto)  # Optional for UHDM depending on how it was built
+find_package(ZLIB REQUIRED)  # needed for fst and optionally used by surelog
 
 add_library(simple_tokenizer simple_tokenizer.cc)
 target_link_libraries(simple_tokenizer PUBLIC absl::flat_hash_map)
