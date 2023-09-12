@@ -264,7 +264,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
     [&] {
       if (ScopeMatch(design_scope->VpiName(), signal_scope->name)) {
         return;
-      } else if (design_scope->VpiType() == vpiModuleInst) {
+      } else if (design_scope->VpiType() == vpiModule) {
         const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
         if (m->Modules() != nullptr) {
           for (const auto *sub : *m->Modules()) {
@@ -324,7 +324,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
     return val_with_suffix[val.size()] == '[';
   };
   // Look for nets, variables.
-  if (design_scope->VpiType() == vpiModuleInst) {
+  if (design_scope->VpiType() == vpiModule) {
     const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
     if (m->Nets() != nullptr) {
       for (const auto *n : *m->Nets()) {

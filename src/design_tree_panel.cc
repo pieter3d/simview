@@ -76,7 +76,7 @@ void DesignTreePanel::UIChar(int ch) {
     // Make sure the definition exits.
     auto *item =
         dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem();
-    if (item->VpiType() == vpiModuleInst) {
+    if (item->VpiType() == vpiModule) {
       auto *m = dynamic_cast<const UHDM::module_inst *>(item);
       if (Workspace::Get().GetDefinition(m) == nullptr) {
         // If not, do nothing.

@@ -18,7 +18,7 @@ DesignTreeItem::DesignTreeItem(UHDM::any *item) : item_(item) {
     type_ = "[function]";
   } else if (item_->VpiType() == vpiTask) {
     type_ = "[task]";
-  } else if (item_->VpiType() != vpiModuleInst) {
+  } else if (item_->VpiType() != vpiModule) {
     type_ = absl::StrFormat("[%d]", item_->VpiType());
   } else {
     if (ErrType()) {
@@ -29,7 +29,7 @@ DesignTreeItem::DesignTreeItem(UHDM::any *item) : item_(item) {
   }
 }
 
-bool DesignTreeItem::AltType() const { return item_->VpiType() != vpiModuleInst; }
+bool DesignTreeItem::AltType() const { return item_->VpiType() != vpiModule; }
 
 bool DesignTreeItem::ErrType() const {
   // If there's no compiled variant available, Surelog uses :: to place it in
@@ -53,7 +53,7 @@ TreeItem *DesignTreeItem::Child(int idx) {
 }
 
 void DesignTreeItem::BuildChildren() const {
-  if (item_->VpiType() == vpiModuleInst) {
+  if (item_->VpiType() == vpiModule) {
     auto m = dynamic_cast<const UHDM::module_inst *>(item_);
     if (m->Modules() != nullptr) {
       for (auto &sub : *m->Modules()) {

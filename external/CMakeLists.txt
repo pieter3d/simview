@@ -14,7 +14,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 # Abseil can trigger this warning at current version.
-set(CMAKE_CXX_FLAGS  "-Wno-maybe-uninitialized")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 
 # Add all expected submodules.
 set(ABSL_PROPAGATE_CXX_STD ON)
