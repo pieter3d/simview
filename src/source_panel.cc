@@ -385,7 +385,11 @@ void SourcePanel::UIChar(int ch) {
       SetLocation(drivers_or_loads_[trace_idx_]);
     }
     break;
-  case 'v': show_vals_ = !show_vals_; break;
+  case 'v':
+    show_vals_ = !show_vals_;
+    // The flag state is reflected in the tooltips.
+    tooltips_changed_ = true;
+    break;
   case 'b':
   case 'f': {
     // Helper function to restore a state.
@@ -839,7 +843,8 @@ std::vector<Tooltip> SourcePanel::Tooltips() const {
   tt.push_back({"f", "forward"});
   tt.push_back(
       {"v",
-       "" + (show_vals_ ? std::string("SHOW/hide") : "show/HIDE") + " vals"});
+       "" + (show_vals_ ? std::string("SHOW/hide") : std::string("show/HIDE")) +
+           " vals"});
   return tt;
 }
 

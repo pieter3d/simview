@@ -34,6 +34,7 @@ class Panel : public TextReceiver {
   WINDOW *Window() const { return w_; }
   // Optional actions to take when the panel is resized, besides redraw.
   virtual void Resized();
+  bool TooltipsChanged();
   bool ReceiveText(const std::string &s, bool preview) override;
   // Returns true if search_text_ is found in this panel. Searching must start
   // from the the current line_idx_ and search_start_col_ should be set
@@ -56,6 +57,7 @@ class Panel : public TextReceiver {
   int col_idx_ = 0;
   int scroll_row_ = 0;
   bool has_focus_ = false;
+  bool tooltips_changed_ = false;
   // Search state
   bool search_preview_ = false;
   std::string search_text_;

@@ -134,6 +134,12 @@ void Panel::SetLineAndScroll(int l) {
   }
 }
 
+bool Panel::TooltipsChanged() {
+  bool b = tooltips_changed_;
+  tooltips_changed_ = false;
+  return b;
+}
+
 std::string Panel::Error() const {
   std::string error = error_message_;
   error_message_.clear();

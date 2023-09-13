@@ -286,7 +286,10 @@ void UI::EventLoop() {
         case '?':
           if (tooltips_to_show < tooltips_.size()) draw_tooltips_ = true;
           break;
-        default: focused_panel->UIChar(ch); break;
+        default:
+          focused_panel->UIChar(ch);
+          if (focused_panel->TooltipsChanged()) UpdateTooltips();
+          break;
         }
       }
       // Look for transfers between panels
