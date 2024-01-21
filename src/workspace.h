@@ -2,6 +2,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "wave_data.h"
+#include <cstdint>
 #include <Surelog/surelog.h>
 #include <uhdm/design.h>
 #include <uhdm/module_inst.h>
