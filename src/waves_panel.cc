@@ -144,8 +144,14 @@ void WavesPanel::FindEdge(bool forward, bool *time_changed,
       cursor_time_, visible_items_[line_idx_]->signal);
   if (forward) {
     // No more data left.
-    if (sample_idx == wave.size() - 1) return;
-    GoToTime(wave[sample_idx + 1].time, time_changed, range_changed);
+    const uint64_t current_time = wave[sample_idx].time;
+    int new_sample_idx = sample_idx + 1;
+    while (new_sample_idx < wave.size() &&
+           wave[new_sample_idx].time == current_time) {
+      new_sample_idx++;
+    }
+    if (new_sample_idx >= wave.size()) return;
+    GoToTime(wave[new_sample_idx].time, time_changed, range_changed);
   } else {
     // If on the edge, go the sample prior, if possible.
     if (wave[sample_idx].time == cursor_time_) {

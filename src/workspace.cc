@@ -72,11 +72,7 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   design = SURELOG::get_uhdm_design(compiler_);
   for (auto &err : errors.getErrors()) {
     auto [msg, fatal, filtered] = errors.createErrorMessage(err);
-    // Surelog seems to like including newlines in the error messages.
-    msg.erase(std::find_if(msg.rbegin(), msg.rend(),
-                           [](unsigned char ch) { return !std::isspace(ch); })
-                  .base(),
-              msg.end());
+    if (msg.empty()) continue;
     // It's complicated to find an error's severity...
     auto map = SURELOG::ErrorDefinition::getErrorInfoMap();
     auto err_info_it = map.find(err.getType());
@@ -203,8 +199,8 @@ Workspace::DesignToSignals(const UHDM::any *item) const {
   while (parent != nullptr) {
     // Drop out any genscopes, there's always a genscope_array above it.
     if (parent->VpiType() == vpiGenScope) parent = parent->VpiParent();
-    stack.push(parent);
     if (parent == matched_design_scope_) break;
+    stack.push(parent);
     parent = parent->VpiParent();
   }
 
@@ -250,8 +246,8 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   std::stack<const WaveData::SignalScope *> stack;
   const auto *scope = signal->scope;
   while (scope != nullptr) {
-    stack.push(scope);
     if (scope == matched_signal_scope_) break;
+    stack.push(scope);
     scope = scope->parent;
   }
   // Traverse the stack down the design tree hierarcy.
