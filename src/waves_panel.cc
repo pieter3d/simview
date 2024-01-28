@@ -8,12 +8,8 @@
 #include "utils.h"
 #include "workspace.h"
 #include <algorithm>
-#include <exception>
 #include <fstream>
-#include <iterator>
-#include <memory>
 #include <optional>
-#include <stdexcept>
 #include <vector>
 
 namespace sv {

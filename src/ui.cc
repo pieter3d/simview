@@ -1,10 +1,9 @@
 #include "ui.h"
 
 #include "absl/strings/str_format.h"
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
 #include "color.h"
 #include "utils.h"
+#include "workspace.h"
 #include <ncurses.h>
 
 namespace sv {

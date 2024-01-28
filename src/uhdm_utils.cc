@@ -227,7 +227,9 @@ const UHDM::any *GetScopeForUI(const UHDM::any *item) {
 
 bool IsTraceable(const UHDM::any *item) {
   const int type = item->VpiType();
-  return type == vpiNet || type == vpiPort || type == vpiLogicVar ||
+  return type == vpiNet || type == vpiStructNet || type == vpiEnumNet ||
+         type == vpiIntegerNet || type == vpiTimeNet ||
+         type == vpiPackedArrayNet || type == vpiPort || type == vpiLogicVar ||
          type == vpiLongIntVar || type == vpiArrayVar || type == vpiArrayNet ||
          type == vpiShortIntVar || type == vpiIntVar ||
          type == vpiShortRealVar || type == vpiByteVar || type == vpiClassVar ||

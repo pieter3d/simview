@@ -3,7 +3,6 @@
 #include "utils.h"
 
 #include <Surelog/Common/FileSystem.h>
-#include <algorithm>
 #include <iostream>
 #include <stack>
 #include <stdexcept>
@@ -22,8 +21,7 @@ namespace sv {
 namespace {
 
 // Helper match, since the design names have a "work@" prefix.
-bool ScopeMatch(std::string_view design_scope,
-                std::string_view signal_scope) {
+bool ScopeMatch(std::string_view design_scope, std::string_view signal_scope) {
   auto pos = design_scope.find(signal_scope);
   if (pos == std::string::npos) return false;
   if (design_scope.size() == signal_scope.size() || pos == 0) return true;
@@ -63,7 +61,7 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   vpiHandle design = nullptr;
   if (!success || clp.help()) {
     if (!clp.help()) {
-      std::cout << "Problems parsing arguments." << std::endl;
+      std::cout << "Problems parsing arguments." << '\n';
     }
     return false;
   }
@@ -80,23 +78,22 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
     if (err_info_it == map.end() ||
         err_info_it->second.m_severity !=
             SURELOG::ErrorDefinition::ErrorSeverity::NOTE) {
-      std::cout << msg << std::endl;
+      std::cout << msg << '\n';
     }
   }
   auto stats = errors.getErrorStats();
   if (design == nullptr || /* stats.nbError > 0 i ||*/ stats.nbFatal > 0 ||
       stats.nbSyntax > 0) {
-    std::cout << "Unable to parse the design!" << std::endl;
+    std::cout << "Unable to parse the design!" << '\n';
     return false;
   }
   // Pretty ugly cast here, both reinterpret and const...
   design_ = (UHDM::design *)((uhdm_handle *)design)->object;
 
   if (design_->TopModules()->empty()) {
-    std::cout << "No top level design found!" << std::endl;
+    std::cout << "No top level design found!" << '\n';
     return false;
   }
-
 
   SURELOG::FileSystem *fs = SURELOG::FileSystem::getInstance();
   for (const auto &id : clp.getIncludePaths()) {
@@ -185,10 +182,12 @@ void Workspace::TryMatchDesignWithWaves() {
       }
     }
   }
+  ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }
 
 std::vector<const WaveData::Signal *>
 Workspace::DesignToSignals(const UHDM::any *item) const {
+  if (matched_signal_scope_ == nullptr) return {};
   std::vector<const WaveData::Signal *> signals;
   // Make sure it's actually something that would have ended up in a wave.
   if (!IsTraceable(item)) return signals;
@@ -241,6 +240,7 @@ Workspace::DesignToSignals(const UHDM::any *item) const {
 
 const UHDM::any *
 Workspace::SignalToDesign(const WaveData::Signal *signal) const {
+  if (matched_design_scope_ == nullptr) return nullptr;
   // Build a stack of all parents up to the root, or the matched signal scope,
   // whichever comes first.
   std::stack<const WaveData::SignalScope *> stack;
@@ -366,6 +366,16 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
     }
   }
   return nullptr;
+}
+
+void Workspace::SetMatchedDesignScope(const UHDM::any *s) {
+  matched_design_scope_ = s;
+  ApplyDesignData(matched_design_scope_, matched_signal_scope_);
+}
+
+void Workspace::SetMatchedSignalScope(const WaveData::SignalScope *s) {
+  matched_signal_scope_ = s;
+  ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }
 
 } // namespace sv

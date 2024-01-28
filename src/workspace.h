@@ -2,8 +2,8 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "wave_data.h"
-#include <cstdint>
 #include <Surelog/surelog.h>
+#include <cstdint>
 #include <uhdm/design.h>
 #include <uhdm/module_inst.h>
 #include <vector>
@@ -39,10 +39,8 @@ class Workspace {
   void TryMatchDesignWithWaves();
   auto MatchedDesignScope() const { return matched_design_scope_; }
   auto MatchedSignalScope() const { return matched_signal_scope_; }
-  void SetMatchedDesignScope(const UHDM::any *s) { matched_design_scope_ = s; }
-  void SetMatchedSignalScope(const WaveData::SignalScope *s) {
-    matched_signal_scope_ = s;
-  }
+  void SetMatchedDesignScope(const UHDM::any *s);
+  void SetMatchedSignalScope(const WaveData::SignalScope *s);
   std::vector<const WaveData::Signal *>
   DesignToSignals(const UHDM::any *item) const;
   const UHDM::any *SignalToDesign(const WaveData::Signal *signal) const;

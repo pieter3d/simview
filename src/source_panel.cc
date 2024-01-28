@@ -4,6 +4,8 @@
 #include "radix.h"
 #include "uhdm_utils.h"
 #include "utils.h"
+#include "workspace.h"
+
 #include <curses.h>
 #include <filesystem>
 #include <fstream>
@@ -164,7 +166,7 @@ void SourcePanel::Draw() {
       // Figure out if we have to switch to a new color
       if (active && !in_identifier && identifiers.size() > id_idx &&
           identifiers[id_idx].first == pos) {
-        auto id = identifiers[id_idx].second;
+        const auto &id = identifiers[id_idx].second;
         bool cursor_in_id =
             line_idx == line_idx_ && col_idx_ >= identifiers[id_idx].first &&
             col_idx_ < (identifiers[id_idx].first + id.size()) &&

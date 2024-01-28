@@ -1,6 +1,7 @@
 #pragma once
 
 #include "absl/container/flat_hash_map.h"
+#include <uhdm/design.h>
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,6 +20,12 @@ class WaveData {
     uint64_t time;
     std::string value;
   };
+  struct SignalStructMember {
+    std::string_view name;
+    std::vector<SignalStructMember> children;  // empty for normal nets.
+    int lsb;
+    int width;
+  };
   struct Signal {
     enum Direction {
       kUnknown,
@@ -32,6 +39,7 @@ class WaveData {
     enum Type {
       kNet,
       kParameter,
+      kStruct,
     } type = Type::kNet;
     std::string name;
     int width;
@@ -43,6 +51,8 @@ class WaveData {
     uint32_t id;
     // Containing scope, or parent.
     const SignalScope *scope = nullptr;
+    // Modified by design files.
+    mutable std::vector<SignalStructMember> struct_members;
     // This can be loaded / reloaded.
     mutable uint64_t valid_start_time = 0;
     mutable uint64_t valid_end_time = 0;
@@ -109,4 +119,7 @@ class WaveData {
   std::string file_name_;
 };
 
+// Use design data to find structs, enums etc.
+void ApplyDesignData(const UHDM::any *design_scope,
+                     const WaveData::SignalScope *signal_scope);
 } // namespace sv

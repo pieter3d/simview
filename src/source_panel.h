@@ -3,7 +3,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "panel.h"
 #include "simple_tokenizer.h"
-#include "workspace.h"
+
 #include <deque>
 #include <uhdm/uhdm_types.h>
 #include <vector>

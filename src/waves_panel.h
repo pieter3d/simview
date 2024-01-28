@@ -4,7 +4,6 @@
 #include "radix.h"
 #include "text_input.h"
 #include "wave_data.h"
-#include <memory>
 
 namespace sv {
 

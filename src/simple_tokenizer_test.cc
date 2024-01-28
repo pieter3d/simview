@@ -51,6 +51,9 @@ TEST(SimpleTokenizer, BasicIdentifiers) {
   EXPECT_EQ(tk.Identifiers(11).size(), 3);
   EXPECT_EQ(tk.Keywords(12).size(), 1);
   EXPECT_EQ(tk.Identifiers(12).size(), 0);
+  EXPECT_EQ(tk.Keywords(0).size(), 1);
+  EXPECT_EQ(tk.Keywords(0)[0].first, 0);
+  EXPECT_EQ(tk.Keywords(0)[0].second, 5);
 }
 
 } // namespace

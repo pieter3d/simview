@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < argc; ++i) {
     if (strcmp(argv[i], "-waves") == 0) {
       if (i == argc - 1) {
-        std::cout << "Missing wave file argument." << std::endl;
+        std::cout << "Missing wave file argument.\n";
         return -1;
       }
       // Skip over the wave file argument for the loop.
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   // Parse the design using the remaining command line arguments
   if (pruned_args.size() > 1) {
     // TODO: Run in parallel threads with wave parsing?
-    std::cout << "Parsing design files..." << std::endl;
+    std::cout << "Parsing design files...\n";
     if (!sv::Workspace::Get().ParseDesign(
             pruned_args.size(),
             const_cast<const char **>(pruned_args.data()))) {
@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (!wave_file.empty()) {
-    std::cout << "Reading wave file..." << std::endl;
+    std::cout << "Reading wave file...\n";
     if (!sv::Workspace::Get().ReadWaves(wave_file)) {
-      std::cout << "Problem reading wave file." << std::endl;
+      std::cout << "Problem reading wave file.\n";
       return -1;
     }
   }

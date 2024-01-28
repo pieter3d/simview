@@ -1,6 +1,5 @@
 #include "signal_tree_item.h"
 #include "absl/strings/str_format.h"
-#include "utils.h"
 
 namespace sv {
 namespace {
