@@ -13,7 +13,8 @@ namespace sv {
 class WaveData {
  public:
   // Picks the right subclass based on file extension.
-  static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name);
+  static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name,
+                                                bool keep_glitches);
 
   struct SignalScope;
   struct Sample {
@@ -98,7 +99,8 @@ class WaveData {
 
  protected:
   // Not directly constructable.
-  explicit WaveData(const std::string &file_name) : file_name_(file_name) {}
+  WaveData(const std::string &file_name, bool keep_glitches)
+      : file_name_(file_name), keep_glitches_(keep_glitches) {}
   // Traverse the scopes and signals and assign parents. This can only be done
   // after the structure has been fully created, since the parents are pointers
   // to elements of vectors, and thus could be invalidated (point to garbage) if
@@ -117,6 +119,8 @@ class WaveData {
   std::vector<SignalScope> roots_;
   // File name saved for convenience, for reloads etc.
   std::string file_name_;
+  // When false, glitches are stripped from the wave data.
+  bool keep_glitches_;
 };
 
 // Use design data to find structs, enums etc.

@@ -1,6 +1,5 @@
 #include "fst_wave_data.h"
-#include <functional>
-#include <limits>
+#include "external/fst/fstapi.h"
 #include <stack>
 #include <stdexcept>
 
@@ -24,7 +23,8 @@ std::string ParseSignalLsb(const std::string &s, int *lsb) {
 
 } // namespace
 
-FstWaveData::FstWaveData(const std::string &file_name) : WaveData(file_name) {
+FstWaveData::FstWaveData(const std::string &file_name, bool keep_glitches)
+    : WaveData(file_name, keep_glitches) {
   reader_ = fstReaderOpen(file_name.c_str());
   if (reader_ == nullptr) {
     throw std::runtime_error("Unable to read wave file.");
@@ -121,12 +121,29 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
       reader_,
       +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,
           const unsigned char *value) {
-        const auto wave_map =
-            reinterpret_cast<decltype(waves_) *>(user_callback_data_pointer);
-        (*wave_map)[facidx].push_back(
-            {.time = time, .value = reinterpret_cast<const char *>(value)});
+        FstWaveData *fst =
+            reinterpret_cast<FstWaveData *>(user_callback_data_pointer);
+        std::vector<Sample> &samples = fst->waves_[facidx];
+        const char *str_val = reinterpret_cast<const char *>(value);
+        if (!fst->keep_glitches_ && !samples.empty()) {
+          Sample &prev_sample = samples.back();
+          if (str_val == prev_sample.value) {
+            return; // Ignore duplicates.
+          } else if (time == prev_sample.time) {
+            // Does this new value make the previous one pointless?
+            if (samples.size() > 1 &&
+                samples[samples.size() - 2].value == str_val) {
+              samples.pop_back();
+            } else {
+              // Just update the previous with this new value.
+              prev_sample.value = str_val;
+            }
+            return;
+          }
+        }
+        samples.push_back({.time = time, .value = str_val});
       },
-      &waves_, nullptr);
+      const_cast<FstWaveData *>(this), nullptr);
 
   // Update the valid range based on sample data actually received.
   for (const auto &s : signals) {

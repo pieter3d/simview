@@ -15,14 +15,15 @@
 
 namespace sv {
 
-std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name) {
+std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name,
+                                                 bool keep_glitches) {
   std::string ext = std::filesystem::path(file_name).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(),
                  [](char ch) { return std::tolower(ch); });
   if (ext == ".fst") {
-    return std::make_unique<FstWaveData>(file_name);
+    return std::make_unique<FstWaveData>(file_name, keep_glitches);
   } else if (ext == ".vcd") {
-    return std::make_unique<VcdWaveData>(file_name);
+    return std::make_unique<VcdWaveData>(file_name, keep_glitches);
   }
   return nullptr;
 }

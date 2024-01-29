@@ -14,8 +14,11 @@ int main(int argc, char *argv[]) {
   std::vector<char *> pruned_args;
   // First look for a -waves argument.
   std::string wave_file;
+  bool keep_glitches = false;
   for (int i = 0; i < argc; ++i) {
-    if (strcmp(argv[i], "-waves") == 0) {
+    if (strcmp(argv[i], "-keep_glitches") == 0) {
+      keep_glitches = true;
+    } else if (strcmp(argv[i], "-waves") == 0) {
       if (i == argc - 1) {
         std::cout << "Missing wave file argument.\n";
         return -1;
@@ -43,7 +46,7 @@ int main(int argc, char *argv[]) {
 
   if (!wave_file.empty()) {
     std::cout << "Reading wave file...\n";
-    if (!sv::Workspace::Get().ReadWaves(wave_file)) {
+    if (!sv::Workspace::Get().ReadWaves(wave_file, keep_glitches)) {
       std::cout << "Problem reading wave file.\n";
       return -1;
     }

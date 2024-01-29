@@ -24,7 +24,7 @@ class Workspace {
   // Return true on success.
   bool ParseDesign(int argc, const char *argv[]);
   // Attempt to parse wave file. Return true on success.
-  bool ReadWaves(const std::string &wave_file);
+  bool ReadWaves(const std::string &wave_file, bool keep_glitches);
   const UHDM::design *Design() const { return design_; }
   // Find the definition of the module that contains the given item.
   const UHDM::module_inst *GetDefinition(const UHDM::module_inst *m);

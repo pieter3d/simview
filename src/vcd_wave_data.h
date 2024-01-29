@@ -3,7 +3,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "vcd_tokenizer.h"
 #include "wave_data.h"
-#include <map>
 #include <stack>
 
 namespace sv {
@@ -12,7 +11,7 @@ namespace sv {
 class VcdWaveData : public WaveData {
  public:
   static void PrintLoadProgress(bool b) { print_progress_ = b; }
-  explicit VcdWaveData(const std::string &file_name);
+  VcdWaveData(const std::string &file_name, bool keep_glitches);
   int Log10TimeUnits() const final { return time_units_; }
   std::pair<uint64_t, uint64_t> TimeRange() const final { return time_range_; }
   void LoadSignalSamples(const std::vector<const Signal *> &signals,

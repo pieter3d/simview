@@ -103,9 +103,9 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   return true;
 }
 
-bool Workspace::ReadWaves(const std::string &wave_file) {
+bool Workspace::ReadWaves(const std::string &wave_file, bool keep_glitches) {
   try {
-    wave_data_ = WaveData::ReadWaveFile(wave_file);
+    wave_data_ = WaveData::ReadWaveFile(wave_file, keep_glitches);
   } catch (std::runtime_error &e) {
     return false;
   }

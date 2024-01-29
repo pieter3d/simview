@@ -1,6 +1,4 @@
 #include "vcd_wave_data.h"
-#include <filesystem>
-#include <ios>
 #include <stdexcept>
 
 #include "absl/strings/match.h"
@@ -16,8 +14,8 @@ std::runtime_error MakeParseError(const std::string &s) {
 // Default: print.
 bool VcdWaveData::print_progress_ = true;
 
-VcdWaveData::VcdWaveData(const std::string &file_name)
-    : WaveData(file_name), tokenizer_(VcdTokenizer(file_name)) {
+VcdWaveData::VcdWaveData(const std::string &file_name, bool keep_glitches)
+    : WaveData(file_name, keep_glitches), tokenizer_(VcdTokenizer(file_name)) {
   Parse();
 }
 
@@ -195,6 +193,25 @@ void VcdWaveData::ParseSimCommands() {
   uint64_t time = 0;
   bool first_time = true;
   int prev_percentage = -1;
+  auto add_sample = [&](std::vector<Sample> &samples, const Sample &s) {
+    if (!keep_glitches_ && !samples.empty()) {
+      Sample &prev_sample = samples.back();
+      if (s.value == prev_sample.value) {
+        return; // Ignore duplicates.
+      } else if (time == prev_sample.time) {
+        // Does this new value make the previous one pointless?
+        if (samples.size() > 1 &&
+            samples[samples.size() - 2].value == s.value) {
+          samples.pop_back();
+        } else {
+          // Just update the previous with this new value.
+          prev_sample.value = s.value;
+        }
+        return;
+      }
+    }
+    samples.push_back(s);
+  };
   while (!tokenizer_.Eof()) {
     auto tok = tokenizer_.Token();
     if (tok.empty()) continue;
@@ -219,7 +236,7 @@ void VcdWaveData::ParseSimCommands() {
         throw MakeParseError(
             "multi-bit signal value references unknown signal");
       }
-      waves_[signal_id_by_code_[tok]].push_back(s);
+      add_sample(waves_[signal_id_by_code_[tok]], s);
     } else if (tok.find_first_of("01xXzZ") == 0) {
       Sample s;
       s.time = time;
@@ -230,7 +247,7 @@ void VcdWaveData::ParseSimCommands() {
         throw MakeParseError(
             "single-bit signal value references unknown signal");
       }
-      waves_[id->second].push_back(s);
+      add_sample(waves_[id->second], s);
     } else {
       throw MakeParseError("Unknown simulation command.");
     }
