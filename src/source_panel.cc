@@ -372,18 +372,17 @@ void SourcePanel::UIChar(int ch) {
     break;
   case 'D':
   case 'L':
-    if (trace_net_ != sel_ || (trace_drivers_ != (ch == 'D'))) {
-      // Only trace when not tracing the same item, or when switching between
-      // drivers and loads.
-      trace_drivers_ = ch == 'D';
-      GetDriversOrLoads(sel_, trace_drivers_, &drivers_or_loads_);
-      trace_net_ = sel_;
+    if (sel_ != nullptr) {
+      bool trace_drivers = ch == 'D';
+      GetDriversOrLoads(sel_, trace_drivers, &drivers_or_loads_);
       trace_idx_ = 0;
-    } else if (!drivers_or_loads_.empty()) {
-      trace_idx_ = (trace_idx_ + 1) % drivers_or_loads_.size();
+      if (!drivers_or_loads_.empty()) SetLocation(drivers_or_loads_[0]);
     }
-    if (!drivers_or_loads_.empty() && trace_net_ != nullptr) {
-      item_for_design_tree_ = sel_;
+    break;
+  case 'c':
+    if (!drivers_or_loads_.empty()) {
+      trace_idx_++;
+      if (trace_idx_ == drivers_or_loads_.size()) trace_idx_ = 0;
       SetLocation(drivers_or_loads_[trace_idx_]);
     }
     break;
@@ -841,6 +840,7 @@ std::vector<Tooltip> SourcePanel::Tooltips() const {
   tt.push_back({"d", "goto def"});
   tt.push_back({"D", "drivers"});
   tt.push_back({"L", "loads"});
+  tt.push_back({"c", "cycle DL"});
   tt.push_back({"b", "back"});
   tt.push_back({"f", "forward"});
   tt.push_back(

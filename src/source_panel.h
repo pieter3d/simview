@@ -90,9 +90,7 @@ class SourcePanel : public Panel {
   const UHDM::any *item_for_design_tree_ = nullptr;
   const UHDM::any *item_for_waves_ = nullptr;
   // Drivers and loads
-  const UHDM::any *trace_net_;
   int trace_idx_;
-  bool trace_drivers_;
   std::vector<const UHDM::any *> drivers_or_loads_;
 
   // Stack of states, to allow going back/forth while browsing source.
