@@ -755,6 +755,16 @@ void WavesPanel::UIChar(int ch) {
           (uint64_t)(cursor_time_ + scale * (right_time_ - cursor_time_)));
       range_changed = true;
     } break;
+    case 'C': {
+      const uint64_t half = (right_time_ - left_time_) / 2;
+      if (cursor_time_ > half &&
+          cursor_time_ < wave_data_->TimeRange().second - half) {
+        left_time_ = cursor_time_ - half;
+        right_time_ = cursor_time_ + half;
+        cursor_pos_ = (getmaxx(w_) - 1 - name_value_size_) / 2;
+      }
+      range_changed = true;
+    } break;
     case 's':
       if (name_value_size_ < getmaxx(w_) - 20) name_value_size_++;
       break;
@@ -1131,9 +1141,10 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
   // "C-r: Reload",
   // "aA:  Adjust analog signal height",
   std::vector<Tooltip> tt{
-      {"zZ", "Zoom about the cursor"},
+      {"zZ", "Zoom"},
       {"F", "Zoom full range"},
-      {"eE", "Previous / next signal edge"},
+      {"C", "Center"},
+      {"eE", "Prev/next edge"},
       {"sS", "Adjust signal name & value size"},
       {"0", "Show leading zeroes"},
       {"c", "Change signal color"},
