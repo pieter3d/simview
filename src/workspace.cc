@@ -48,58 +48,77 @@ const UHDM::module_inst *Workspace::GetDefinition(const UHDM::module_inst *m) {
 
 bool Workspace::ParseDesign(int argc, const char *argv[]) {
   // Parse the design using the remaining command line arguments
-  SURELOG::ErrorContainer errors(&symbol_table_);
-  SURELOG::CommandLineParser clp(&errors, &symbol_table_);
-  clp.noPython();
-  clp.setParse(true);
-  clp.setElaborate(true);
-  clp.setElabUhdm(true);
-  clp.setCompile(true);
-  clp.setwritePpOutput(true);
-  clp.setWriteUhdm(true);
-  bool success = clp.parseCommandLine(argc, argv);
-  vpiHandle design = nullptr;
-  if (!success || clp.help()) {
-    if (!clp.help()) {
-      std::cout << "Problems parsing arguments." << '\n';
-    }
-    return false;
-  }
-  clp.setMuteStdout();
-  compiler_ = SURELOG::start_compiler(&clp);
-  design = SURELOG::get_uhdm_design(compiler_);
-  for (auto &err : errors.getErrors()) {
-    auto [msg, fatal, filtered] = errors.createErrorMessage(err);
-    if (msg.empty()) continue;
-    // It's complicated to find an error's severity...
-    auto map = SURELOG::ErrorDefinition::getErrorInfoMap();
-    auto err_info_it = map.find(err.getType());
-    // Skip notes, it's cluttery.
-    if (err_info_it == map.end() ||
-        err_info_it->second.m_severity !=
-            SURELOG::ErrorDefinition::ErrorSeverity::NOTE) {
-      std::cout << msg << '\n';
-    }
-  }
-  auto stats = errors.getErrorStats();
-  if (design == nullptr || /* stats.nbError > 0 i ||*/ stats.nbFatal > 0 ||
-      stats.nbSyntax > 0) {
-    std::cout << "Unable to parse the design!" << '\n';
-    return false;
-  }
-  // Pretty ugly cast here, both reinterpret and const...
-  design_ = (UHDM::design *)((uhdm_handle *)design)->object;
+  // SURELOG::ErrorContainer errors(&symbol_table_);
+  // SURELOG::CommandLineParser clp(&errors, &symbol_table_);
+  // clp.noPython();
+  // clp.setParse(true);
+  // clp.setElaborate(true);
+  // clp.setElabUhdm(true);
+  // clp.setCompile(true);
+  // clp.setwritePpOutput(true);
+  // clp.setWriteUhdm(true);
+  // bool success = clp.parseCommandLine(argc, argv);
+  // vpiHandle design = nullptr;
+  // if (!success || clp.help()) {
+  //  if (!clp.help()) {
+  //    std::cout << "Problems parsing arguments." << '\n';
+  //  }
+  //  return false;
+  //}
+  // clp.setMuteStdout();
+  // compiler_ = SURELOG::start_compiler(&clp);
+  // design = SURELOG::get_uhdm_design(compiler_);
+  // for (auto &err : errors.getErrors()) {
+  //  auto [msg, fatal, filtered] = errors.createErrorMessage(err);
+  //  if (msg.empty()) continue;
+  //  // It's complicated to find an error's severity...
+  //  auto map = SURELOG::ErrorDefinition::getErrorInfoMap();
+  //  auto err_info_it = map.find(err.getType());
+  //  // Skip notes, it's cluttery.
+  //  if (err_info_it == map.end() ||
+  //      err_info_it->second.m_severity !=
+  //          SURELOG::ErrorDefinition::ErrorSeverity::NOTE) {
+  //    std::cout << msg << '\n';
+  //  }
+  //}
+  // auto stats = errors.getErrorStats();
+  // if (design == nullptr || /* stats.nbError > 0 i ||*/ stats.nbFatal > 0 ||
+  //    stats.nbSyntax > 0) {
+  //  std::cout << "Unable to parse the design!" << '\n';
+  //  return false;
+  //}
+  //// Pretty ugly cast here, both reinterpret and const...
+  // design_ = (UHDM::design *)((uhdm_handle *)design)->object;
 
-  if (design_->TopModules()->empty()) {
-    std::cout << "No top level design found!" << '\n';
-    return false;
+  // if (design_->TopModules()->empty()) {
+  //   std::cout << "No top level design found!" << '\n';
+  //   return false;
+  // }
+
+  // SURELOG::FileSystem *fs = SURELOG::FileSystem::getInstance();
+  // for (const auto &id : clp.getIncludePaths()) {
+  //   AddIncludeDir(fs->toPath(id));
+  // }
+
+  // -------- SLANG ----------
+
+  slang_driver_.addStandardArgs();
+  if (!slang_driver_.parseCommandLine(argc, argv)) return false;
+  if (!slang_driver_.processOptions()) return false;
+  std::cout << "Parsing files...\n";
+  if (!slang_driver_.parseAllSources()) return false;
+  slang_compilation_ = slang_driver_.createCompilation();
+  std::cout << "Elaborating...\n";
+  design_root_ = &slang_compilation_->getRoot();
+  const bool success = slang_driver_.reportDiagnostics(/* quiet */ false);
+  // Give the user a chance to see any errors before proceeding.
+  if (!success) {
+    std::cout << "Press Enter to continue...\n";
+    std::cin.get();
   }
 
-  SURELOG::FileSystem *fs = SURELOG::FileSystem::getInstance();
-  for (const auto &id : clp.getIncludePaths()) {
-    AddIncludeDir(fs->toPath(id));
-  }
-
+  printf("continuing!\n");
+  exit(-1);
   return true;
 }
 
@@ -185,8 +204,7 @@ void Workspace::TryMatchDesignWithWaves() {
   ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }
 
-std::vector<const WaveData::Signal *>
-Workspace::DesignToSignals(const UHDM::any *item) const {
+std::vector<const WaveData::Signal *> Workspace::DesignToSignals(const UHDM::any *item) const {
   if (matched_signal_scope_ == nullptr) return {};
   std::vector<const WaveData::Signal *> signals;
   // Make sure it's actually something that would have ended up in a wave.
@@ -228,8 +246,7 @@ Workspace::DesignToSignals(const UHDM::any *item) const {
   for (const auto &signal : signal_scope->signals) {
     auto pos = signal.name.find(StripWorklib(item->VpiName()));
     if (pos != 0) continue;
-    if (signal.name.size() > net_name.size() &&
-        signal.name[net_name.size()] != '[') {
+    if (signal.name.size() > net_name.size() && signal.name[net_name.size()] != '[') {
       continue;
     }
     signals.push_back(&signal);
@@ -238,8 +255,7 @@ Workspace::DesignToSignals(const UHDM::any *item) const {
   return signals;
 }
 
-const UHDM::any *
-Workspace::SignalToDesign(const WaveData::Signal *signal) const {
+const UHDM::any *Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   if (matched_design_scope_ == nullptr) return nullptr;
   // Build a stack of all parents up to the root, or the matched signal scope,
   // whichever comes first.
@@ -312,8 +328,7 @@ Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   if (design_scope == nullptr) return nullptr;
   // Helper to match without [n] suffix, since the design does not contain
   // unrolled net arrays.
-  auto array_match = [](std::string_view val,
-                        std::string_view val_with_suffix) {
+  auto array_match = [](std::string_view val, std::string_view val_with_suffix) {
     const auto pos = val_with_suffix.find(val);
     if (pos == std::string::npos) return false;
     if (val.size() == val_with_suffix.size()) return true;

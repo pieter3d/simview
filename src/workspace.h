@@ -1,6 +1,7 @@
 #pragma once
 
 #include "absl/container/flat_hash_map.h"
+#include "external/slang/include/slang/driver/Driver.h"
 #include "wave_data.h"
 #include <Surelog/surelog.h>
 #include <cstdint>
@@ -41,14 +42,17 @@ class Workspace {
   auto MatchedSignalScope() const { return matched_signal_scope_; }
   void SetMatchedDesignScope(const UHDM::any *s);
   void SetMatchedSignalScope(const WaveData::SignalScope *s);
-  std::vector<const WaveData::Signal *>
-  DesignToSignals(const UHDM::any *item) const;
+  std::vector<const WaveData::Signal *> DesignToSignals(const UHDM::any *item) const;
   const UHDM::any *SignalToDesign(const WaveData::Signal *signal) const;
 
  private:
   // Singleton
   Workspace() {}
   ~Workspace();
+
+  slang::driver::Driver slang_driver_;
+  std::unique_ptr<slang::ast::Compilation> slang_compilation_;
+  const slang::ast::RootSymbol *design_root_;
   // Track all definitions of any given module instance.
   // This serves as a cache to avoid iterating over the
   // design's list of all module definitions.

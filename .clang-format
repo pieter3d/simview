@@ -1,8 +1,9 @@
 ---
 Language:        Cpp
-AlwaysBreakTemplateDeclarations: true
+ColumnLimit: 100
 AccessModifierOffset: -1
-AllowShortIfStatementsOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: true
 ...

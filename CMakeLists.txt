@@ -1,5 +1,5 @@
 # Lets keep things modern
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
 
 project(SimView)
 
@@ -7,7 +7,7 @@ project(SimView)
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
 # Modern C++
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -44,11 +44,13 @@ include(macros.cmake)
 # Testing is good!
 enable_testing()
 
-# All include is relative to project root, or local dir.
-include_directories(${PROJECT_SOURCE_DIR})
-
 # Add all external projects
 add_subdirectory(external)
+
+# All include is relative to project root, or local dir.
+# Note: specified after the external project adds, since otherwise this
+# interferes with the external project.
+include_directories(${PROJECT_SOURCE_DIR})
 
 # Add all source
 add_subdirectory(src)

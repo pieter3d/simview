@@ -35,7 +35,6 @@ int main(int argc, char *argv[]) {
   // Parse the design using the remaining command line arguments
   if (pruned_args.size() > 1) {
     // TODO: Run in parallel threads with wave parsing?
-    std::cout << "Parsing design files...\n";
     if (!sv::Workspace::Get().ParseDesign(
             pruned_args.size(),
             const_cast<const char **>(pruned_args.data()))) {

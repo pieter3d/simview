@@ -48,8 +48,15 @@ target_link_libraries(simview PRIVATE
   absl::time
   absl::flat_hash_map
   fst
+  slang::slang
   surelog::surelog
   uhdm::uhdm
   ${CURSES_LIBRARIES}
 )
 set_target_properties(simview PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_custom_command(TARGET simview POST_BUILD
+    COMMAND ${CMAKE_STRIP} $<TARGET_FILE:simview>
+    COMMENT "Stripping simview")
+endif()
