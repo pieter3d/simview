@@ -2,6 +2,8 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "external/slang/include/slang/driver/Driver.h"
+#include "slang/ast/symbols/CompilationUnitSymbols.h"
+#include "slang/ast/symbols/InstanceSymbols.h"
 #include "wave_data.h"
 #include <Surelog/surelog.h>
 #include <cstdint>
@@ -26,7 +28,7 @@ class Workspace {
   bool ParseDesign(int argc, const char *argv[]);
   // Attempt to parse wave file. Return true on success.
   bool ReadWaves(const std::string &wave_file, bool keep_glitches);
-  const UHDM::design *Design() const { return design_; }
+  const slang::ast::RootSymbol *Design() const { return design_root_; }
   // Find the definition of the module that contains the given item.
   const UHDM::module_inst *GetDefinition(const UHDM::module_inst *m);
   uint64_t &WaveCursorTime() { return wave_cursor_time_; }
@@ -38,12 +40,15 @@ class Workspace {
   WaveData *Waves() { return wave_data_.get(); }
 
   void TryMatchDesignWithWaves();
-  auto MatchedDesignScope() const { return matched_design_scope_; }
-  auto MatchedSignalScope() const { return matched_signal_scope_; }
-  void SetMatchedDesignScope(const UHDM::any *s);
+  const slang::ast::InstanceSymbol *MatchedDesignScope() const { return matched_design_scope_; }
+  const WaveData::SignalScope *MatchedSignalScope() const { return matched_signal_scope_; }
+  void SetMatchedDesignScope(const slang::ast::InstanceSymbol *s);
   void SetMatchedSignalScope(const WaveData::SignalScope *s);
   std::vector<const WaveData::Signal *> DesignToSignals(const UHDM::any *item) const;
   const UHDM::any *SignalToDesign(const WaveData::Signal *signal) const;
+
+  // TODO: remove.
+  const UHDM::design *OldDesign() const { return design_; }
 
  private:
   // Singleton
@@ -53,19 +58,21 @@ class Workspace {
   slang::driver::Driver slang_driver_;
   std::unique_ptr<slang::ast::Compilation> slang_compilation_;
   const slang::ast::RootSymbol *design_root_;
+  const slang::ast::InstanceSymbol *matched_design_scope_ = nullptr;
   // Track all definitions of any given module instance.
   // This serves as a cache to avoid iterating over the
   // design's list of all module definitions.
-  absl::flat_hash_map<std::string, const UHDM::module_inst *> module_defs_;
-  UHDM::design *design_ = nullptr;
-  SURELOG::SymbolTable symbol_table_;
-  SURELOG::scompiler *compiler_ = nullptr;
   std::vector<std::string_view> include_paths_;
   std::unique_ptr<WaveData> wave_data_;
   const WaveData::SignalScope *matched_signal_scope_ = nullptr;
-  const UHDM::any *matched_design_scope_ = nullptr;
   // Wave time is used in source too, so it's held here.
   uint64_t wave_cursor_time_ = 0;
+  // TODO: remove/adjust
+  UHDM::design *design_ = nullptr;
+  SURELOG::SymbolTable symbol_table_;
+  SURELOG::scompiler *compiler_ = nullptr;
+  const UHDM::any *old_matched_design_scope_ = nullptr;
+  absl::flat_hash_map<std::string, const UHDM::module_inst *> module_defs_;
 };
 
 } // namespace sv

@@ -1,40 +1,32 @@
 #include "design_tree_item.h"
-#include "absl/strings/match.h"
-#include "absl/strings/str_format.h"
-#include "utils.h"
+#include "slang/ast/Symbol.h"
+#include "slang/ast/symbols/BlockSymbols.h"
+#include "slang/ast/symbols/InstanceSymbols.h"
 #include "workspace.h"
-#include <uhdm/gen_scope.h>
-#include <uhdm/gen_scope_array.h>
-#include <uhdm/module_inst.h>
-#include <uhdm/task_func.h>
 
 namespace sv {
 
-DesignTreeItem::DesignTreeItem(UHDM::any *item) : item_(item) {
-  name_ = StripWorklib(item_->VpiName());
-  if (item_->VpiType() == vpiGenScopeArray) {
+DesignTreeItem::DesignTreeItem(const slang::ast::Symbol *item) : item_(item) {
+  if (item_->kind == slang::ast::SymbolKind::GenerateBlock) {
     type_ = "[generate]";
-  } else if (item_->VpiType() == vpiFunction) {
-    type_ = "[function]";
-  } else if (item_->VpiType() == vpiTask) {
-    type_ = "[task]";
-  } else if (item_->VpiType() != vpiModule) {
-    type_ = absl::StrFormat("[%d]", item_->VpiType());
-  } else {
-    if (ErrType()) {
-      type_ = "[missing def]";
-    } else {
-      type_ = StripWorklib(item_->VpiDefName());
+    // If the block is part of an array, then grab the array's name and suffix the index.
+    if (item->getParentScope()->asSymbol().kind == slang::ast::SymbolKind::GenerateBlockArray) {
+      name_ = absl::StrFormat("%s[%d]", item->getParentScope()->asSymbol().name,
+                              item_->as<slang::ast::GenerateBlockSymbol>().constructIndex);
     }
+  } else if (item_->kind == slang::ast::SymbolKind::UninstantiatedDef) {
+    type_ = "[missing def]";
+  } else if (const slang::ast::InstanceSymbol *inst = item_->as_if<slang::ast::InstanceSymbol>()) {
+    type_ = inst->getDefinition().name;
+  } else {
+    type_ = "!!Unknown!!";
   }
 }
 
-bool DesignTreeItem::AltType() const { return item_->VpiType() != vpiModule; }
+bool DesignTreeItem::AltType() const { return item_->kind != slang::ast::SymbolKind::Instance; }
 
 bool DesignTreeItem::ErrType() const {
-  // If there's no compiled variant available, Surelog uses :: to place it in
-  // the scope of the parent module.
-  return absl::StrContains(item_->VpiDefName(), "::");
+  return item_->kind == slang::ast::SymbolKind::UninstantiatedDef;
 }
 
 bool DesignTreeItem::Expandable() const {
@@ -53,53 +45,42 @@ TreeItem *DesignTreeItem::Child(int idx) {
 }
 
 void DesignTreeItem::BuildChildren() const {
-  if (item_->VpiType() == vpiModule) {
-    auto m = dynamic_cast<const UHDM::module_inst *>(item_);
-    if (m->Modules() != nullptr) {
-      for (auto &sub : *m->Modules()) {
-        children_.push_back(DesignTreeItem(sub));
-      }
-    }
-    if (m->Gen_scope_arrays() != nullptr) {
-      for (auto &sub : *m->Gen_scope_arrays()) {
-        children_.push_back(DesignTreeItem(sub));
-      }
-    }
-    // TODO: These are definitions, not the task/function calls.
-    if (m->Task_funcs() != nullptr) {
-      for (auto &sub : *m->Task_funcs()) {
-        children_.push_back(DesignTreeItem(sub));
-      }
-    }
-    // TODO: Other stuff ?
-  } else if (item_->VpiType() == vpiGenScopeArray) {
-    // Working on the assumption that Surelog always just has one GenScope under
-    // any GenScopeArray, since it always unrolls any loop. Even generate
-    // if-statements get a wrapping GenScopeArray.
-    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item_);
-    auto g = (*ga->Gen_scopes())[0];
-    if (g->Modules() != nullptr) {
-      for (auto &sub : *g->Modules()) {
-        children_.push_back(DesignTreeItem(sub));
-      }
-    }
-    if (g->Gen_scope_arrays() != nullptr) {
-      for (auto &sub : *g->Gen_scope_arrays()) {
-        children_.push_back(DesignTreeItem(sub));
-      }
+  const slang::ast::Scope *s = nullptr;
+  if (const slang::ast::InstanceSymbol *inst = item_->as_if<slang::ast::InstanceSymbol>()) {
+    s = &inst->body;
+  } else if (const slang::ast::GenerateBlockSymbol *gen =
+                 item_->as_if<slang::ast::GenerateBlockSymbol>()) {
+    s = gen;
+  }
+  if (s == nullptr) return;
+  for (const slang::ast::InstanceSymbol &inst : s->membersOfType<slang::ast::InstanceSymbol>()) {
+    children_.push_back(DesignTreeItem(&inst));
+  }
+  for (const slang::ast::UninstantiatedDefSymbol &undef :
+       s->membersOfType<slang::ast::UninstantiatedDefSymbol>()) {
+    children_.push_back(DesignTreeItem(&undef));
+  }
+  for (const slang::ast::GenerateBlockArraySymbol &arr :
+       s->membersOfType<slang::ast::GenerateBlockArraySymbol>()) {
+    for (const slang::ast::GenerateBlockSymbol &gen :
+         arr.membersOfType<slang::ast::GenerateBlockSymbol>()) {
+      children_.push_back(DesignTreeItem(&gen));
     }
   }
+  for (const slang::ast::GenerateBlockSymbol &gen :
+       s->membersOfType<slang::ast::GenerateBlockSymbol>()) {
+    if (gen.isUninstantiated) continue;
+    children_.push_back(DesignTreeItem(&gen));
+  }
+
   // TODO: Also offer lexical sort?
   std::stable_sort(children_.begin(), children_.end(),
                    [](const DesignTreeItem &a, const DesignTreeItem &b) {
-                     return a.DesignItem()->VpiLineNo() <
-                            b.DesignItem()->VpiLineNo();
+                     return a.DesignItem()->getIndex() < b.DesignItem()->getIndex();
                    });
   children_built_ = true;
 }
 
-bool DesignTreeItem::MatchColor() const {
-  return item_ == Workspace::Get().MatchedDesignScope();
-}
+bool DesignTreeItem::MatchColor() const { return item_ == Workspace::Get().MatchedDesignScope(); }
 
 } // namespace sv

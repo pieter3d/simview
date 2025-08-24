@@ -110,15 +110,14 @@ bool Workspace::ParseDesign(int argc, const char *argv[]) {
   slang_compilation_ = slang_driver_.createCompilation();
   std::cout << "Elaborating...\n";
   design_root_ = &slang_compilation_->getRoot();
+  slang_driver_.reportCompilation(*slang_compilation_, /* quiet */ false);
   const bool success = slang_driver_.reportDiagnostics(/* quiet */ false);
   // Give the user a chance to see any errors before proceeding.
   if (!success) {
-    std::cout << "Press Enter to continue...\n";
+    std::cout << "Errors encountered, press Enter to continue anyway...\n";
     std::cin.get();
   }
 
-  printf("continuing!\n");
-  exit(-1);
   return true;
 }
 
@@ -196,12 +195,12 @@ void Workspace::TryMatchDesignWithWaves() {
       // Save the best result.
       if (num_common_signals > max_common) {
         max_common = num_common_signals;
-        matched_design_scope_ = design_scope;
+        // TODO: re-enable this when above is all slang-ified.
+        // matched_design_scope_ = design_scope;
         matched_signal_scope_ = signal_scope;
       }
     }
   }
-  ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }
 
 std::vector<const WaveData::Signal *> Workspace::DesignToSignals(const UHDM::any *item) const {
@@ -216,7 +215,8 @@ std::vector<const WaveData::Signal *> Workspace::DesignToSignals(const UHDM::any
   while (parent != nullptr) {
     // Drop out any genscopes, there's always a genscope_array above it.
     if (parent->VpiType() == vpiGenScope) parent = parent->VpiParent();
-    if (parent == matched_design_scope_) break;
+    // TODO: Re-instante when slang-ified.
+    // if (parent == matched_design_scope_) break;
     stack.push(parent);
     parent = parent->VpiParent();
   }
@@ -267,7 +267,9 @@ const UHDM::any *Workspace::SignalToDesign(const WaveData::Signal *signal) const
     scope = scope->parent;
   }
   // Traverse the stack down the design tree hierarcy.
-  const UHDM::any *design_scope = matched_design_scope_;
+  // TODO: slang-ify this.
+  // const UHDM::any *design_scope = matched_design_scope_;
+  const UHDM::any *design_scope = nullptr;
   while (design_scope != nullptr && !stack.empty()) {
     auto *signal_scope = stack.top();
     // Running the search as an anonoymous lambda allows for an easier exit out
@@ -383,14 +385,14 @@ const UHDM::any *Workspace::SignalToDesign(const WaveData::Signal *signal) const
   return nullptr;
 }
 
-void Workspace::SetMatchedDesignScope(const UHDM::any *s) {
+void Workspace::SetMatchedDesignScope(const slang::ast::InstanceSymbol *s) {
   matched_design_scope_ = s;
-  ApplyDesignData(matched_design_scope_, matched_signal_scope_);
+  // ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }
 
 void Workspace::SetMatchedSignalScope(const WaveData::SignalScope *s) {
   matched_signal_scope_ = s;
-  ApplyDesignData(matched_design_scope_, matched_signal_scope_);
+  // ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }
 
 } // namespace sv

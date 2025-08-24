@@ -12,8 +12,8 @@ namespace sv {
 class SignalTreeItem : public TreeItem {
  public:
   explicit SignalTreeItem(const WaveData::Signal *s);
-  const std::string &Name() const final { return name_; }
-  const std::string &Type() const final;
+  std::string_view Name() const final { return name_; }
+  std::string_view Type() const final;
   bool AltType() const final;
   const WaveData::Signal *Signal() const { return signal_; }
   // Flat data, no tree stuff.

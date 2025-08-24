@@ -45,8 +45,7 @@ void UI::LayoutPanels() {
     } else {
       wresize(wave_tree_panel_->Window(), wave_h, layout_.signals_x);
       mvwin(wave_tree_panel_->Window(), wave_y, 0);
-      wresize(wave_signals_panel_->Window(), wave_h,
-              layout_.waves_x - layout_.signals_x - 1);
+      wresize(wave_signals_panel_->Window(), wave_h, layout_.waves_x - layout_.signals_x - 1);
       mvwin(wave_signals_panel_->Window(), wave_y, layout_.signals_x + 1);
       wresize(waves_panel_->Window(), wave_h, tw - layout_.waves_x - 1);
       mvwin(waves_panel_->Window(), wave_y, layout_.waves_x + 1);
@@ -69,15 +68,13 @@ void UI::UpdateTooltips() {
     tooltips_.push_back(
         {.hotkeys = "C-p",
          .description =
-             std::string(layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE") +
-             " picker"});
+             std::string(layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE") + " picker"});
   }
   if (panels_[focused_panel_idx_]->Searchable()) {
     tooltips_.push_back({"/nN", "search"});
   }
   auto panel_tooltips = panels_[focused_panel_idx_]->Tooltips();
-  tooltips_.insert(tooltips_.end(), panel_tooltips.begin(),
-                   panel_tooltips.end());
+  tooltips_.insert(tooltips_.end(), panel_tooltips.begin(), panel_tooltips.end());
   tooltips_to_show = tooltips_.size();
   int tt_width = 0;
   for (auto &tt : tooltips_) {
@@ -100,9 +97,8 @@ void UI::CycleFocus(bool fwd) {
     focused_panel_idx_ += step;
     if (focused_panel_idx_ < 0) focused_panel_idx_ = panels_.size() - 1;
     if (focused_panel_idx_ >= panels_.size()) focused_panel_idx_ = 0;
-    if (layout_.show_wave_picker ||
-        (panels_[focused_panel_idx_] != wave_tree_panel_.get() &&
-         panels_[focused_panel_idx_] != wave_signals_panel_.get())) {
+    if (layout_.show_wave_picker || (panels_[focused_panel_idx_] != wave_tree_panel_.get() &&
+                                     panels_[focused_panel_idx_] != wave_signals_panel_.get())) {
       break;
     }
   }
@@ -187,8 +183,7 @@ void UI::EventLoop() {
         switch (ch) {
         case 0x8:   // ctrl-H
         case 0x221: // ctrl-left
-          if (focused_panel == design_tree_panel_.get() ||
-              focused_panel == source_panel_.get()) {
+          if (focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get()) {
             // Keep some reasonable minimum size.
             if (layout_.src_x > 5) {
               layout_.src_x--;
@@ -212,8 +207,7 @@ void UI::EventLoop() {
           break;
         case 0xc:   // ctrl-L
         case 0x230: // ctrl-right
-          if (focused_panel == design_tree_panel_.get() ||
-              focused_panel == source_panel_.get()) {
+          if (focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get()) {
             if (layout_.src_x < term_w - 5) {
               layout_.src_x++;
             }
@@ -255,8 +249,7 @@ void UI::EventLoop() {
         case 0x10: // ctrl-P
           layout_.show_wave_picker = !layout_.show_wave_picker;
           // If one of those panels was selected, move focus to the wave panel.
-          if (focused_panel == wave_tree_panel_.get() ||
-              wave_signals_panel_.get()) {
+          if (focused_panel == wave_tree_panel_.get() || wave_signals_panel_.get()) {
             focused_panel->SetFocus(false);
             waves_panel_->SetFocus(true);
             focused_panel_idx_ = panels_.size() - 1;
@@ -298,14 +291,14 @@ void UI::EventLoop() {
         }
       } else if (focused_panel == source_panel_.get()) {
         if (const auto item = source_panel_->ItemForDesignTree()) {
-          design_tree_panel_->SetItem(*item);
+          // TODO - reinstate when slang-ified.
+          // design_tree_panel_->SetItem(*item);
         }
         if (const auto item = source_panel_->ItemForWaves()) {
           auto signals = Workspace::Get().DesignToSignals(*item);
           if (signals.empty()) {
-            error_message_ =
-                absl::StrFormat("%s is not available in the waves.",
-                                StripWorklib((*item)->VpiName()));
+            error_message_ = absl::StrFormat("%s is not available in the waves.",
+                                             StripWorklib((*item)->VpiName()));
           } else {
             waves_panel_->AddSignals(signals);
           }
@@ -322,11 +315,12 @@ void UI::EventLoop() {
         if (const auto signal = waves_panel_->SignalForSource()) {
           auto design_item = Workspace::Get().SignalToDesign(*signal);
           if (design_item == nullptr) {
-            error_message_ = absl::StrFormat("Signal %s not found in design.",
-                                             WaveData::SignalToPath(*signal));
+            error_message_ =
+                absl::StrFormat("Signal %s not found in design.", WaveData::SignalToPath(*signal));
           } else {
             source_panel_->SetItem(design_item, /* show_def*/ true);
-            design_tree_panel_->SetItem(design_item);
+            // TODO - reinstate when slang-ified.
+            // design_tree_panel_->SetItem(design_item);
           }
         }
       }
@@ -400,8 +394,8 @@ void UI::Draw() const {
   } else if (layout_.has_design) {
     // Both waves and design. always highlight the divider if one of the design
     // panels is focused.
-    const bool highlighted = focused_panel == design_tree_panel_.get() ||
-                             focused_panel == source_panel_.get();
+    const bool highlighted =
+        focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get();
     SetColor(stdscr, highlighted ? kFocusBorderPair : kBorderPair);
     mvvline(0, layout_.src_x, ACS_VLINE, layout_.wave_y);
   }
@@ -409,10 +403,10 @@ void UI::Draw() const {
   if (layout_.has_waves && layout_.show_wave_picker) {
     int start_y = layout_.has_design ? layout_.wave_y + 1 : 0;
     int line_h = layout_.has_design ? term_h - layout_.wave_y - 2 : term_h - 1;
-    const bool highlight_left = focused_panel == wave_tree_panel_.get() ||
-                                focused_panel == wave_signals_panel_.get();
-    const bool highlight_right = focused_panel == wave_signals_panel_.get() ||
-                                 focused_panel == waves_panel_.get();
+    const bool highlight_left =
+        focused_panel == wave_tree_panel_.get() || focused_panel == wave_signals_panel_.get();
+    const bool highlight_right =
+        focused_panel == wave_signals_panel_.get() || focused_panel == waves_panel_.get();
     SetColor(stdscr, highlight_left ? kFocusBorderPair : kBorderPair);
     mvvline(start_y, layout_.signals_x, ACS_VLINE, line_h);
     SetColor(stdscr, highlight_right ? kFocusBorderPair : kBorderPair);
@@ -468,8 +462,7 @@ void UI::Draw() const {
     int tt_description_idx = 0;
     // If not all tooltips can be shown, include an extra index for the trailing
     // help tooltip.
-    const int num_tt_to_draw =
-        tooltips_to_show + (tooltips_to_show < tooltips_.size() ? 1 : 0);
+    const int num_tt_to_draw = tooltips_to_show + (tooltips_to_show < tooltips_.size() ? 1 : 0);
     enum { KEY, COLON, DESCRIPTION, SPACE } tt_state = KEY;
     SetColor(stdscr, kTooltipKeyPair);
     for (int x = 0; x < term_w; ++x) {
@@ -536,8 +529,7 @@ void UI::Draw() const {
     }
   }
   // Finally, render an error message if needed.
-  const std::string err =
-      error_message_.empty() ? focused_panel->Error() : error_message_;
+  const std::string err = error_message_.empty() ? focused_panel->Error() : error_message_;
   if (!err.empty()) {
     move(term_h - 1, std::max(0ul, term_w - err.size()));
     SetColor(stdscr, kPanelErrorPair);

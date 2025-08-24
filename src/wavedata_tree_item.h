@@ -10,8 +10,8 @@ namespace sv {
 class WaveDataTreeItem : public TreeItem {
  public:
   explicit WaveDataTreeItem(const WaveData::SignalScope &signal_scope);
-  const std::string &Name() const final;
-  const std::string &Type() const final;
+  std::string_view Name() const final;
+  std::string_view Type() const final;
   bool AltType() const final;
   bool Expandable() const final;
   int NumChildren() const final;

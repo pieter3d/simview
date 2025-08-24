@@ -1,10 +1,10 @@
 #pragma once
 
 #include "absl/container/flat_hash_map.h"
-#include <uhdm/design.h>
 #include <memory>
 #include <optional>
 #include <string>
+#include <uhdm/design.h>
 #include <vector>
 
 namespace sv {
@@ -13,8 +13,7 @@ namespace sv {
 class WaveData {
  public:
   // Picks the right subclass based on file extension.
-  static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name,
-                                                bool keep_glitches);
+  static std::unique_ptr<WaveData> ReadWaveFile(const std::string &file_name, bool keep_glitches);
 
   struct SignalScope;
   struct Sample {
@@ -23,7 +22,7 @@ class WaveData {
   };
   struct SignalStructMember {
     std::string_view name;
-    std::vector<SignalStructMember> children;  // empty for normal nets.
+    std::vector<SignalStructMember> children; // empty for normal nets.
     int lsb;
     int width;
   };
@@ -64,19 +63,15 @@ class WaveData {
     std::vector<Signal> signals;
     const SignalScope *parent = nullptr;
   };
-  const std::vector<Sample> &Wave(const Signal *s) const {
-    return waves_[s->id];
-  }
+  const std::vector<Sample> &Wave(const Signal *s) const { return waves_[s->id]; }
   const std::vector<SignalScope> &Roots() const { return roots_; }
   std::optional<const Signal *> PathToSignal(const std::string &path) const;
   static std::string SignalToPath(const WaveData::Signal *signal);
   // Loads up the waves_ structure with sample data for the given Signal.
-  void LoadSignalSamples(const Signal *signal, uint64_t start_time,
-                         uint64_t end_time) const;
+  void LoadSignalSamples(const Signal *signal, uint64_t start_time, uint64_t end_time) const;
   // Returns the sample index corresponding to the value at the given time.
   // Search bounds can be constrained to a subset of the wave.
-  int FindSampleIndex(uint64_t time, const Signal *signal, int left,
-                      int right) const;
+  int FindSampleIndex(uint64_t time, const Signal *signal, int left, int right) const;
   // Variant that searches the whole wave.
   int FindSampleIndex(uint64_t time, const Signal *signal) const;
   // Obtain the textual value of the signal at the given time.
@@ -90,8 +85,7 @@ class WaveData {
   // Implementations use a batch processing variant of wave loading, which is
   // generally a lot more efficient than reading the wave data for each signal
   // separately.
-  virtual void LoadSignalSamples(const std::vector<const Signal *> &signals,
-                                 uint64_t start_time,
+  virtual void LoadSignalSamples(const std::vector<const Signal *> &signals, uint64_t start_time,
                                  uint64_t end_time) const = 0;
   virtual void Reload() = 0;
 
@@ -123,7 +117,4 @@ class WaveData {
   bool keep_glitches_;
 };
 
-// Use design data to find structs, enums etc.
-void ApplyDesignData(const UHDM::any *design_scope,
-                     const WaveData::SignalScope *signal_scope);
 } // namespace sv

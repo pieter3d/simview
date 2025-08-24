@@ -9,9 +9,9 @@ WaveDataTreeItem::WaveDataTreeItem(const WaveData::SignalScope &signal_scope)
     children_.push_back(WaveDataTreeItem(c));
   }
 }
-const std::string &WaveDataTreeItem::Name() const { return signal_scope_.name; }
+std::string_view WaveDataTreeItem::Name() const { return signal_scope_.name; }
 
-const std::string &WaveDataTreeItem::Type() const {
+std::string_view WaveDataTreeItem::Type() const {
   static std::string empty;
   return empty;
 }

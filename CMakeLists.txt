@@ -15,9 +15,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
-# Full debug symbols for DEBUG, optimizations for release.
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+# Optimizations for release.
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -s")
+
+# Compiled targets in the build directory without a /src prefix
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Require out-of-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)

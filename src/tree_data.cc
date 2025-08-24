@@ -53,6 +53,7 @@ void TreeData::ToggleExpand(int idx) {
     item->SetExpanded(false);
   } else {
     std::vector<TreeItem *> new_entries;
+    // TODO: C++23 recursive lambda with a "this" parameter.
     std::function<void(TreeItem *, std::vector<TreeItem *> &)>
         recurse_add_subs = [&](TreeItem *item, std::vector<TreeItem *> &list) {
           for (int i = 0; i < item->NumChildren(); ++i) {

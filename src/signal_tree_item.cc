@@ -3,11 +3,11 @@
 
 namespace sv {
 namespace {
-std::string kInputString = "->";
-std::string kInoutString = "<>";
-std::string kOutputString = "<-";
-std::string kNetString;
-std::string kParameterString = "[P]";
+constexpr std::string_view kInputString = "->";
+constexpr std::string_view kInoutString = "<>";
+constexpr std::string_view kOutputString = "<-";
+constexpr std::string_view kNetString;
+constexpr std::string_view kParameterString = "[P]";
 } // namespace
 
 SignalTreeItem::SignalTreeItem(const WaveData::Signal *s) : signal_(s) {
@@ -18,11 +18,9 @@ SignalTreeItem::SignalTreeItem(const WaveData::Signal *s) : signal_(s) {
   }
 }
 
-bool SignalTreeItem::AltType() const {
-  return signal_->type == WaveData::Signal::kParameter;
-}
+bool SignalTreeItem::AltType() const { return signal_->type == WaveData::Signal::kParameter; }
 
-const std::string &SignalTreeItem::Type() const {
+std::string_view SignalTreeItem::Type() const {
   if (signal_->type == WaveData::Signal::kParameter) {
     return kParameterString;
   }

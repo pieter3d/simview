@@ -1,6 +1,7 @@
 #pragma once
 
 #include "design_tree_item.h"
+#include "slang/ast/Symbol.h"
 #include "tree_panel.h"
 #include <memory>
 #include <uhdm/uhdm_types.h>
@@ -17,7 +18,7 @@ class DesignTreePanel : public TreePanel {
   // The bool indicates to load the definition instead of the instance location.
   std::optional<std::pair<const UHDM::any *, bool>> ItemForSource();
   // Opens the tree to the selected item.
-  void SetItem(const UHDM::any *item);
+  void SetItem(const slang::ast::Symbol *item);
   bool Searchable() const final { return true; }
 
  private:

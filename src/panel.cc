@@ -50,7 +50,10 @@ void Panel::UIChar(int ch) {
   }
   case 0x4:     // Ctrl-D
   case 0x152: { // PgDn
-    if (NumLines() <= max_h) break;
+    if (NumLines() <= max_h) {
+      line_idx_ = NumLines() - 1;
+      break;
+    }
     const int scroll_increment =
         std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
     scroll_row_ += scroll_increment;
@@ -64,12 +67,14 @@ void Panel::UIChar(int ch) {
     break;
   }
   case 'g':   // vim style
-  case 0x217: // Ctrl Home
+  case 0x23f: // Ctrl Up
+  case 0x220: // Ctrl Home
     scroll_row_ = 0;
     line_idx_ = 0;
     break;
   case 'G':   // vim style
-  case 0x212: // Ctrl End
+  case 0x216: // Ctrl Down
+  case 0x21b: // Ctrl End
     line_idx_ = NumLines() - 1;
     if (NumLines() > max_h) {
       scroll_row_ = NumLines() - max_h;

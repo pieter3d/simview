@@ -34,6 +34,7 @@ constexpr int kMaxStateStackSize = 500;
 void trim_string(std::string *s) { // NOLINT
   s->erase(std::remove(s->begin(), s->end(), '\n'), s->end());
   s->erase(std::remove(s->begin(), s->end(), '\r'), s->end());
+  // TODO: replace tabs with spaces.
 }
 
 } // namespace

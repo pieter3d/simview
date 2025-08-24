@@ -5,6 +5,9 @@ set(CMAKE_CXX_FLAGS "-Werror \
                      -Wno-sign-compare \
                      -Wno-unused-parameter")
 
+# Full debug symbols for DEBUG
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+
 find_package(Curses REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Surelog REQUIRED)
@@ -26,6 +29,7 @@ add_executable(simview
   radix.cc
   signal_tree_item.cc
   source_panel.cc
+  slang_utils.cc
   text_input.cc
   tree_data.cc
   tree_panel.cc
@@ -53,10 +57,16 @@ target_link_libraries(simview PRIVATE
   uhdm::uhdm
   ${CURSES_LIBRARIES}
 )
-set_target_properties(simview PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   add_custom_command(TARGET simview POST_BUILD
     COMMAND ${CMAKE_STRIP} $<TARGET_FILE:simview>
     COMMENT "Stripping simview")
 endif()
+
+
+# TODO: Remove eventually.
+add_executable(demo demo.cc)
+target_link_libraries(demo PRIVATE
+  absl::str_format
+  slang::slang)

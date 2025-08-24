@@ -7,6 +7,7 @@
 namespace sv {
 
 // Removes the work@ prefix from a string.
+// TODO: remove eventually.
 std::string StripWorklib(std::string_view s);
 
 // Number of actual digits needed to represent the given value.

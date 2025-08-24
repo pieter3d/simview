@@ -11,11 +11,10 @@ void TreePanel::Draw() {
   for (int y = header_lines_; y < win_h; ++y) {
     const int list_idx = y + scroll_row_ - header_lines_;
     if (list_idx >= data_.ListSize()) break;
-    const bool highlight =
-        multi_line_idx_ < 0
-            ? list_idx == line_idx_
-            : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
-               list_idx <= std::max(line_idx_, multi_line_idx_));
+    const bool highlight = multi_line_idx_ < 0
+                               ? list_idx == line_idx_
+                               : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
+                                  list_idx <= std::max(line_idx_, multi_line_idx_));
     if (highlight && !search_preview_) {
       wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
     }
@@ -25,8 +24,8 @@ void TreePanel::Draw() {
       SetColor(w_, kHierShowMorePair);
       mvwprintw(w_, y, 0, "%s...more...", indent.c_str());
     } else {
-      const std::string &type_name = item->Type();
-      const std::string &name = item->Name();
+      std::string_view type_name = item->Type();
+      std::string_view name = item->Name();
       char exp = item->Expandable() ? (item->Expanded() ? '-' : '+') : ' ';
       std::string s = indent;
       if (show_expanders_) s += exp;
@@ -47,12 +46,9 @@ void TreePanel::Draw() {
       int expand_pos = indent.size();
       int text_pos = expand_pos + show_expanders_;
       int inst_pos =
-          text_pos + (prepend_type_
-                          ? (type_name.empty() ? 0 : (type_name.size() + 1))
-                          : 0);
+          text_pos + (prepend_type_ ? (type_name.empty() ? 0 : (type_name.size() + 1)) : 0);
       int type_pos = text_pos + (prepend_type_ ? 0 : (name.size() + 1));
-      const bool show_search =
-          search_preview_ && list_idx == line_idx_ && search_start_col_ >= 0;
+      const bool show_search = search_preview_ && list_idx == line_idx_ && search_start_col_ >= 0;
       const int search_pos = search_start_col_ + inst_pos;
       for (int j = 0; j < s.size(); ++j) {
         const int x = j - ui_col_scroll_;
@@ -78,8 +74,7 @@ void TreePanel::Draw() {
             if (show_search && j == search_pos) {
               wattron(w_, A_REVERSE);
             }
-            SetColor(w_,
-                     item->MatchColor() ? kHierMatchedNamePair : kHierNamePair);
+            SetColor(w_, item->MatchColor() ? kHierMatchedNamePair : kHierNamePair);
           } else if (j == expand_pos && item->Expandable()) {
             SetColor(w_, kHierExpandPair);
           }

@@ -6,6 +6,8 @@
 
 namespace sv {
 
+// TODO:
+// To be removed
 std::string StripWorklib(std::string_view s) {
   std::string lib(s);
   const int lib_delimieter_pos = s.find('@');

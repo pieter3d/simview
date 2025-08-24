@@ -1,15 +1,14 @@
 #pragma once
 
-#include <string>
-
+#include <string_view>
 namespace sv {
 
 // Single item in a tree structure.
 class TreeItem {
  public:
   virtual ~TreeItem() {}
-  virtual const std::string &Name() const = 0;
-  virtual const std::string &Type() const = 0;
+  virtual std::string_view Name() const = 0;
+  virtual std::string_view Type() const = 0;
   virtual bool AltType() const = 0;
   virtual bool Expandable() const = 0;
   virtual int NumChildren() const = 0;
