@@ -26,33 +26,50 @@ class Workspace {
   // Parse the design using command line arguments for Surelog.
   // Return true on success.
   bool ParseDesign(int argc, const char *argv[]);
+
   // Attempt to parse wave file. Return true on success.
   bool ReadWaves(const std::string &wave_file, bool keep_glitches);
+
   const slang::ast::RootSymbol *Design() const { return design_root_; }
+
   // Find the definition of the module that contains the given item.
-  const UHDM::module_inst *GetDefinition(const UHDM::module_inst *m);
   uint64_t &WaveCursorTime() { return wave_cursor_time_; }
 
+  const slang::SourceManager *SourceManager() const {
+    return slang_compilation_->getSourceManager();
+  }
+
   void AddIncludeDir(std::string_view d) { include_paths_.push_back(d); }
+
   const auto &IncludeDirs() const { return include_paths_; }
+
   const WaveData *Waves() const { return wave_data_.get(); }
+
   // Non-const version allows for reload.
   WaveData *Waves() { return wave_data_.get(); }
 
   void TryMatchDesignWithWaves();
+
   const slang::ast::InstanceSymbol *MatchedDesignScope() const { return matched_design_scope_; }
+
   const WaveData::SignalScope *MatchedSignalScope() const { return matched_signal_scope_; }
+
   void SetMatchedDesignScope(const slang::ast::InstanceSymbol *s);
+
   void SetMatchedSignalScope(const WaveData::SignalScope *s);
+
   std::vector<const WaveData::Signal *> DesignToSignals(const UHDM::any *item) const;
+
   const UHDM::any *SignalToDesign(const WaveData::Signal *signal) const;
 
   // TODO: remove.
   const UHDM::design *OldDesign() const { return design_; }
 
+  const UHDM::module_inst *GetDefinition(const UHDM::module_inst *m);
+
  private:
   // Singleton
-  Workspace() {}
+  Workspace() = default;
   ~Workspace();
 
   slang::driver::Driver slang_driver_;

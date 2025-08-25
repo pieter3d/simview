@@ -3,14 +3,15 @@
 #include "absl/container/flat_hash_map.h"
 #include "panel.h"
 #include "simple_tokenizer.h"
+#include "slang/ast/Symbol.h"
+#include "slang/ast/symbols/InstanceSymbols.h"
 
 #include <deque>
-#include <uhdm/uhdm_types.h>
 #include <vector>
 
 namespace sv {
 
-// This panel displays source code for a UHDM item.
+// This panel displays source code for a SystemVerilog symbol.
 class SourcePanel : public Panel {
  public:
   void Draw() final;
@@ -18,10 +19,10 @@ class SourcePanel : public Panel {
   int NumLines() const final { return lines_.size(); }
   std::optional<std::pair<int, int>> CursorLocation() const final;
   std::vector<Tooltip> Tooltips() const final;
-  void SetItem(const UHDM::any *item, bool show_def = false);
+  void SetItem(const slang::ast::Symbol *item);
   std::pair<int, int> ScrollArea() const final;
-  std::optional<const UHDM::any *> ItemForDesignTree();
-  std::optional<const UHDM::any *> ItemForWaves();
+  std::optional<const slang::ast::Symbol *> ItemForDesignTree();
+  std::optional<const slang::ast::Symbol *> ItemForWaves();
   bool Search(bool search_down) final;
   bool Searchable() const final { return true; }
   // Need to look for stuff under the cursor when changing lines.
@@ -32,12 +33,12 @@ class SourcePanel : public Panel {
   // Push the current state onto the stack.
   void SaveState();
   // Variant that includes a flag indicating if the item change should save the
-  // current state (it not empty). This is used for forward/back stack
+  // current state (if not empty). This is used for forward/back stack
   // navigation.
-  void SetItem(const UHDM::any *item, bool show_def, bool save_state);
+  void SetItem(const slang::ast::Symbol *item, bool save_state);
   // Jump to particular location in the current file, using the item's line and
   // column number.
-  void SetLocation(const UHDM::any *item);
+  void SetLocation(const slang::ast::Symbol *item);
   // Sets the selected item based on the cursor location
   void SelectItem();
   // Generates a nice header that probably fits in the current window width.
@@ -50,20 +51,18 @@ class SourcePanel : public Panel {
   std::string header_;
   // Show values of highlighted items or not.
   bool show_vals_ = true;
-  // Current column location of the cursor, with 0 being the start of the source
-  // code line. TODO: See what can be moved to the Panel class.
+  // State for tracking horizontal scrolling.
+  // TODO: See what can be moved to the Panel class.
   int max_col_idx_ = 0;
   int scroll_col_ = 0;
-  // The instance or generate block whose source is shown.
-  const UHDM::any *scope_ = nullptr;
-  bool showing_def_;
+  // The containing scope of the selection. Either instance body or generate block.
+  const slang::ast::InstanceBodySymbol *scope_ = nullptr;
   // The currently selected item. Could be a parameter too.
-  const UHDM::any *sel_ = nullptr;
-  std::string sel_param_;
+  const slang::ast::Symbol *sel_ = nullptr;
   // All source lines of the file containing the module instance containing the
   // selected item (this could be the complete instance itself too).
   std::string current_file_;
-  std::vector<std::string> lines_;
+  std::vector<std::string_view> lines_;
   // Things in the source code that are navigable:
   // - Nets and variables. Add to wave, trace drivers/loads, go to def.
   // - Module instances: Open source
@@ -71,13 +70,12 @@ class SourcePanel : public Panel {
   // These are stored in a hash by identifier so they can be appropriately
   // syntax-highlighted. Also stored by line to allow for fast lookup under the
   // cursor.
-  absl::flat_hash_map<std::string, const UHDM::any *> nav_;
-  absl::flat_hash_map<int, std::vector<std::pair<int, const UHDM::any *>>>
-      nav_by_line_;
+  absl::flat_hash_map<std::string, const slang::ast::Symbol *> nav_;
+  absl::flat_hash_map<int, std::vector<std::pair<int, const slang::ast::Symbol *>>> nav_by_line_;
+  // TODO remove when confirmed not needed.
   // Map of all textual parameters and their definitions.
-  absl::flat_hash_map<std::string, std::string> params_;
-  absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>>
-      params_by_line_;
+  // absl::flat_hash_map<std::string, std::string> params_;
+  // absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>> params_by_line_;
   // Tokenizer that holds identifiers and keywords for each line. This
   // simplifies syntax highlighting for keywords and comments.
   SimpleTokenizer tokenizer_;
@@ -87,20 +85,19 @@ class SourcePanel : public Panel {
   int end_line_ = 0;
   // When not null, indicates this object should be shown in the design tree.
   // This allows the design tree panel to always match current scope.
-  const UHDM::any *item_for_design_tree_ = nullptr;
-  const UHDM::any *item_for_waves_ = nullptr;
+  const slang::ast::Symbol *item_for_design_tree_ = nullptr;
+  const slang::ast::Symbol *item_for_waves_ = nullptr;
   // Drivers and loads
   int trace_idx_;
-  std::vector<const UHDM::any *> drivers_or_loads_;
+  std::vector<const slang::ast::Symbol *> drivers_or_loads_;
 
   // Stack of states, to allow going back/forth while browsing source.
   struct State {
-    const UHDM::any *scope = nullptr;
+    const slang::ast::InstanceBodySymbol *scope = nullptr;
     int line_idx = 0;
     int col_idx = 0;
     int scroll_row = 0;
     int scroll_col = 0;
-    bool show_def = false;
   };
   std::deque<State> state_stack_;
   int stack_idx_ = 0;

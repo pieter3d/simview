@@ -1,40 +1,69 @@
 #include "source_panel.h"
-#include "absl/strings/str_format.h"
 #include "color.h"
 #include "radix.h"
-#include "uhdm_utils.h"
+#include "slang/ast/ASTVisitor.h"
+#include "slang/ast/Symbol.h"
+#include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/ParameterSymbols.h"
+#include "slang/ast/symbols/SubroutineSymbols.h"
+#include "slang/ast/symbols/VariableSymbols.h"
+#include "slang/text/SourceManager.h"
+#include "slang_utils.h"
 #include "utils.h"
 #include "workspace.h"
 
 #include <curses.h>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <optional>
-#include <string>
-#include <uhdm/array_net.h>
-#include <uhdm/array_var.h>
-#include <uhdm/constant.h>
-#include <uhdm/function.h>
-#include <uhdm/gen_scope.h>
-#include <uhdm/gen_scope_array.h>
-#include <uhdm/module_inst.h>
-#include <uhdm/net.h>
-#include <uhdm/param_assign.h>
-#include <uhdm/parameter.h>
-#include <uhdm/scope.h>
-#include <uhdm/variables.h>
 
 namespace sv {
 namespace {
 
 constexpr int kMaxStateStackSize = 500;
 
-// Remove newline characters from the start or end of the string.
-void trim_string(std::string *s) { // NOLINT
-  s->erase(std::remove(s->begin(), s->end(), '\n'), s->end());
-  s->erase(std::remove(s->begin(), s->end(), '\r'), s->end());
-  // TODO: replace tabs with spaces.
+// For conciseness, create an alias for the navigable map from the the source_panel class
+// declaration.
+using VarMap = absl::flat_hash_map<std::string, const slang::ast::Symbol *>;
+
+class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*visitStatements*/ false,
+                                                /*visitExpressions*/ false> {
+ public:
+  NavFinder(VarMap *map) : var_map_(map) {}
+  template <typename T>
+  void handle(const T &t) {
+    if constexpr (std::is_base_of_v<slang::ast::ParameterSymbol, T> ||
+                  std::is_base_of_v<slang::ast::InstanceSymbol, T> ||
+                  std::is_base_of_v<slang::ast::NetSymbol, T> ||
+                  std::is_base_of_v<slang::ast::VariableSymbol, T> ||
+                  std::is_base_of_v<slang::ast::SubroutineSymbol, T>
+
+    ) {
+      var_map_->insert({std::string(t.name), &t});
+    }
+    // Don't recurse into sub-instances, just find things within this instance.
+    if constexpr (!std::is_base_of_v<slang::ast::InstanceSymbol, T>) visitDefault(t);
+  }
+
+ private:
+  VarMap *var_map_;
+};
+
+void SplitLines(std::string_view buffer, std::vector<std::string_view> *lines) {
+  size_t pos = 0;
+  while (pos < buffer.length()) {
+    size_t newline_pos = buffer.find_first_of("\r\n", pos);
+    const bool is_cr = newline_pos != std::string_view::npos && buffer[newline_pos] == '\r';
+    // If a newline is found, extract the substring up to it.
+    if (newline_pos != std::string_view::npos) {
+      lines->push_back(buffer.substr(pos, newline_pos - pos));
+      // Advance past the newline character for the next search.
+      pos = newline_pos + 1;
+      // Check for the Windows-style CRLF sequence (\r\n).
+      if (pos < buffer.length() && is_cr && buffer[pos] == '\n') pos++;
+    } else {
+      // No more newlines found, so add the remaining part of the string and finish.
+      lines->push_back(buffer.substr(pos));
+      break;
+    }
+  }
 }
 
 } // namespace
@@ -45,28 +74,14 @@ std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
   // plus one since line numbers start at 1. Add one to the final width to
   // account for the line number margin.
   int linenum_width = 1 + NumDecimalDigits(scroll_row_ + getmaxy(w_) - 1);
-  return std::pair(line_idx_ - scroll_row_ + 1,
-                   col_idx_ - scroll_col_ + linenum_width);
+  return std::pair(line_idx_ - scroll_row_ + 1, col_idx_ - scroll_col_ + linenum_width);
 }
 
 void SourcePanel::BuildHeader() {
   if (scope_ == nullptr) return;
-  std::string type;
-  switch (scope_->VpiType()) {
-  case vpiModule: {
-    auto s = dynamic_cast<const UHDM::scope *>(scope_);
-    type = s->VpiFullName();
-    break;
-  }
-  case vpiGenScopeArray: {
-    auto ga = dynamic_cast<const UHDM::gen_scope_array *>(scope_);
-    type = ga->VpiFullName();
-    break;
-  }
-  default: type = "Unknown type: " + std::to_string(scope_->VpiType()); break;
-  }
+  std::string scope_name = scope_->getHierarchicalPath();
   const std::string separator = " | ";
-  header_ = current_file_ + separator + StripWorklib(type);
+  header_ = current_file_ + separator + scope_name;
   // Attempt to strip as many leading directories from the front of the header
   // until it fits. If it still doesn't fit then oh well, it will get cut off
   // in the Draw funtion.
@@ -117,8 +132,7 @@ void SourcePanel::Draw() {
   if (col_idx_ - scroll_col_ + max_digits + 2 >= win_w) {
     scroll_col_ = col_idx_ + max_digits + 2 - win_w;
   }
-  const auto highlight_attr =
-      (!search_preview_ && has_focus_) ? A_REVERSE : A_UNDERLINE;
+  const auto highlight_attr = (!search_preview_ && has_focus_) ? A_REVERSE : A_UNDERLINE;
   int sel_pos = 0; // Save selection start position.
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + scroll_row_;
@@ -127,8 +141,7 @@ void SourcePanel::Draw() {
     const int line_num_size = NumDecimalDigits(line_num);
     const bool active = line_num >= start_line_ && line_num <= end_line_;
     const int text_color = active ? kSourceTextPair : kSourceInactivePair;
-    SetColor(w_, line_idx == line_idx_ ? kSourceCurrentLineNrPair
-                                       : kSourceLineNrPair);
+    SetColor(w_, line_idx == line_idx_ ? kSourceCurrentLineNrPair : kSourceLineNrPair);
     // Fill the space before the line number with blanks so that it has the
     // right background color.
     for (int x = 0; x < max_digits - line_num_size; ++x) {
@@ -140,10 +153,11 @@ void SourcePanel::Draw() {
 
     // Go charachter by character, up to the window width.
     // Keep track of the current identifier, keyword and comment in the line.
-    const auto &s = lines_[line_idx];
-    const auto &keywords = tokenizer_.Keywords(line_idx);
-    const auto &identifiers = tokenizer_.Identifiers(line_idx);
-    const auto &comments = tokenizer_.Comments(line_idx);
+    std::string_view s = lines_[line_idx];
+    const std::vector<std::pair<int, int>> &keywords = tokenizer_.Keywords(line_idx);
+    const std::vector<std::pair<int, std::string_view>> &identifiers =
+        tokenizer_.Identifiers(line_idx);
+    const std::vector<std::pair<int, int>> &comments = tokenizer_.Comments(line_idx);
     bool in_keyword = false;
     bool in_identifier = false;
     bool in_comment = false;
@@ -167,16 +181,19 @@ void SourcePanel::Draw() {
       // Figure out if we have to switch to a new color
       if (active && !in_identifier && identifiers.size() > id_idx &&
           identifiers[id_idx].first == pos) {
-        const auto &id = identifiers[id_idx].second;
-        bool cursor_in_id =
-            line_idx == line_idx_ && col_idx_ >= identifiers[id_idx].first &&
-            col_idx_ < (identifiers[id_idx].first + id.size()) &&
-            !(search_preview_ && search_start_col_ < 0);
-        if (nav_.find(id) != nav_.end()) {
-          if (nav_[id]->VpiType() == vpiModule ||
-              nav_[id]->VpiType() == vpiTask ||
-              nav_[id]->VpiType() == vpiFunction) {
+        std::string_view id = identifiers[id_idx].second;
+        bool cursor_in_id = line_idx == line_idx_ && col_idx_ >= identifiers[id_idx].first &&
+                            col_idx_ < (identifiers[id_idx].first + id.size()) &&
+                            !(search_preview_ && search_start_col_ < 0);
+        const auto nav_it = nav_.find(id);
+        if (nav_it != nav_.end()) {
+          const slang::ast::Symbol *sym = nav_it->second;
+          if (sym->kind == slang::ast::SymbolKind::Instance ||
+              sym->kind == slang::ast::SymbolKind::InstanceArray ||
+              sym->kind == slang::ast::SymbolKind::Subroutine) {
             SetColor(w_, kSourceInstancePair);
+          } else if (sym->kind == slang::ast::SymbolKind::Parameter) {
+            SetColor(w_, kSourceParamPair);
           } else if (IsTraceable(nav_[id])) {
             SetColor(w_, kSourceIdentifierPair);
           }
@@ -184,20 +201,12 @@ void SourcePanel::Draw() {
             wattron(w_, highlight_attr);
             sel_pos = pos;
           }
-        } else if (params_.find(id) != params_.end()) {
-          SetColor(w_, kSourceParamPair);
-          if (sel_param_ == id && cursor_in_id) {
-            wattron(w_, highlight_attr);
-            sel_pos = pos;
-          }
         }
         in_identifier = true;
-      } else if (active && !in_keyword && keywords.size() > k_idx &&
-                 keywords[k_idx].first == pos) {
+      } else if (active && !in_keyword && keywords.size() > k_idx && keywords[k_idx].first == pos) {
         in_keyword = true;
         SetColor(w_, kSourceKeywordPair);
-      } else if (!in_comment && comments.size() > c_idx &&
-                 comments[c_idx].first == pos) {
+      } else if (!in_comment && comments.size() > c_idx && comments[c_idx].first == pos) {
         // Highlight inactive comments still.
         in_comment = true;
         SetColor(w_, kSourceCommentPair);
@@ -210,6 +219,7 @@ void SourcePanel::Draw() {
             pos == search_start_col_) {
           wattron(w_, A_REVERSE);
         }
+        // TODO: deal with tabs.
         waddch(w_, s[pos]);
         if (search_preview_ && line_idx == line_idx_ &&
             pos == (search_start_col_ + search_text_.size() - 1)) {
@@ -223,8 +233,7 @@ void SourcePanel::Draw() {
         k_idx++;
         SetColor(w_, text_color);
       } else if (in_identifier &&
-                 (identifiers[id_idx].first +
-                  identifiers[id_idx].second.size() - 1) == pos) {
+                 (identifiers[id_idx].first + identifiers[id_idx].second.size() - 1) == pos) {
         in_identifier = false;
         id_idx++;
         SetColor(w_, text_color);
@@ -240,14 +249,15 @@ void SourcePanel::Draw() {
 
   // Draw the current value of the selected item.
   std::string val;
-  if (show_vals_ &&
-      (!sel_param_.empty() ||
-       (sel_ != nullptr && Workspace::Get().Waves() != nullptr))) {
-    if (!sel_param_.empty()) {
-      val = params_[sel_param_];
+  if (show_vals_ && sel_ != nullptr &&
+      (sel_->kind == slang::ast::SymbolKind::Parameter || Workspace::Get().Waves() != nullptr)) {
+    if (const auto *param = sel_->as_if<slang::ast::ParameterSymbol>()) {
+      val = param->getValue().toString();
     } else {
-      std::vector<const WaveData::Signal *> signals =
-          Workspace::Get().DesignToSignals(sel_);
+      std::vector<const WaveData::Signal *> signals;
+      //  TODO: Reinstate when worksapce waves are slang-ified.
+      // std::vector<const WaveData::Signal *> signals =
+      //    Workspace::Get().DesignToSignals(sel_);
       // Don't bother with large arrays.
       // TODO: Is it useful to try to do something here?
       if (signals.size() == 1) {
@@ -265,6 +275,7 @@ void SourcePanel::Draw() {
     }
   }
   if (!val.empty()) {
+    const int id_size = sel_->name.size();
     // Draw a nice box, with an empty value all around it, including the
     // connecting line:
     //
@@ -286,16 +297,13 @@ void SourcePanel::Draw() {
     // whichever side has more room.
     const int start_col = max_digits + 1 + sel_pos - scroll_col_ - 1;
     const bool right =
-        start_col + val.size() <= win_w ||
-        (((win_w - start_col) > (start_col + sel_param_.size() - 1)));
+        start_col + val.size() <= win_w || (((win_w - start_col) > (start_col + id_size - 1)));
     SetColor(w_, kSourceValuePair);
     wattron(w_, A_BOLD);
-    int connector_col = start_col + (right ? 0 : sel_param_.size() - 3 + 2);
+    int connector_col = start_col + (right ? 0 : id_size - 3 + 2);
     int max_chars_connector = win_w - connector_col;
-    mvwaddnstr(w_, val_line + (above ? -1 : 1), connector_col, " | ",
-               max_chars_connector);
-    const int col =
-        start_col + (right ? 0 : sel_param_.size() - val.size() + 2);
+    mvwaddnstr(w_, val_line + (above ? -1 : 1), connector_col, " | ", max_chars_connector);
+    const int col = start_col + (right ? 0 : id_size - val.size() + 2);
     int max_chars = win_w - col;
     mvwaddnstr(w_, val_line + (above ? -4 : 4), col, box.c_str(), max_chars);
     mvwaddnstr(w_, val_line + (above ? -3 : 3), col, val.c_str(), max_chars);
@@ -310,16 +318,13 @@ void SourcePanel::UIChar(int ch) {
   bool send_to_waves = false;
   switch (ch) {
   case 'u':
-    if (showing_def_) {
-      // Go back up to the instance location if showing a definition
-      SetItem(scope_, false);
-      item_for_design_tree_ = scope_;
+    if (const auto *body = scope_->as_if<slang::ast::InstanceBodySymbol>()) {
+      SetItem(body->parentInstance);
+      item_for_design_tree_ = body->parentInstance;
     } else {
-      auto new_scope = GetScopeForUI(scope_->VpiParent());
-      if (new_scope != nullptr) {
-        SetItem(new_scope, false);
-        item_for_design_tree_ = new_scope;
-      }
+      const slang::ast::Symbol *parent = &scope_->getParentScope()->asSymbol();
+      SetItem(parent);
+      item_for_design_tree_ = parent;
     }
     break;
   case 'h':
@@ -363,9 +368,9 @@ void SourcePanel::UIChar(int ch) {
     // Go to definition of a module instance.
     if (sel_ != nullptr) {
       // For modules, load the definition.
-      if (sel_->VpiType() == vpiModule) {
-        item_for_design_tree_ = GetScopeForUI(sel_);
-        SetItem(sel_, true);
+      if (const slang::ast::InstanceSymbol *inst = sel_->as_if<slang::ast::InstanceSymbol>()) {
+        item_for_design_tree_ = &inst->body;
+        SetItem(&inst->body);
       } else {
         SetLocation(sel_);
       }
@@ -375,7 +380,9 @@ void SourcePanel::UIChar(int ch) {
   case 'L':
     if (sel_ != nullptr) {
       bool trace_drivers = ch == 'D';
-      GetDriversOrLoads(sel_, trace_drivers, &drivers_or_loads_);
+      (void)trace_drivers;
+      // TODO: reinstate
+      // GetDriversOrLoads(sel_, trace_drivers, &drivers_or_loads_);
       trace_idx_ = 0;
       if (!drivers_or_loads_.empty()) SetLocation(drivers_or_loads_[0]);
     }
@@ -396,15 +403,15 @@ void SourcePanel::UIChar(int ch) {
   case 'f': {
     // Helper function to restore a state.
     auto load_state = [&](State s) {
-      if (s.scope != scope_ || s.show_def != showing_def_) {
-        SetItem(s.scope, s.show_def, false);
+      if (s.scope != scope_) {
+        SetItem(s.scope, /*save_state*/ false);
       }
       line_idx_ = s.line_idx;
       col_idx_ = s.col_idx;
       max_col_idx_ = s.col_idx;
       scroll_row_ = s.scroll_row;
       scroll_col_ = s.scroll_col;
-      item_for_design_tree_ = s.scope;
+      item_for_design_tree_ = &s.scope->asSymbol();
     };
     if (ch == 'f') {
       // Can't go forward past the end.
@@ -430,37 +437,17 @@ void SourcePanel::UIChar(int ch) {
     }
     break;
   }
-  case 'p': {
+  case 'p':
     // Go to the next highlightable thing.
-    int param_pos = -1;
-    int identifier_pos = -1;
-    // Look for navigable items
     if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
-      for (auto &item : nav_by_line_[line_idx_]) {
-        if (item.first > col_idx_) {
-          identifier_pos = item.first;
-          break;
+      for (const auto &[loc, sym] : nav_by_line_[line_idx_]) {
+        if (loc > col_idx_) {
+          col_idx_ = loc;
+          max_col_idx_ = col_idx_;
         }
       }
     }
-    // Look for parameters
-    if (params_by_line_.find(line_idx_) != params_by_line_.end()) {
-      for (auto &p : params_by_line_[line_idx_]) {
-        if (p.first > col_idx_) {
-          param_pos = p.first;
-          break;
-        }
-      }
-    }
-    // Pick the closest one.
-    if (param_pos > 0 && identifier_pos > 0) {
-      col_idx_ = std::min(param_pos, identifier_pos);
-      max_col_idx_ = col_idx_;
-    } else if (param_pos > 0 || identifier_pos > 0) {
-      col_idx_ = std::max(param_pos, identifier_pos);
-      max_col_idx_ = col_idx_;
-    }
-  } break;
+    break;
   case 'w':
     if (Workspace::Get().Waves() != nullptr) {
       send_to_waves = true;
@@ -492,20 +479,11 @@ void SourcePanel::UIChar(int ch) {
 
 void SourcePanel::SelectItem() {
   sel_ = nullptr;
-  sel_param_.clear();
   if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
-    for (auto &item : nav_by_line_[line_idx_]) {
-      if (col_idx_ >= item.first &&
-          col_idx_ < (item.first + item.second->VpiName().size())) {
-        sel_ = item.second;
+    for (const auto &[loc, sym] : nav_by_line_[line_idx_]) {
+      if (col_idx_ >= loc && col_idx_ < (loc + sym->name.size())) {
+        sel_ = sym;
         break;
-      }
-    }
-  }
-  if (params_by_line_.find(line_idx_) != params_by_line_.end()) {
-    for (auto &p : params_by_line_[line_idx_]) {
-      if (col_idx_ >= p.first && col_idx_ < (p.first + p.second.size())) {
-        sel_param_ = p.second;
       }
     }
   }
@@ -518,29 +496,31 @@ std::pair<int, int> SourcePanel::ScrollArea() const {
   return {h - 1, w};
 }
 
-std::optional<const UHDM::any *> SourcePanel::ItemForDesignTree() {
+std::optional<const slang::ast::Symbol *> SourcePanel::ItemForDesignTree() {
   if (item_for_design_tree_ == nullptr) return std::nullopt;
-  auto item = item_for_design_tree_;
+  const slang::ast::Symbol *item = item_for_design_tree_;
   item_for_design_tree_ = nullptr;
   return item;
 }
 
-std::optional<const UHDM::any *> SourcePanel::ItemForWaves() {
+std::optional<const slang::ast::Symbol *> SourcePanel::ItemForWaves() {
   if (item_for_waves_ == nullptr) return std::nullopt;
-  auto item = item_for_waves_;
+  const slang::ast::Symbol *item = item_for_waves_;
   item_for_waves_ = nullptr;
   return item;
 }
 
-void SourcePanel::SetItem(const UHDM::any *item, bool show_def) {
-  SetItem(item, show_def, /*save_state*/ true);
-}
+void SourcePanel::SetItem(const slang::ast::Symbol *item) { SetItem(item, /*save_state*/ true); }
 
-void SourcePanel::SetLocation(const UHDM::any *item) {
-  if (line_idx_ != item->VpiLineNo()) SaveState();
-  col_idx_ = item->VpiColumnNo() - 1;
+void SourcePanel::SetLocation(const slang::ast::Symbol *item) {
+  const slang::SourceManager *sm = Workspace::Get().SourceManager();
+  // 0-based counting internally.
+  const int line = sm->getLineNumber(item->location) - 1;
+  // Avoid history entries on the same line.
+  if (line_idx_ != line) SaveState();
+  col_idx_ = sm->getColumnNumber(item->location) - 1;
   max_col_idx_ = col_idx_;
-  SetLineAndScroll(item->VpiLineNo() - 1);
+  SetLineAndScroll(line);
 }
 
 void SourcePanel::SaveState() {
@@ -553,7 +533,6 @@ void SourcePanel::SaveState() {
       .col_idx = col_idx_,
       .scroll_row = scroll_row_,
       .scroll_col = scroll_col_,
-      .show_def = showing_def_,
   });
   stack_idx_++;
   if (state_stack_.size() > kMaxStateStackSize) {
@@ -562,21 +541,16 @@ void SourcePanel::SaveState() {
   }
 }
 
-void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
-                          bool save_state) {
+void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   if (item == nullptr) return;
   if (save_state && scope_ != nullptr) SaveState();
 
   scope_ = GetScopeForUI(item);
-  showing_def_ = show_def;
   // Clear out old info.
   lines_.clear();
   nav_.clear();
   nav_by_line_.clear();
-  params_.clear();
-  params_by_line_.clear();
   sel_ = nullptr;
-  sel_param_.clear();
   tokenizer_ = SimpleTokenizer();
   line_idx_ = 0;
   col_idx_ = 0;
@@ -584,168 +558,28 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
   start_line_ = 0;
   end_line_ = 0;
 
-  // This lamda recurses through all generate blocks in the item, adding any
-  // navigable things found to the hashes.
-  // TODO: move some of this to utils.cc
-  std::function<void(const UHDM::any *)> find_navigable_items =
-      [&](const UHDM::any *item) {
-        switch (item->VpiType()) {
-        case vpiModule: {
-          auto m = dynamic_cast<const UHDM::module_inst *>(item);
-          if (m->Variables() != nullptr) {
-            for (auto &v : *m->Variables()) {
-              nav_[v->VpiName()] = v;
-            }
-          }
-          if (m->Nets() != nullptr) {
-            for (auto &n : *m->Nets()) {
-              nav_[n->VpiName()] = n;
-            }
-          }
-          if (m->Array_nets() != nullptr) {
-            for (auto &a : *m->Array_nets()) {
-              nav_[a->VpiName()] = a;
-            }
-          }
-          if (m->Array_vars() != nullptr) {
-            for (auto &a : *m->Array_vars()) {
-              nav_[a->VpiName()] = a;
-            }
-          }
-          if (m->Task_funcs() != nullptr) {
-            for (auto &tf : *m->Task_funcs()) {
-              nav_[tf->VpiName()] = tf;
-            }
-          }
-          if (m->Modules() != nullptr) {
-            for (auto &sub : *m->Modules()) {
-              nav_[sub->VpiName()] = sub;
-            }
-            // No recursion into modules since that source code is not in scope.
-          }
-          if (m->Param_assigns() != nullptr) {
-            for (auto &pa : *m->Param_assigns()) {
-              // Elaborated designs should only have this type of assignment.
-              if (pa->Lhs()->VpiType() != vpiParameter) continue;
-              if (pa->Rhs()->VpiType() != vpiConstant) continue;
-              auto p = dynamic_cast<const UHDM::parameter *>(pa->Lhs());
-              auto c = dynamic_cast<const UHDM::constant *>(pa->Rhs());
-              params_[p->VpiName()] = c->VpiDecompile();
-            }
-          }
-          if (m->Gen_scope_arrays() != nullptr) {
-            for (auto &sub_ga : *m->Gen_scope_arrays()) {
-              find_navigable_items(sub_ga);
-            }
-          }
-          break;
-        }
-        case vpiGenScopeArray: {
-          auto ga = dynamic_cast<const UHDM::gen_scope_array *>(item);
-          // Surelog always uses a gen_scope_array to wrap a single gen_scope
-          // for any generate block, wether it's a single if statement or one
-          // iteration of an unrolled for loop.
-          auto &g = (*ga->Gen_scopes())[0];
-          // TODO: Use full names here, since generate scopes can come from
-          // generate loops, in which case there could be many items with the
-          // same name. Currently, the last one overwrites the others.
-          if (g->Variables() != nullptr) {
-            for (auto &v : *g->Variables()) {
-              nav_[v->VpiName()] = v;
-            }
-          }
-          if (g->Nets() != nullptr) {
-            for (auto &n : *g->Nets()) {
-              nav_[n->VpiName()] = n;
-            }
-          }
-          if (g->Array_nets() != nullptr) {
-            for (auto &a : *g->Array_nets()) {
-              nav_[a->VpiName()] = a;
-            }
-          }
-          if (g->Array_vars() != nullptr) {
-            for (auto &a : *g->Array_vars()) {
-              nav_[a->VpiName()] = a;
-            }
-          }
-          if (g->Modules() != nullptr) {
-            for (auto &sub : *g->Modules()) {
-              nav_[sub->VpiName()] = sub;
-            }
-            // No recursion into modules since that source code is not in
-            // scope.
-          }
-          if (g->Gen_scope_arrays() != nullptr) {
-            for (auto &sub_ga : *g->Gen_scope_arrays()) {
-              find_navigable_items(sub_ga);
-            }
-          }
-          break;
-        }
-        }
-      };
-  // Avoid trying to load a definition if it's not available.
-  bool definition_available = true;
-  if (item->VpiType() == vpiModule && show_def) {
-    auto m = dynamic_cast<const UHDM::module_inst *>(item);
-    definition_available = Workspace::Get().GetDefinition(m) != nullptr;
-    if (!definition_available) {
-      error_message_ = absl::StrFormat("Definition of %s is not available.",
-                                       StripWorklib(m->VpiFullName()));
-    }
-  }
-  // Top modules are always treated as a definition load since there is nothing
-  // they are instanced in.
-  int line_num = 1;
-  if (item->VpiType() == vpiModule &&
-      ((show_def && definition_available) || item->VpiParent() == nullptr)) {
-    auto m = dynamic_cast<const UHDM::module_inst *>(item);
-    // VpiDefFile isn't super useful here, still need the definition to get
-    // the start and end line number.
-    auto def = Workspace::Get().GetDefinition(m);
-    current_file_ = def->VpiFile();
-    start_line_ = def->VpiLineNo();
-    end_line_ = def->VpiEndLineNo();
-    find_navigable_items(m);
-    col_idx_ = 0;
-    max_col_idx_ = 0;
-    line_num = def->VpiLineNo();
-  } else {
-    current_file_ = item->VpiFile();
-    col_idx_ = item->VpiColumnNo() - 1;
-    max_col_idx_ = col_idx_;
-    line_num = item->VpiLineNo();
-    // Find the containing module, since that's all in the same file and in
-    // scope.
-    while (1) {
-      item = item->VpiParent();
-      if (item == nullptr) break;
-      find_navigable_items(item);
-      if (item->VpiType() == vpiModule) break;
-    }
-    if (item != nullptr) {
-      auto def = Workspace::Get().GetDefinition(
-          dynamic_cast<const UHDM::module_inst *>(item));
-      start_line_ = def->VpiLineNo();
-      end_line_ = def->VpiEndLineNo();
-    }
-  }
-  // Read all lines. TODO: Handle huge files.
-  std::ifstream is(current_file_);
-  if (is.fail()) return; // Draw function handles file open issues.
-  std::string s;
+  // Populate the map with all navigable items in this scope.
+  NavFinder nav_finder(&nav_);
+  scope_->visit(nav_finder);
+  const slang::SourceManager *sm = Workspace::Get().SourceManager();
+  start_line_ = sm->getLineNumber(scope_->getSyntax()->sourceRange().start());
+  end_line_ = sm->getLineNumber(scope_->getSyntax()->sourceRange().end());
+  col_idx_ = sm->getColumnNumber(item->location);
+  max_col_idx_ = col_idx_;
+  int line_num = sm->getLineNumber(item->location);
+  current_file_ = sm->getFileName(scope_->location);
+
+  // Extract the lines as individial string_views.
+  SplitLines(sm->getSourceText(scope_->location.buffer()), &lines_);
+
   int n = 0;
-  while (std::getline(is, s)) {
-    trim_string(&s);
+  for (std::string_view s : lines_) {
     tokenizer_.ProcessLine(s);
-    lines_.push_back(std::move(s));
     // Add all useful identifiers in this line to the appropriate list.
-    for (auto &id : tokenizer_.Identifiers(n)) {
-      if (params_.find(id.second) != params_.end()) {
-        params_by_line_[n].push_back(id);
-      } else if (nav_.find(id.second) != nav_.end()) {
-        nav_by_line_[n].push_back({id.first, nav_[id.second]});
+    for (auto &[loc, id] : tokenizer_.Identifiers(n)) {
+      auto it = nav_.find(id);
+      if (it != nav_.end()) {
+        nav_by_line_[n].push_back({loc, it->second});
       }
     }
     n++;
@@ -756,17 +590,16 @@ void SourcePanel::SetItem(const UHDM::any *item, bool show_def,
 }
 
 void SourcePanel::UpdateWaveData() {
-  if (Workspace::Get().Waves() == nullptr) return;
+  WaveData *waves = Workspace::Get().Waves();
+  if (waves == nullptr) return;
   std::vector<const WaveData::Signal *> signals;
-  for (auto &[id, item] : nav_) {
-    auto signals_for_item = Workspace::Get().DesignToSignals(item);
-    signals.insert(signals.end(), signals_for_item.begin(),
-                   signals_for_item.end());
-  }
-  auto *waves = Workspace::Get().Waves();
-  // TODO: Loading for the full range here. Is there a way to bound it?
-  waves->LoadSignalSamples(signals, waves->TimeRange().first,
-                           waves->TimeRange().second);
+  // TODO: reinstante after waves are slang-ified.
+  // for (auto &[id, item] : nav_) {
+  //   auto signals_for_item = Workspace::Get().DesignToSignals(item);
+  //   signals.insert(signals.end(), signals_for_item.begin(), signals_for_item.end());
+  // }
+  // // TODO: Loading for the full range here. Is there a way to bound it?
+  // waves->LoadSignalSamples(signals, waves->TimeRange().first, waves->TimeRange().second);
 }
 
 bool SourcePanel::Search(bool search_down) {
@@ -805,8 +638,8 @@ bool SourcePanel::Search(bool search_down) {
   }
   const int start_row = row;
   while (1) {
-    const auto pos = search_down ? lines_[row].find(search_text_, col)
-                                 : lines_[row].rfind(search_text_, col);
+    const auto pos =
+        search_down ? lines_[row].find(search_text_, col) : lines_[row].rfind(search_text_, col);
     if (pos != std::string::npos) {
       search_start_col_ = pos;
       col_idx_ = pos;
@@ -845,9 +678,7 @@ std::vector<Tooltip> SourcePanel::Tooltips() const {
   tt.push_back({"b", "back"});
   tt.push_back({"f", "forward"});
   tt.push_back(
-      {"v",
-       "" + (show_vals_ ? std::string("SHOW/hide") : std::string("show/HIDE")) +
-           " vals"});
+      {"v", "" + (show_vals_ ? std::string("SHOW/hide") : std::string("show/HIDE")) + " vals"});
   return tt;
 }
 

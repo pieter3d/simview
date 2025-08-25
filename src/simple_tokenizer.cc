@@ -3,8 +3,8 @@
 namespace sv {
 namespace {
 
-bool IsKeyword(const std::string &s) {
-  const static std::unordered_set<std::string> kKeywords = {
+bool IsKeyword(std::string_view s) {
+  const static std::unordered_set<std::string_view> kKeywords = {
       "accept_on",
       "alias",
       "always",
@@ -258,8 +258,8 @@ bool IsKeyword(const std::string &s) {
 }
 
 bool IsInternalIdentifierCharacater(char c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-         (c >= '0' && c <= '9') || (c == '_') || (c == '$');
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '_') ||
+         (c == '$');
 }
 
 // Numeric digits and the $ symbol are not part of an identifier if they
@@ -270,7 +270,7 @@ bool IsLeadingIdentifierCharacater(char c) {
 
 } // namespace
 
-void SimpleTokenizer::ProcessLine(const std::string &s) {
+void SimpleTokenizer::ProcessLine(std::string_view s) {
   int start_pos = 0;
   bool in_identifier = false;
   bool in_escaped_identifier = false;
@@ -293,15 +293,12 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
           last_token_was_dot_ = false;
           continue;
         }
-        identifiers_[line_num_].push_back(
-            {start_pos, s.substr(start_pos, i - start_pos)});
+        identifiers_[line_num_].push_back({start_pos, s.substr(start_pos, i - start_pos)});
       }
     } else if (in_identifier) {
       if (!IsInternalIdentifierCharacater(c) || i == s.size() - 1) {
         in_identifier = false;
-        int last_pos = (IsInternalIdentifierCharacater(c) && i == s.size() - 1)
-                           ? i
-                           : (i - 1);
+        int last_pos = (IsInternalIdentifierCharacater(c) && i == s.size() - 1) ? i : (i - 1);
         // Skip macros and compiler directives.
         if (start_pos > 0 && s[start_pos - 1] == '`') continue;
         // Skip numerical literals
@@ -313,7 +310,7 @@ void SimpleTokenizer::ProcessLine(const std::string &s) {
           last_token_was_dot_ = false;
           continue;
         }
-        auto text = s.substr(start_pos, last_pos - start_pos + 1);
+        std::string_view text = s.substr(start_pos, last_pos - start_pos + 1);
         if (IsKeyword(text)) {
           keywords_[line_num_].push_back({start_pos, last_pos});
         } else {

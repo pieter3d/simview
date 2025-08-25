@@ -21,7 +21,7 @@ TEST(SimpleTokenizer, BasicIdentifiers) {
       "`some_macro endmodule",
   };
   SimpleTokenizer tk;
-  for (auto &line : lines) {
+  for (const std::string &line : lines) {
     tk.ProcessLine(line);
   }
   EXPECT_EQ(tk.Comments(0).size(), 0);

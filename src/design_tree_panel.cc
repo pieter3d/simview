@@ -1,8 +1,11 @@
 #include "design_tree_panel.h"
+
+#include "slang/ast/Symbol.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang_utils.h"
 #include "workspace.h"
 #include <memory>
+#include <optional>
 
 namespace sv {
 
@@ -70,44 +73,50 @@ void DesignTreePanel::SetItem(const slang::ast::Symbol *item) {
 
 void DesignTreePanel::UIChar(int ch) {
   switch (ch) {
-  case 'i': load_instance_ = true; break;
+  case 'i':
+    // For top instances, load the definition since there is no source where it was instanced.
+    if (const auto *inst = dynamic_cast<const DesignTreeItem *>(data_[line_idx_])
+                               ->DesignItem()
+                               ->as_if<slang::ast::InstanceSymbol>()) {
+      if (inst->getParentScope()->asSymbol().name == "$root") {
+        load_definition_ = true;
+        break;
+      }
+    }
+    load_instance_ = true;
+    break;
   case 'd': {
-    // TODO: implement when source/waves are slang-ified.
-    //// Make sure the definition exits.
-    // auto *item =
-    //     dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem();
-    // if (item->VpiType() == vpiModule) {
-    //   auto *m = dynamic_cast<const UHDM::module_inst *>(item);
-    //   if (Workspace::Get().GetDefinition(m) == nullptr) {
-    //     // If not, do nothing.
-    //     error_message_ = absl::StrFormat("Definition of %s is not available.",
-    //                                      StripWorklib(m->VpiFullName()));
-    //     break;
-    //   }
-    // }
-    // load_definition_ = true;
+    // Make sure the definition exits.
+    auto *item = dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem();
+    if (item->kind == slang::ast::SymbolKind::UninstantiatedDef) {
+      // If not, do nothing.
+      error_message_ = absl::StrFormat("Definition of %s is not available.", item->name);
+      break;
+    }
+    load_definition_ = true;
   } break;
   case 'S':
-    // if (Workspace::Get().Waves() != nullptr) {
-    //   Workspace::Get().SetMatchedDesignScope(
-    //       dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem());
-    // }
+    if (Workspace::Get().Waves() != nullptr) {
+      if (const auto *inst = dynamic_cast<const DesignTreeItem *>(data_[line_idx_])
+                                 ->DesignItem()
+                                 ->as_if<slang::ast::InstanceSymbol>()) {
+        Workspace::Get().SetMatchedDesignScope(inst);
+      }
+    }
     break;
   default: TreePanel::UIChar(ch);
   }
 }
 
-std::optional<std::pair<const UHDM::any *, bool>> DesignTreePanel::ItemForSource() {
-  // TODO: slang-ify this.
-  // if (load_definition_ || load_instance_) {
-  //  std::pair<const UHDM::any *, bool> ret = {
-  //      dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem(),
-  //      load_definition_};
-  //  load_definition_ = false;
-  //  load_instance_ = false;
-  //  return ret;
-  //}
-  return std::nullopt;
+std::optional<const slang::ast::Symbol *> DesignTreePanel::ItemForSource() {
+  if (!load_definition_ && !load_instance_) return std::nullopt;
+  const slang::ast::Symbol *sym =
+      dynamic_cast<const DesignTreeItem *>(data_[line_idx_])->DesignItem();
+  const auto *inst = sym->as_if<slang::ast::InstanceSymbol>();
+  if (load_definition_ && inst) sym = &inst->body;
+  load_definition_ = false;
+  load_instance_ = false;
+  return sym;
 }
 
 std::vector<Tooltip> DesignTreePanel::Tooltips() const {

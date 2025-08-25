@@ -1,8 +1,7 @@
 #include "ui.h"
 
-#include "absl/strings/str_format.h"
 #include "color.h"
-#include "utils.h"
+#include "slang/ast/Symbol.h"
 #include "workspace.h"
 #include <ncurses.h>
 
@@ -286,22 +285,23 @@ void UI::EventLoop() {
       }
       // Look for transfers between panels
       if (focused_panel == design_tree_panel_.get()) {
-        if (auto item = design_tree_panel_->ItemForSource()) {
-          source_panel_->SetItem(item->first, item->second);
+        if (design_tree_panel_->ItemForSource()) {
+          const slang::ast::Symbol *sym = *design_tree_panel_->ItemForSource();
+          source_panel_->SetItem(sym);
         }
       } else if (focused_panel == source_panel_.get()) {
         if (const auto item = source_panel_->ItemForDesignTree()) {
-          // TODO - reinstate when slang-ified.
-          // design_tree_panel_->SetItem(*item);
+          design_tree_panel_->SetItem(*item);
         }
         if (const auto item = source_panel_->ItemForWaves()) {
-          auto signals = Workspace::Get().DesignToSignals(*item);
-          if (signals.empty()) {
-            error_message_ = absl::StrFormat("%s is not available in the waves.",
-                                             StripWorklib((*item)->VpiName()));
-          } else {
-            waves_panel_->AddSignals(signals);
-          }
+          // TODO: Reinstante when workspace waves are slang-ified.
+          // auto signals = Workspace::Get().DesignToSignals(*item);
+          // if (signals.empty()) {
+          //  error_message_ = absl::StrFormat("%s is not available in the waves.",
+          //                                   StripWorklib((*item)->VpiName()));
+          //} else {
+          //  waves_panel_->AddSignals(signals);
+          //}
         }
       } else if (focused_panel == wave_tree_panel_.get()) {
         if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
@@ -313,15 +313,16 @@ void UI::EventLoop() {
         }
       } else if (focused_panel == waves_panel_.get()) {
         if (const auto signal = waves_panel_->SignalForSource()) {
-          auto design_item = Workspace::Get().SignalToDesign(*signal);
-          if (design_item == nullptr) {
-            error_message_ =
-                absl::StrFormat("Signal %s not found in design.", WaveData::SignalToPath(*signal));
-          } else {
-            source_panel_->SetItem(design_item, /* show_def*/ true);
-            // TODO - reinstate when slang-ified.
-            // design_tree_panel_->SetItem(design_item);
-          }
+          // TODO - reinstate when slang-ified.
+          // auto design_item = Workspace::Get().SignalToDesign(*signal);
+          // if (design_item == nullptr) {
+          //  error_message_ =
+          //      absl::StrFormat("Signal %s not found in design.",
+          //      WaveData::SignalToPath(*signal));
+          //} else {
+          //  source_panel_->SetItem(design_item, /* show_def*/ true);
+          //  design_tree_panel_->SetItem(design_item);
+          //}
         }
       }
     }
@@ -515,14 +516,15 @@ void UI::Draw() const {
   }
   // Update cursor position, if there is one.
   if (searching_) {
-    auto loc = search_box_.CursorPos();
-    move(loc.first, loc.second);
+    auto [row, col] = search_box_.CursorPos();
+    move(row, col);
     curs_set(1);
   } else {
-    if (auto loc = focused_panel->CursorLocation()) {
+    if (focused_panel->CursorLocation()) {
+      const auto [row, col] = *focused_panel->CursorLocation();
       int x, y;
       getbegyx(focused_panel->Window(), y, x);
-      move(loc->first + y, loc->second + x);
+      move(row + y, col + x);
       curs_set(1);
     } else {
       curs_set(0);

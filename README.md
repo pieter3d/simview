@@ -12,7 +12,7 @@ SystemVerilog. Support for non-synthesizable testbench code is limited.
 ![Screenshot](simview.png)
 
 ## Features
-* Full design parsing and elaboration, powered by [Surelog](https://github.com/chipsalliance/Surelog).
+* Full design parsing and elaboration, powered by [slang](https://github.com/MikePopoloski/slang).
 * Trace signal drivers or loads.
 * Waveform format support for VCD and FST, the most common formats written by [Verilator](https://github.com/verilator/verilator).
 * Automatic (or manual) matching of wave file hierarchy to design hierarchy.
@@ -39,25 +39,20 @@ currently the only supported platforms, no native Windows or MacOSX support at t
 moment.
 
 1. Install pre-requisite packages (Ubuntu 20.04 LTS)
-  * `sudo apt install build-essential cmake git pkg-config tclsh swig uuid-dev
+  * `sudo apt install build-essential cmake git pkg-config tclsh swig uuid-dev ninja-build
       libgoogle-perftools-dev python3 python3-orderedmultidict python3-dev default-jre lcov libncurses-dev`
-1. Build and install [Surelog](https://github.com/chipsalliance/Surelog)
-  * `git clone git@github.com:chipsalliance/Surelog.git`
-  * `cd Surelog`
-  * `git submodule update --init --recursive`
-  * `make`
-  * `sudo make install`
 1. Build simview:
   * `git clone git@github.com:pieter3d/simview.git`
   * `cd simview`
   * `mkdir build`
   * `cd build`
-  * `cmake ..`
+  * `cmake ..` or `cmake -GNinja ..`
   * `make`
 
 ## TODO
 A list of features that have not yet been implemented.
 * Source viewer: Navigate include files
+* Signals list in a design (not just source + hierarchy).
 * Settings file (libconfig)
   * Sort instances by name or by position in file
   * Customizable colors.

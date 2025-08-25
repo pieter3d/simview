@@ -1,7 +1,7 @@
 #pragma once
 
 #include "absl/container/flat_hash_map.h"
-#include <string>
+#include <string_view>
 #include <vector>
 
 namespace sv {
@@ -12,19 +12,15 @@ namespace sv {
 // literals and compiler directives / macros.
 class SimpleTokenizer {
  public:
-  void ProcessLine(const std::string &s);
+  void ProcessLine(std::string_view s);
   // Returns a list of ranges in the line that are part of comments.
-  std::vector<std::pair<int, int>> &Comments(int line) {
-    return comments_[line];
-  }
-  // Returns a list of positions and strings that are idenfiers in the line.
-  std::vector<std::pair<int, std::string>> &Identifiers(int line) {
+  std::vector<std::pair<int, int>> &Comments(int line) { return comments_[line]; }
+  // Returns a list of positions and strings that are identifiers in the line.
+  std::vector<std::pair<int, std::string_view>> &Identifiers(int line) {
     return identifiers_[line];
   }
   // Returns a list of ranges that are keywords in the line.
-  std::vector<std::pair<int, int>> &Keywords(int line) {
-    return keywords_[line];
-  }
+  std::vector<std::pair<int, int>> &Keywords(int line) { return keywords_[line]; }
 
  private:
   int line_num_ = 0;
@@ -33,8 +29,7 @@ class SimpleTokenizer {
   bool last_token_was_dot_ = false;
   absl::flat_hash_map<int, std::vector<std::pair<int, int>>> comments_;
   absl::flat_hash_map<int, std::vector<std::pair<int, int>>> keywords_;
-  absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>>
-      identifiers_;
+  absl::flat_hash_map<int, std::vector<std::pair<int, std::string_view>>> identifiers_;
 };
 
 } // namespace sv
