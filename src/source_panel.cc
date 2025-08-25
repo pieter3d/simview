@@ -60,7 +60,11 @@ void SplitLines(std::string_view buffer, std::vector<std::string_view> *lines) {
       if (pos < buffer.length() && is_cr && buffer[pos] == '\n') pos++;
     } else {
       // No more newlines found, so add the remaining part of the string and finish.
-      lines->push_back(buffer.substr(pos));
+      int remainder = buffer.length() - pos;
+      // Skip the terminating zero.
+      if (buffer[buffer.length() - 1] == '\0') remainder--;
+      // Don't add a last blank line.
+      if (remainder > 0) lines->push_back(buffer.substr(pos, remainder));
       break;
     }
   }
