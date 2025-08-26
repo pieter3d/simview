@@ -16,11 +16,12 @@ bool SymbolHasSubs(const slang::ast::Symbol *s) {
 }
 
 const slang::ast::InstanceBodySymbol *GetScopeForUI(const slang::ast::Symbol *sym) {
-  while (sym != nullptr && sym->kind != slang::ast::SymbolKind::InstanceBody) {
+  while (sym->kind != slang::ast::SymbolKind::InstanceBody) {
+    // If at the top, stop here.
+    if (sym->getParentScope()->asSymbol().kind == slang::ast::SymbolKind::Root) break;
     sym = &sym->getParentScope()->asSymbol();
   }
-  if (const auto *inst = sym->as_if<slang::ast::InstanceBodySymbol>()) return inst;
-  return nullptr;
+  return sym->as_if<slang::ast::InstanceBodySymbol>();
 }
 
 bool IsTraceable(const slang::ast::Symbol *sym) {

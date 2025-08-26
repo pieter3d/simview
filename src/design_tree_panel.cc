@@ -38,6 +38,7 @@ DesignTreePanel::DesignTreePanel() {
 }
 
 void DesignTreePanel::SetItem(const slang::ast::Symbol *item) {
+  // TODO: this isn't right. too many thing caught up in the parent tree.
   // First, build a list of all things up to the root.
   std::vector<const slang::ast::Symbol *> path;
   while (item != nullptr) {

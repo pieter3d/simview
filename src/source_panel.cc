@@ -30,13 +30,12 @@ class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*visitStatements*/ f
   template <typename T>
   void handle(const T &t) {
     if constexpr (std::is_base_of_v<slang::ast::ParameterSymbol, T> ||
+                  std::is_base_of_v<slang::ast::InstanceArraySymbol, T> ||
                   std::is_base_of_v<slang::ast::InstanceSymbol, T> ||
                   std::is_base_of_v<slang::ast::NetSymbol, T> ||
                   std::is_base_of_v<slang::ast::VariableSymbol, T> ||
-                  std::is_base_of_v<slang::ast::SubroutineSymbol, T>
-
-    ) {
-      var_map_->insert({std::string(t.name), &t});
+                  std::is_base_of_v<slang::ast::SubroutineSymbol, T>) {
+      if (!t.name.empty()) var_map_->insert({std::string(t.name), &t});
     }
     // Don't recurse into sub-instances, just find things within this instance.
     if constexpr (!std::is_base_of_v<slang::ast::InstanceSymbol, T>) visitDefault(t);
@@ -322,13 +321,11 @@ void SourcePanel::UIChar(int ch) {
   bool send_to_waves = false;
   switch (ch) {
   case 'u':
-    if (const auto *body = scope_->as_if<slang::ast::InstanceBodySymbol>()) {
-      SetItem(body->parentInstance);
-      item_for_design_tree_ = body->parentInstance;
+    if (scope_->parentInstance->getParentScope()->asSymbol().kind != slang::ast::SymbolKind::Root) {
+      SetItem(scope_->parentInstance);
+      item_for_design_tree_ = scope_;
     } else {
-      const slang::ast::Symbol *parent = &scope_->getParentScope()->asSymbol();
-      SetItem(parent);
-      item_for_design_tree_ = parent;
+      error_message_ = "This is a top level module.";
     }
     break;
   case 'h':
@@ -514,8 +511,6 @@ std::optional<const slang::ast::Symbol *> SourcePanel::ItemForWaves() {
   return item;
 }
 
-void SourcePanel::SetItem(const slang::ast::Symbol *item) { SetItem(item, /*save_state*/ true); }
-
 void SourcePanel::SetLocation(const slang::ast::Symbol *item) {
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
   // 0-based counting internally.
@@ -545,6 +540,8 @@ void SourcePanel::SaveState() {
   }
 }
 
+void SourcePanel::SetItem(const slang::ast::Symbol *item) { SetItem(item, /*save_state*/ true); }
+
 void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   if (item == nullptr) return;
   if (save_state && scope_ != nullptr) SaveState();
@@ -556,11 +553,6 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   nav_by_line_.clear();
   sel_ = nullptr;
   tokenizer_ = SimpleTokenizer();
-  line_idx_ = 0;
-  col_idx_ = 0;
-  max_col_idx_ = 0;
-  start_line_ = 0;
-  end_line_ = 0;
 
   // Populate the map with all navigable items in this scope.
   NavFinder nav_finder(&nav_);
@@ -568,7 +560,7 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
   start_line_ = sm->getLineNumber(scope_->getSyntax()->sourceRange().start());
   end_line_ = sm->getLineNumber(scope_->getSyntax()->sourceRange().end());
-  col_idx_ = sm->getColumnNumber(item->location);
+  col_idx_ = sm->getColumnNumber(item->location) - 1;
   max_col_idx_ = col_idx_;
   int line_num = sm->getLineNumber(item->location);
   current_file_ = sm->getFileName(scope_->location);
