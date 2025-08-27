@@ -7,7 +7,8 @@ namespace sv {
 
 bool SymbolHasSubs(const slang::ast::Symbol *s);
 
-const slang::ast::InstanceBodySymbol *GetScopeForUI(const slang::ast::Symbol *sym);
+const slang::ast::Scope *GetScopeForUI(const slang::ast::Symbol *sym);
+const slang::ast::InstanceBodySymbol *GetContainingInstance(const slang::ast::Symbol *sym);
 
 // Symbols for which the trace drivers / loads operation makes sense.
 bool IsTraceable(const slang::ast::Symbol *sym);

@@ -4,7 +4,6 @@
 #include "panel.h"
 #include "simple_tokenizer.h"
 #include "slang/ast/Symbol.h"
-#include "slang/ast/symbols/InstanceSymbols.h"
 
 #include <deque>
 #include <vector>
@@ -56,7 +55,7 @@ class SourcePanel : public Panel {
   int max_col_idx_ = 0;
   int scroll_col_ = 0;
   // The containing scope of the selection. Either instance body or generate block.
-  const slang::ast::InstanceBodySymbol *scope_ = nullptr;
+  const slang::ast::Scope *scope_ = nullptr;
   // The currently selected item. Could be a parameter too.
   const slang::ast::Symbol *sel_ = nullptr;
   // All source lines of the file containing the module instance containing the
@@ -93,7 +92,7 @@ class SourcePanel : public Panel {
 
   // Stack of states, to allow going back/forth while browsing source.
   struct State {
-    const slang::ast::InstanceBodySymbol *scope = nullptr;
+    const slang::ast::Scope *scope = nullptr;
     int line_idx = 0;
     int col_idx = 0;
     int scroll_row = 0;

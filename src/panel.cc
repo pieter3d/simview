@@ -10,9 +10,7 @@ std::pair<int, int> Panel::ScrollArea() const {
   return {h, w};
 }
 
-std::optional<std::pair<int, int>> Panel::CursorLocation() const {
-  return std::nullopt;
-}
+std::optional<std::pair<int, int>> Panel::CursorLocation() const { return std::nullopt; }
 
 void Panel::UIChar(int ch) {
   auto [max_h, max_w] = ScrollArea();
@@ -54,8 +52,7 @@ void Panel::UIChar(int ch) {
       line_idx_ = NumLines() - 1;
       break;
     }
-    const int scroll_increment =
-        std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
+    const int scroll_increment = std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
     scroll_row_ += scroll_increment;
     if (line_idx_ - scroll_row_ < 0) {
       line_idx_ = scroll_row_ + 1;
@@ -94,11 +91,10 @@ bool Panel::ReceiveText(const std::string &s, bool preview) {
   search_preview_ = preview;
   search_text_ = s;
 
-  // Search only when previewing. A non-preview search can just leave things at
-  // the most recent preview location.
+  // Search only when previewing. A non-preview search can just leave things at the most recent
+  // preview location.
   if (preview) {
-    // Save the current line index so it can be restored if the search is
-    // cancelled.
+    // Save the current line index so it can be restored if the search is cancelled.
     if (search_orig_line_idx_ < 0) {
       search_orig_line_idx_ = line_idx_;
       search_orig_col_idx_ = col_idx_;
@@ -120,15 +116,15 @@ bool Panel::ReceiveText(const std::string &s, bool preview) {
 }
 
 void Panel::SetLineAndScroll(int l) {
-  // Scroll to the selected line, attempt to place the line at 1/3rd the
-  // screen.
+  // Scroll to the selected line, attempt to place the line at 1/3rd the screen if the chosen line
+  // is too close to the top or bottom.
   line_idx_ = l;
   const int win_h = ScrollArea().first;
   const int lines_remaining = NumLines() - line_idx_ - 1;
+  if ((line_idx_ - scroll_row_) > 2 && (line_idx_ - scroll_row_ < win_h - 3)) return;
   if ((NumLines() <= win_h - 1) || (line_idx_ < win_h / 3)) {
-    // If all lines fit on the screen, accounting for the header, then just
-    // don't scroll.
-    // Also if scrolling to near the top, ensure the lines above are visible.
+    // If all lines fit on the screen, accounting for the header, then just don't scroll. Also if
+    // scrolling to near the top, ensure the lines above are visible.
     scroll_row_ = 0;
   } else if (lines_remaining < 2 * win_h / 3) {
     // If there are aren't many lines after the current location, scroll as

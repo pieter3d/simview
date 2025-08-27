@@ -3,16 +3,19 @@
 #include "radix.h"
 #include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Symbol.h"
+#include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
 #include "slang/ast/symbols/SubroutineSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
+#include "slang/ast/types/AllTypes.h"
 #include "slang/text/SourceManager.h"
 #include "slang_utils.h"
 #include "utils.h"
 #include "workspace.h"
 
 #include <curses.h>
+#include <type_traits>
 
 namespace sv {
 namespace {
@@ -26,23 +29,44 @@ using VarMap = absl::flat_hash_map<std::string, const slang::ast::Symbol *>;
 class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*visitStatements*/ false,
                                                 /*visitExpressions*/ false> {
  public:
-  NavFinder(VarMap *map) : var_map_(map) {}
+  NavFinder(VarMap *map, bool skip_genblocks = false)
+      : var_map_(map), skip_genblocks_(skip_genblocks) {}
   template <typename T>
   void handle(const T &t) {
     if constexpr (std::is_base_of_v<slang::ast::ParameterSymbol, T> ||
                   std::is_base_of_v<slang::ast::InstanceArraySymbol, T> ||
                   std::is_base_of_v<slang::ast::InstanceSymbol, T> ||
+                  std::is_base_of_v<slang::ast::TypeAliasType, T> ||
                   std::is_base_of_v<slang::ast::NetSymbol, T> ||
                   std::is_base_of_v<slang::ast::VariableSymbol, T> ||
                   std::is_base_of_v<slang::ast::SubroutineSymbol, T>) {
       if (!t.name.empty()) var_map_->insert({std::string(t.name), &t});
     }
     // Don't recurse into sub-instances, just find things within this instance.
-    if constexpr (!std::is_base_of_v<slang::ast::InstanceSymbol, T>) visitDefault(t);
+    // For generate array constructs, only recurse into the first one when the generate construct
+    // isn't the top of the traversal.
+    if constexpr (!std::is_base_of_v<slang::ast::InstanceSymbol, T>) {
+      bool skip = false;
+      if constexpr (std::is_base_of_v<slang::ast::GenerateBlockSymbol, T>) {
+        if (skip_genblocks_) {
+          skip = true;
+        } else if (t.getHierarchicalParent()->asSymbol().kind ==
+                   slang::ast::SymbolKind::GenerateBlockArray) {
+          skip = t.constructIndex != 0 && depth_ > 0;
+        }
+      }
+      if (!skip) {
+        depth_++;
+        visitDefault(t);
+        depth_--;
+      }
+    }
   }
 
  private:
   VarMap *var_map_;
+  int depth_ = 0;
+  bool skip_genblocks_ = false;
 };
 
 void SplitLines(std::string_view buffer, std::vector<std::string_view> *lines) {
@@ -82,7 +106,7 @@ std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
 
 void SourcePanel::BuildHeader() {
   if (scope_ == nullptr) return;
-  std::string scope_name = scope_->getHierarchicalPath();
+  std::string scope_name = scope_->asSymbol().getHierarchicalPath();
   const std::string separator = " | ";
   header_ = current_file_ + separator + scope_name;
   // Attempt to strip as many leading directories from the front of the header
@@ -320,14 +344,18 @@ void SourcePanel::UIChar(int ch) {
   int prev_col_idx = col_idx_;
   bool send_to_waves = false;
   switch (ch) {
-  case 'u':
-    if (scope_->parentInstance->getParentScope()->asSymbol().kind != slang::ast::SymbolKind::Root) {
-      SetItem(scope_->parentInstance);
-      item_for_design_tree_ = scope_;
-    } else {
+  case 'u': {
+    if (scope_->asSymbol().getHierarchicalParent()->asSymbol().kind ==
+        slang::ast::SymbolKind::Root) {
       error_message_ = "This is a top level module.";
+    } else if (const auto *gen = scope_->asSymbol().as_if<slang::ast::GenerateBlockSymbol>()) {
+      SetItem(&gen->getHierarchicalParent()->asSymbol());
+      item_for_design_tree_ = &scope_->asSymbol();
+    } else if (const auto *body = scope_->asSymbol().as_if<slang::ast::InstanceBodySymbol>()) {
+      SetItem(body->parentInstance);
+      item_for_design_tree_ = &scope_->asSymbol();
     }
-    break;
+  } break;
   case 'h':
   case 0x104: // left
     if (scroll_col_ > 0 && scroll_col_ - col_idx_ == 0) {
@@ -369,12 +397,18 @@ void SourcePanel::UIChar(int ch) {
     // Go to definition of a module instance.
     if (sel_ != nullptr) {
       // For modules, load the definition.
-      if (const slang::ast::InstanceSymbol *inst = sel_->as_if<slang::ast::InstanceSymbol>()) {
-        item_for_design_tree_ = &inst->body;
+      if (const auto *inst = sel_->as_if<slang::ast::InstanceSymbol>()) {
         SetItem(&inst->body);
+      } else if (const auto *arr = sel_->as_if<slang::ast::InstanceArraySymbol>()) {
+        // For array instances, just use the first one. The design tree should be used if a specific
+        // index is desired.
+        if (const auto *inst = arr->elements[0]->as_if<slang::ast::InstanceSymbol>()) {
+          SetItem(&inst->body);
+        }
       } else {
-        SetLocation(sel_);
+        SetItem(sel_);
       }
+      item_for_design_tree_ = &scope_->asSymbol();
     }
     break;
   case 'D':
@@ -405,7 +439,7 @@ void SourcePanel::UIChar(int ch) {
     // Helper function to restore a state.
     auto load_state = [&](State s) {
       if (s.scope != scope_) {
-        SetItem(s.scope, /*save_state*/ false);
+        SetItem(&s.scope->asSymbol(), /*save_state*/ false);
       }
       line_idx_ = s.line_idx;
       col_idx_ = s.col_idx;
@@ -445,6 +479,7 @@ void SourcePanel::UIChar(int ch) {
         if (loc > col_idx_) {
           col_idx_ = loc;
           max_col_idx_ = col_idx_;
+          break;
         }
       }
     }
@@ -555,18 +590,25 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   tokenizer_ = SimpleTokenizer();
 
   // Populate the map with all navigable items in this scope.
+  // In the case of genblocks, first also populate it with everything in the enclosing isntance that
+  // isn't itself a genblock.
+  if (item->kind == slang::ast::SymbolKind::GenerateBlock) {
+    NavFinder nf(&nav_, /*skip_genblocks*/ true);
+    GetContainingInstance(item)->visit(nf);
+  }
+  const slang::ast::Symbol *sym = &scope_->asSymbol();
   NavFinder nav_finder(&nav_);
-  scope_->visit(nav_finder);
+  sym->visit(nav_finder);
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
-  start_line_ = sm->getLineNumber(scope_->getSyntax()->sourceRange().start());
-  end_line_ = sm->getLineNumber(scope_->getSyntax()->sourceRange().end());
+  start_line_ = sm->getLineNumber(sym->getSyntax()->sourceRange().start());
+  end_line_ = sm->getLineNumber(sym->getSyntax()->sourceRange().end());
   col_idx_ = sm->getColumnNumber(item->location) - 1;
   max_col_idx_ = col_idx_;
   int line_num = sm->getLineNumber(item->location);
-  current_file_ = sm->getFileName(scope_->location);
+  current_file_ = sm->getFileName(sym->location);
 
   // Extract the lines as individial string_views.
-  SplitLines(sm->getSourceText(scope_->location.buffer()), &lines_);
+  SplitLines(sm->getSourceText(sym->location.buffer()), &lines_);
 
   int n = 0;
   for (std::string_view s : lines_) {

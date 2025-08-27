@@ -22,8 +22,13 @@ DesignTreeItem::DesignTreeItem(const slang::ast::Symbol *item) : item_(item) {
     }
   } else if (item_->kind == slang::ast::SymbolKind::UninstantiatedDef) {
     type_ = "[missing def]";
-  } else if (const slang::ast::InstanceSymbol *inst = item_->as_if<slang::ast::InstanceSymbol>()) {
+  } else if (const auto *inst = item_->as_if<slang::ast::InstanceSymbol>()) {
     type_ = inst->getDefinition().name;
+    // Check if this instance is part of an array. If so, the name should be taken from the array.
+    if (const auto *arr =
+            item_->getHierarchicalParent()->asSymbol().as_if<slang::ast::InstanceArraySymbol>()) {
+      name_ = arr->name;
+    }
   } else {
     type_ = "!!Unknown!!";
   }

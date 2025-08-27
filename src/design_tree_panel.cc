@@ -38,25 +38,24 @@ DesignTreePanel::DesignTreePanel() {
 }
 
 void DesignTreePanel::SetItem(const slang::ast::Symbol *item) {
-  // TODO: this isn't right. too many thing caught up in the parent tree.
   // First, build a list of all things up to the root.
   std::vector<const slang::ast::Symbol *> path;
-  while (item != nullptr) {
-    // Don't include the array wrapper since SystemVerilog hierarchical paths unroll the arrays.
-    if (item->kind != slang::ast::SymbolKind::GenerateBlockArray) {
-      path.push_back(item);
-    }
-    const slang::ast::Scope *parent_scope = item->getParentScope();
-    if (parent_scope) {
-      item = &parent_scope->asSymbol();
-    } else {
-      item = nullptr;
-    }
+  // Design tree holds instances, not instance body. If an InstanceBody is requested, it will be
+  // because a top module was requested since there's no enclosing scope where the instance would
+  // have been shown.
+  if (const auto *body = item->as_if<slang::ast::InstanceBodySymbol>()) {
+    item = body->parentInstance;
+    path.push_back(item);
+  }
+  const slang::ast::Scope *scope = GetScopeForUI(item);
+  while (scope != nullptr && scope->asSymbol().kind != slang::ast::SymbolKind::Root) {
+    path.push_back(&scope->asSymbol());
+    scope = scope->asSymbol().getHierarchicalParent();
   }
   // Now look through the list at every level and expand as necessary.
   // Iterate backwards so that the root is the first thing looked for.
   for (int path_idx = path.size() - 1; path_idx >= 0; --path_idx) {
-    auto &path_item = path[path_idx];
+    const slang::ast::Symbol *path_item = path[path_idx];
     for (int item_idx = 0; item_idx < data_.ListSize(); ++item_idx) {
       const auto *list_item = dynamic_cast<const DesignTreeItem *>(data_[item_idx]);
       if (path_item == list_item->DesignItem()) {

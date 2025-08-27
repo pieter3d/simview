@@ -1,4 +1,5 @@
 #include "slang_utils.h"
+#include "slang/ast/Scope.h"
 #include "slang/ast/Symbol.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -15,11 +16,17 @@ bool SymbolHasSubs(const slang::ast::Symbol *s) {
   return false;
 }
 
-const slang::ast::InstanceBodySymbol *GetScopeForUI(const slang::ast::Symbol *sym) {
-  while (sym->kind != slang::ast::SymbolKind::InstanceBody) {
-    // If at the top, stop here.
-    if (sym->getParentScope()->asSymbol().kind == slang::ast::SymbolKind::Root) break;
-    sym = &sym->getParentScope()->asSymbol();
+const slang::ast::Scope *GetScopeForUI(const slang::ast::Symbol *sym) {
+  while (sym->kind != slang::ast::SymbolKind::Root &&
+         sym->kind != slang::ast::SymbolKind::InstanceBody &&
+         sym->kind != slang::ast::SymbolKind::GenerateBlock) {
+    sym = &sym->getHierarchicalParent()->asSymbol();
+  }
+  return sym->as_if<slang::ast::Scope>();
+}
+const slang::ast::InstanceBodySymbol *GetContainingInstance(const slang::ast::Symbol *sym) {
+  while (sym != nullptr && sym->kind != slang::ast::SymbolKind::InstanceBody) {
+    sym = &sym->getHierarchicalParent()->asSymbol();
   }
   return sym->as_if<slang::ast::InstanceBodySymbol>();
 }
