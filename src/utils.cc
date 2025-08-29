@@ -16,12 +16,7 @@ std::string StripWorklib(std::string_view s) {
 }
 
 int NumDecimalDigits(int n) {
-  int ret = 0;
-  do {
-    ret++;
-    n /= 10;
-  } while (n != 0);
-  return ret;
+  return 1 + std::floor(std::log10(n));
 }
 
 std::string AddDigitSeparators(uint64_t val) {

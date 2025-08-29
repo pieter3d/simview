@@ -1,11 +1,13 @@
 #pragma once
 
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "panel.h"
 #include "simple_tokenizer.h"
 #include "slang/ast/Symbol.h"
 
 #include <deque>
+#include <string_view>
 #include <vector>
 
 namespace sv {
@@ -29,6 +31,12 @@ class SourcePanel : public Panel {
   void Resized() final;
 
  private:
+  // Create the list of lines and tab data.
+  void ProcessBuffer(std::string_view buffer);
+  // Find the display column of a source column, accounting for tab expansion.
+  int TabExpandedColumn(int row, int col) const;
+  // Obtain the tab-expanded length of a line.
+  int TabExpandedLineSize(int row) const;
   // Push the current state onto the stack.
   void SaveState();
   // Variant that includes a flag indicating if the item change should save the
@@ -62,6 +70,11 @@ class SourcePanel : public Panel {
   // selected item (this could be the complete instance itself too).
   std::string current_file_;
   std::vector<std::string_view> lines_;
+  struct TabInfo {
+    int line_length;
+    absl::btree_map<int, int> extra_spaces;
+  };
+  absl::flat_hash_map<int, TabInfo> tab_expansion_info_;
   // Things in the source code that are navigable:
   // - Nets and variables. Add to wave, trace drivers/loads, go to def.
   // - Module instances: Open source

@@ -181,7 +181,6 @@ void UI::EventLoop() {
       } else {
         switch (ch) {
         case 0x8:   // ctrl-H
-        case 0x221: // ctrl-left
           if (focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get()) {
             // Keep some reasonable minimum size.
             if (layout_.src_x > 5) {
@@ -205,7 +204,6 @@ void UI::EventLoop() {
           LayoutPanels();
           break;
         case 0xc:   // ctrl-L
-        case 0x230: // ctrl-right
           if (focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get()) {
             if (layout_.src_x < term_w - 5) {
               layout_.src_x++;
@@ -229,7 +227,6 @@ void UI::EventLoop() {
           LayoutPanels();
           break;
         case 0xb:   // ctrl-K
-        case 0x236: // ctrl-up
           if (layout_.wave_y > 5) {
             layout_.wave_y--;
             CalcLayout(true);
@@ -237,7 +234,6 @@ void UI::EventLoop() {
           }
           break;
         case 0xa:   // ctrl-J
-        case 0x20d: // ctrl-down
           if (layout_.wave_y < term_h - 5) {
             layout_.wave_y++;
             CalcLayout(true);
