@@ -180,7 +180,7 @@ void UI::EventLoop() {
         focused_panel->UIChar(ch);
       } else {
         switch (ch) {
-        case 0x8:   // ctrl-H
+        case 0x8: // ctrl-H
           if (focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get()) {
             // Keep some reasonable minimum size.
             if (layout_.src_x > 5) {
@@ -203,7 +203,7 @@ void UI::EventLoop() {
           CalcLayout(true);
           LayoutPanels();
           break;
-        case 0xc:   // ctrl-L
+        case 0xc: // ctrl-L
           if (focused_panel == design_tree_panel_.get() || focused_panel == source_panel_.get()) {
             if (layout_.src_x < term_w - 5) {
               layout_.src_x++;
@@ -226,14 +226,14 @@ void UI::EventLoop() {
           CalcLayout(true);
           LayoutPanels();
           break;
-        case 0xb:   // ctrl-K
+        case 0xb: // ctrl-K
           if (layout_.wave_y > 5) {
             layout_.wave_y--;
             CalcLayout(true);
             LayoutPanels();
           }
           break;
-        case 0xa:   // ctrl-J
+        case 0xa: // ctrl-J
           if (layout_.wave_y < term_h - 5) {
             layout_.wave_y++;
             CalcLayout(true);
@@ -281,9 +281,8 @@ void UI::EventLoop() {
       }
       // Look for transfers between panels
       if (focused_panel == design_tree_panel_.get()) {
-        if (design_tree_panel_->ItemForSource()) {
-          const slang::ast::Symbol *sym = *design_tree_panel_->ItemForSource();
-          source_panel_->SetItem(sym);
+        if (std::optional<const slang::ast::Symbol *> sym = design_tree_panel_->ItemForSource()) {
+          source_panel_->SetItem(*sym);
         }
       } else if (focused_panel == source_panel_.get()) {
         if (const auto item = source_panel_->ItemForDesignTree()) {

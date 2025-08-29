@@ -125,7 +125,7 @@ void SourcePanel::Draw() {
   SetColor(w_, kSourceHeaderPair);
   mvwaddnstr(w_, 0, 0, header_.c_str(), win_w);
 
-  if (lines_.empty()) {
+  if (src_.Empty()) {
     SetColor(w_, kSourceTextPair);
     mvwprintw(w_, 1, 0, "Unable to open file");
     return;
@@ -134,7 +134,7 @@ void SourcePanel::Draw() {
   int sel_pos = 0; // Save selection start position.
   for (int y = 1; y < win_h; ++y) {
     int line_idx = y - 1 + scroll_row_;
-    if (line_idx >= lines_.size()) break;
+    if (line_idx >= src_.NumLines()) break;
     const int line_num = line_idx + 1;
     const int line_num_size = NumDecimalDigits(line_num);
     const bool active = line_num >= start_line_ && line_num <= end_line_;
@@ -151,7 +151,7 @@ void SourcePanel::Draw() {
 
     // Go charachter by character, up to the window width.
     // Keep track of the current identifier, keyword and comment in the line.
-    std::string_view s = lines_[line_idx];
+    std::string_view s = src_[line_idx];
     const std::vector<std::pair<int, int>> &keywords = tokenizer_.Keywords(line_idx);
     const std::vector<std::pair<int, std::string_view>> &identifiers =
         tokenizer_.Identifiers(line_idx);
@@ -332,20 +332,20 @@ void SourcePanel::UIChar(int ch) {
     } else if (col_idx_ == 0 && line_idx_ != 0) {
       if (line_idx_ == scroll_row_) scroll_row_--;
       line_idx_--;
-      col_idx_ = std::max(0, TabExpandedLineSize(line_idx_) - 1);
+      col_idx_ = std::max(0, src_.LineLength(line_idx_) - 1);
       max_col_idx_ = col_idx_;
     }
     break;
   case 'l':
   case 0x105: // right
-    if (col_idx_ < TabExpandedLineSize(line_idx_) - 1) {
+    if (col_idx_ < src_.LineLength(line_idx_) - 1) {
       col_idx_++;
       max_col_idx_ = col_idx_;
       const int win_w = getmaxx(w_);
       const int win_h = getmaxy(w_);
       const int ruler_size = NumDecimalDigits(win_h + scroll_row_ - 1) + 1;
       if (col_idx_ >= win_w - ruler_size) scroll_col_++;
-    } else if (line_idx_ < lines_.size() - 1) {
+    } else if (line_idx_ < src_.NumLines() - 1) {
       line_idx_++;
       col_idx_ = 0;
       scroll_col_ = 0;
@@ -364,7 +364,7 @@ void SourcePanel::UIChar(int ch) {
   case 0x168: // End
   case '$':
     // End of line
-    col_idx_ = TabExpandedLineSize(line_idx_) - 1;
+    col_idx_ = src_.LineLength(line_idx_) - 1;
     max_col_idx_ = col_idx_;
     break;
   case 'd':
@@ -471,7 +471,7 @@ void SourcePanel::UIChar(int ch) {
   // shorter. If the new line is longer, move it back to as far as it used to
   // be.
   if (line_moved) {
-    const int new_line_size = TabExpandedLineSize(line_idx_);
+    const int new_line_size = src_.LineLength(line_idx_);
     if (col_idx_ >= new_line_size) {
       col_idx_ = std::max(0, new_line_size - 1);
     } else {
@@ -526,7 +526,7 @@ void SourcePanel::SetLocation(const slang::ast::Symbol *item) {
   const int line = sm->getLineNumber(item->location) - 1;
   // Avoid history entries on the same line.
   if (line_idx_ != line) SaveState();
-  col_idx_ = TabExpandedColumn(line, sm->getColumnNumber(item->location) - 1);
+  col_idx_ = src_.DisplayCol(line, sm->getColumnNumber(item->location) - 1);
   max_col_idx_ = col_idx_;
   SetLineAndScroll(line);
 }
@@ -557,7 +557,6 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
 
   scope_ = GetScopeForUI(item);
   // Clear out old info.
-  lines_.clear();
   nav_.clear();
   nav_by_line_.clear();
   sel_ = nullptr;
@@ -575,16 +574,16 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   sym->visit(nav_finder);
   // Extract the lines as individial string_views.
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
-  ProcessBuffer(sm->getSourceText(sym->location.buffer()));
+  src_.ProcessBuffer(sm->getSourceText(sym->location.buffer()));
   const int line_idx = sm->getLineNumber(item->location) - 1;
   start_line_ = sm->getLineNumber(sym->getSyntax()->sourceRange().start());
   end_line_ = sm->getLineNumber(sym->getSyntax()->sourceRange().end());
-  col_idx_ = TabExpandedColumn(line_idx, sm->getColumnNumber(item->location) - 1);
+  col_idx_ = src_.DisplayCol(line_idx, sm->getColumnNumber(item->location) - 1);
   max_col_idx_ = col_idx_;
   current_file_ = sm->getFileName(sym->location);
 
   int n = 0;
-  for (std::string_view s : lines_) {
+  for (std::string_view s : src_) {
     tokenizer_.ProcessLine(s);
     // Add all useful identifiers in this line to the appropriate list.
     for (auto &[loc, id] : tokenizer_.Identifiers(n)) {
@@ -614,25 +613,25 @@ void SourcePanel::UpdateWaveData() {
 }
 
 bool SourcePanel::Search(bool search_down) {
-  if (lines_.empty()) return false;
+  if (src_.Empty()) return false;
   if (search_text_.empty()) return false;
   int row = line_idx_;
   int col = col_idx_;
   const auto line_step = [&] {
     row += search_down ? 1 : -1;
-    if (row >= static_cast<int>(lines_.size())) {
+    if (row >= static_cast<int>(src_.NumLines())) {
       row = 0;
     } else if (row < 0) {
-      row = lines_.size() - 1;
+      row = src_.NumLines() - 1;
     }
-    col = search_down ? 0 : (TabExpandedLineSize(row) - 1);
+    col = search_down ? 0 : (src_.LineLength(row) - 1);
   };
   if (!search_preview_) {
     // Go past the current location so that next/prev doesn't just find what's
     // under the cursor. Can't do this in preview mode otherwise the result
     // would keep jumping with every new keypress.
     if (search_down) {
-      if (col == TabExpandedLineSize(row) - 1) {
+      if (col == src_.LineLength(row) - 1) {
         line_step();
       } else {
         col++;
@@ -648,10 +647,10 @@ bool SourcePanel::Search(bool search_down) {
   const int start_row = row;
   while (1) {
     const auto pos =
-        search_down ? lines_[row].find(search_text_, col) : lines_[row].rfind(search_text_, col);
+        search_down ? src_[row].find(search_text_, col) : src_[row].rfind(search_text_, col);
     if (pos != std::string::npos) {
       search_start_col_ = pos;
-      col_idx_ = TabExpandedColumn(row, pos);
+      col_idx_ = src_.DisplayCol(row, pos);
       SetLineAndScroll(row);
       return true;
     }
@@ -693,64 +692,6 @@ std::vector<Tooltip> SourcePanel::Tooltips() const {
   tt.push_back(
       {"v", "" + (show_vals_ ? std::string("SHOW/hide") : std::string("show/HIDE")) + " vals"});
   return tt;
-}
-
-int SourcePanel::TabExpandedLineSize(int row) const {
-  const auto it = tab_expansion_info_.find(row);
-  if (it == tab_expansion_info_.end()) return lines_[row].size();
-  return it->second.line_length;
-}
-
-int SourcePanel::TabExpandedColumn(int row, int col) const {
-  const auto line_map_it = tab_expansion_info_.find(row);
-  if (line_map_it == tab_expansion_info_.end()) return col;
-  const absl::btree_map<int, int> &map = line_map_it->second.extra_spaces;
-  const auto it = map.lower_bound(col);
-  if (it == map.end()) return col;
-  return col + it->second;
-}
-
-void SourcePanel::ProcessBuffer(std::string_view buffer) {
-  auto AddTabStops = [&] {
-    std::string_view s = lines_.back();
-    const int line_idx = lines_.size() - 1;
-    int extra = 0;
-    int pos = 0;
-    bool any_tabs = false;
-    int tab_pos;
-    while ((tab_pos = s.find('\t', pos)) != std::string_view::npos) {
-      pos = tab_pos + 1;
-      extra += kTabSize - tab_pos % kTabSize - 1;
-      tab_expansion_info_[line_idx].extra_spaces[tab_pos + 1] = tab_pos + 1 + extra;
-      any_tabs = true;
-    }
-    if (any_tabs) tab_expansion_info_[line_idx].line_length = s.size() + extra;
-  };
-  size_t pos = 0;
-  while (pos < buffer.length()) {
-    size_t newline_pos = buffer.find_first_of("\r\n", pos);
-    const bool is_cr = newline_pos != std::string_view::npos && buffer[newline_pos] == '\r';
-    // If a newline is found, extract the substring up to it.
-    if (newline_pos != std::string_view::npos) {
-      lines_.push_back(buffer.substr(pos, newline_pos - pos));
-      AddTabStops();
-      // Advance past the newline character for the next search.
-      pos = newline_pos + 1;
-      // Check for the Windows-style CRLF sequence (\r\n).
-      if (pos < buffer.length() && is_cr && buffer[pos] == '\n') pos++;
-    } else {
-      // No more newlines found, so add the remaining part of the string and finish.
-      int remainder = buffer.length() - pos;
-      // Skip the terminating zero.
-      if (buffer[buffer.length() - 1] == '\0') remainder--;
-      // Don't add a last blank line.
-      if (remainder > 0) {
-        lines_.push_back(buffer.substr(pos, remainder));
-        AddTabStops();
-      }
-      break;
-    }
-  }
 }
 
 } // namespace sv

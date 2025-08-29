@@ -1,13 +1,12 @@
 #pragma once
 
-#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "panel.h"
 #include "simple_tokenizer.h"
 #include "slang/ast/Symbol.h"
+#include "source_buffer.h"
 
 #include <deque>
-#include <string_view>
 #include <vector>
 
 namespace sv {
@@ -17,7 +16,7 @@ class SourcePanel : public Panel {
  public:
   void Draw() final;
   void UIChar(int ch) final;
-  int NumLines() const final { return lines_.size(); }
+  int NumLines() const final { return src_.NumLines(); }
   std::optional<std::pair<int, int>> CursorLocation() const final;
   std::vector<Tooltip> Tooltips() const final;
   void SetItem(const slang::ast::Symbol *item);
@@ -31,13 +30,6 @@ class SourcePanel : public Panel {
   void Resized() final;
 
  private:
-  // Create the list of lines and tab data.
-  void ProcessBuffer(std::string_view buffer);
-  // Find the display column of a source column, accounting for tab expansion.
-  int TabExpandedColumn(int row, int col) const;
-  // Obtain the tab-expanded length of a line.
-  int TabExpandedLineSize(int row) const;
-  // Push the current state onto the stack.
   void SaveState();
   // Variant that includes a flag indicating if the item change should save the
   // current state (if not empty). This is used for forward/back stack
@@ -69,12 +61,7 @@ class SourcePanel : public Panel {
   // All source lines of the file containing the module instance containing the
   // selected item (this could be the complete instance itself too).
   std::string current_file_;
-  std::vector<std::string_view> lines_;
-  struct TabInfo {
-    int line_length;
-    absl::btree_map<int, int> extra_spaces;
-  };
-  absl::flat_hash_map<int, TabInfo> tab_expansion_info_;
+  SourceBuffer src_;
   // Things in the source code that are navigable:
   // - Nets and variables. Add to wave, trace drivers/loads, go to def.
   // - Module instances: Open source
