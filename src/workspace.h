@@ -2,6 +2,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "external/slang/include/slang/driver/Driver.h"
+#include "slang/ast/Compilation.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "wave_data.h"

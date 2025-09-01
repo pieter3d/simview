@@ -49,7 +49,11 @@ void DesignTreePanel::SetItem(const slang::ast::Symbol *item) {
   }
   const slang::ast::Scope *scope = GetScopeForUI(item);
   while (scope != nullptr && scope->asSymbol().kind != slang::ast::SymbolKind::Root) {
-    path.push_back(&scope->asSymbol());
+    if (const auto *body = scope->asSymbol().as_if<slang::ast::InstanceBodySymbol>()) {
+      path.push_back(body->parentInstance);
+    } else {
+      path.push_back(&scope->asSymbol());
+    }
     scope = scope->asSymbol().getHierarchicalParent();
   }
   // Now look through the list at every level and expand as necessary.

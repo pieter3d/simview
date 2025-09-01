@@ -1,8 +1,8 @@
 #pragma once
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/btree_set.h"
 #include "panel.h"
-#include "simple_tokenizer.h"
 #include "slang/ast/Symbol.h"
 #include "source_buffer.h"
 
@@ -62,22 +62,27 @@ class SourcePanel : public Panel {
   // selected item (this could be the complete instance itself too).
   std::string current_file_;
   SourceBuffer src_;
-  // Things in the source code that are navigable:
-  // - Nets and variables. Add to wave, trace drivers/loads, go to def.
-  // - Module instances: Open source
-  // - Parameters: go to definition
-  // These are stored in a hash by identifier so they can be appropriately
-  // syntax-highlighted. Also stored by line to allow for fast lookup under the
-  // cursor.
-  absl::flat_hash_map<std::string, const slang::ast::Symbol *> nav_;
-  absl::flat_hash_map<int, std::vector<std::pair<int, const slang::ast::Symbol *>>> nav_by_line_;
-  // TODO remove when confirmed not needed.
-  // Map of all textual parameters and their definitions.
-  // absl::flat_hash_map<std::string, std::string> params_;
-  // absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>> params_by_line_;
-  // Tokenizer that holds identifiers and keywords for each line. This
-  // simplifies syntax highlighting for keywords and comments.
-  SimpleTokenizer tokenizer_;
+  // Store all relevant sections of each line for syntax highlighting and design tracing.
+  struct SourceInfo {
+    size_t start_col, end_col;
+    const slang::ast::Symbol *sym = nullptr;
+    const bool keyword = false;
+    const bool comment = false;
+    bool operator<(const SourceInfo &rhs) const { return start_col < rhs.start_col; }
+  };
+  absl::flat_hash_map<int, absl::btree_set<SourceInfo>> src_info_;
+  void FindSymbols();
+  void FindKeywordsAndComments();
+  // absl::flat_hash_map<std::string, const slang::ast::Symbol *> nav_;
+  //  absl::flat_hash_map<int, std::vector<std::pair<int, const slang::ast::Symbol *>>>
+  //  nav_by_line_;
+  //  TODO remove when confirmed not needed.
+  //  Map of all textual parameters and their definitions.
+  //  absl::flat_hash_map<std::string, std::string> params_;
+  //  absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>> params_by_line_;
+  //  Tokenizer that holds identifiers and keywords for each line. This
+  //  simplifies syntax highlighting for keywords and comments.
+  //SimpleTokenizer tokenizer_;
   // Limits active scope, for example files with more than one module
   // definition. Text rendering uses this grey out source outside this.
   int start_line_ = 0;

@@ -3,20 +3,22 @@
 #include "radix.h"
 #include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Symbol.h"
-#include "slang/ast/symbols/BlockSymbols.h"
+#include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
-#include "slang/ast/symbols/SubroutineSymbols.h"
-#include "slang/ast/symbols/VariableSymbols.h"
-#include "slang/ast/types/AllTypes.h"
+#include "slang/parsing/LexerFacts.h"
+#include "slang/parsing/Token.h"
+#include "slang/syntax/SyntaxNode.h"
+#include "slang/syntax/SyntaxVisitor.h"
+#include "slang/text/SourceLocation.h"
 #include "slang/text/SourceManager.h"
 #include "slang_utils.h"
 #include "utils.h"
 #include "workspace.h"
 
 #include <algorithm>
+#include <concepts>
 #include <curses.h>
-#include <type_traits>
 
 namespace sv {
 namespace {
@@ -24,54 +26,99 @@ namespace {
 constexpr int kMaxStateStackSize = 500;
 constexpr int kTabSize = 4;
 
-// For conciseness, create an alias for the navigable map from the the source_panel class
-// declaration.
-using VarMap = absl::flat_hash_map<std::string, const slang::ast::Symbol *>;
+} // namespace
 
-class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*visitStatements*/ false,
-                                                /*visitExpressions*/ false> {
- public:
-  NavFinder(VarMap *map, bool skip_genblocks = false)
-      : var_map_(map), skip_genblocks_(skip_genblocks) {}
-  template <typename T>
-  void handle(const T &t) {
-    if constexpr (std::is_base_of_v<slang::ast::ParameterSymbol, T> ||
-                  std::is_base_of_v<slang::ast::InstanceArraySymbol, T> ||
-                  std::is_base_of_v<slang::ast::InstanceSymbol, T> ||
-                  std::is_base_of_v<slang::ast::TypeAliasType, T> ||
-                  std::is_base_of_v<slang::ast::NetSymbol, T> ||
-                  std::is_base_of_v<slang::ast::VariableSymbol, T> ||
-                  std::is_base_of_v<slang::ast::SubroutineSymbol, T>) {
-      if (!t.name.empty()) var_map_->insert({std::string(t.name), &t});
-    }
-    // Don't recurse into sub-instances, just find things within this instance.
-    // For generate array constructs, only recurse into the first one when the generate construct
-    // isn't the top of the traversal.
-    if constexpr (!std::is_base_of_v<slang::ast::InstanceSymbol, T>) {
-      bool skip = false;
-      if constexpr (std::is_base_of_v<slang::ast::GenerateBlockSymbol, T>) {
-        if (skip_genblocks_) {
-          skip = true;
-        } else if (t.getHierarchicalParent()->asSymbol().kind ==
-                   slang::ast::SymbolKind::GenerateBlockArray) {
-          skip = t.constructIndex != 0 && depth_ > 0;
+void SourcePanel::FindSymbols() {
+  const slang::ast::Symbol &top = scope_->asSymbol();
+  const slang::SourceManager *sm = Workspace::Get().SourceManager();
+  int depth = 0;
+  top.visit(slang::ast::makeVisitor(
+      [&](auto &visitor, const std::derived_from<slang::ast::Symbol> auto &sym) {
+        if (!(sym.kind == slang::ast::SymbolKind::Instance ||
+              sym.kind == slang::ast::SymbolKind::GenerateBlock ||
+              sym.kind == slang::ast::SymbolKind::GenerateBlockArray ||
+              sym.kind == slang::ast::SymbolKind::InstanceArray ||
+              sym.kind == slang::ast::SymbolKind::InstanceBody ||
+              sym.kind == slang::ast::SymbolKind::Parameter ||
+              sym.kind == slang::ast::SymbolKind::TypeAlias ||
+              sym.kind == slang::ast::SymbolKind::Net ||
+              sym.kind == slang::ast::SymbolKind::Variable ||
+              sym.kind == slang::ast::SymbolKind::Subroutine)) {
+          return;
+        }
+        // Skip anything without syntax, such as inferred variables for function return values.
+        if (!sym.getSyntax()) return;
+        const size_t start_col = sm->getColumnNumber(sym.location) - 1;
+        src_info_[sm->getLineNumber(sym.location) - 1].insert(
+            {.start_col = start_col, .end_col = start_col + sym.name.size() - 1, .sym = &sym});
+
+        // Don't recurse into sub-instances, just find things within this scope.
+        // For generate array constructs, only recurse into the first one when the generate
+        // construct isn't the top of the traversal. That way the body of a generate block inside
+        // the scope is still navigable. Users can explicitly set the scope to a particular instance
+        // if index 0 isn't the desired one.
+        const bool skip = sym.kind == slang::ast::SymbolKind::Instance ||
+                          (sym.kind == slang::ast::SymbolKind::GenerateBlock && depth > 0 &&
+                           sym.getHierarchicalParent()->asSymbol().kind ==
+                               slang::ast::SymbolKind::GenerateBlockArray &&
+                           sym.template as<slang::ast::GenerateBlockSymbol>().constructIndex > 0);
+
+        if (!skip) {
+          depth++;
+          visitor.visitDefault(sym);
+          depth--;
+        }
+      },
+      [&](auto &visitor, const slang::ast::NamedValueExpression &nve) {
+        // const int line = sm->getLineNumber(nve.sourceRange.start()) - 1;
+        // const size_t start_col = sm->getColumnNumber(nve.sourceRange.start()) - 1;
+        // const size_t end_col = sm->getColumnNumber(nve.sourceRange.start()) - 1;
+        // src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = &nve.symbol});
+      }));
+}
+
+void SourcePanel::FindKeywordsAndComments() {
+  struct TokenVisitor : public slang::syntax::SyntaxVisitor<TokenVisitor> {
+    SourcePanel *panel_;
+    const slang::SourceManager *sm_;
+    TokenVisitor(SourcePanel *p, const slang::SourceManager *sm) : panel_(p), sm_(sm) {}
+    void visitToken(slang::parsing::Token tok) {
+      if (slang::parsing::LexerFacts::isKeyword(tok.kind)) {
+        const int line = sm_->getLineNumber(tok.location()) - 1;
+        panel_->src_info_[line].insert({.start_col = sm_->getColumnNumber(tok.range().start()) - 1,
+                                        .end_col = sm_->getColumnNumber(tok.range().end()) - 1,
+                                        .keyword = true});
+      }
+      slang::SourceLocation loc = tok.location();
+      // Iterate from the last trivia, since they all come before the token. This enables
+      // determining the characeter locations of the trivia blocks.
+      for (const slang::parsing::Trivia &t : std::views::reverse(tok.trivia())) {
+        slang::SourceLocation end_loc = loc - 1;
+        loc -= t.getRawText().size();
+        if (t.kind != slang::parsing::TriviaKind::BlockComment &&
+            t.kind != slang::parsing::TriviaKind::LineComment) {
+          continue;
+        }
+        const size_t start_line = sm_->getLineNumber(loc) - 1;
+        const size_t end_line = sm_->getLineNumber(end_loc) - 1;
+        const size_t start_col = sm_->getColumnNumber(loc) - 1;
+        const size_t end_col = sm_->getColumnNumber(end_loc) - 1;
+        if (start_line == end_line) {
+          panel_->src_info_[start_line].insert(
+              {.start_col = start_col, .end_col = end_col, .comment = true});
+        } else {
+          for (int line = start_line; line <= end_line; ++line) {
+            const size_t a = line == start_line ? start_col : 0;
+            const size_t b = line == end_line ? end_col : std::numeric_limits<int>::max();
+            panel_->src_info_[line].insert({.start_col = a, .end_col = b, .comment = true});
+          }
         }
       }
-      if (!skip) {
-        depth_++;
-        visitDefault(t);
-        depth_--;
-      }
     }
-  }
-
- private:
-  VarMap *var_map_;
-  int depth_ = 0;
-  bool skip_genblocks_ = false;
-};
-
-} // namespace
+  };
+  const slang::SourceManager *sm = Workspace::Get().SourceManager();
+  scope_->asSymbol().getSyntax()->visit(TokenVisitor(this, sm));
+}
 
 std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
   if (scope_ == nullptr) return std::nullopt;
@@ -133,7 +180,7 @@ void SourcePanel::Draw() {
   const auto highlight_attr = (!search_preview_ && has_focus_) ? A_REVERSE : A_UNDERLINE;
   int sel_pos = 0; // Save selection start position.
   for (int y = 1; y < win_h; ++y) {
-    int line_idx = y - 1 + scroll_row_;
+    const int line_idx = y - 1 + scroll_row_;
     if (line_idx >= src_.NumLines()) break;
     const int line_num = line_idx + 1;
     const int line_num_size = NumDecimalDigits(line_num);
@@ -152,53 +199,52 @@ void SourcePanel::Draw() {
     // Go charachter by character, up to the window width.
     // Keep track of the current identifier, keyword and comment in the line.
     std::string_view s = src_[line_idx];
-    const std::vector<std::pair<int, int>> &keywords = tokenizer_.Keywords(line_idx);
-    const std::vector<std::pair<int, std::string_view>> &identifiers =
-        tokenizer_.Identifiers(line_idx);
-    const std::vector<std::pair<int, int>> &comments = tokenizer_.Comments(line_idx);
-    bool in_keyword = false;
-    bool in_identifier = false;
-    bool in_comment = false;
-    int k_idx = 0;
-    int id_idx = 0;
-    int c_idx = 0;
     // Start rendering the line at the start, so that tab calculation and identifier highlighting
     // work no matter the horizontal scrolling.
     int screen_x = -scroll_col_ + max_digits + 1;
     int pos = 0;
+    auto line_it = src_info_.find(line_idx);
+    std::optional<absl::btree_set<SourceInfo>::iterator> info_it_or_null;
+    if (line_it != src_info_.end()) info_it_or_null = line_it->second.begin();
+
     while (screen_x < win_w) {
-      //  Figure out if we have to switch to a new color
-      if (active && !in_identifier && identifiers.size() > id_idx &&
-          identifiers[id_idx].first == pos) {
-        std::string_view id = identifiers[id_idx].second;
-        bool cursor_in_id = line_idx == line_idx_ && col_idx_ >= identifiers[id_idx].first &&
-                            col_idx_ < (identifiers[id_idx].first + id.size()) &&
-                            !(search_preview_ && search_start_col_ < 0);
-        const auto nav_it = nav_.find(id);
-        if (nav_it != nav_.end()) {
-          const slang::ast::Symbol *sym = nav_it->second;
-          if (sym->kind == slang::ast::SymbolKind::Instance ||
-              sym->kind == slang::ast::SymbolKind::InstanceArray ||
-              sym->kind == slang::ast::SymbolKind::Subroutine) {
+      bool end_of_color = false;
+      // On active lines that have source info, and the source info hasn't been exhausted yet...
+      if (active && info_it_or_null && *info_it_or_null != line_it->second.end()) {
+        const SourceInfo &info = **info_it_or_null;
+        //  At the start of a keyword, comment or symbol, potentially switch color.
+        if (pos == info.start_col) {
+          if (info.keyword) {
+            SetColor(w_, kSourceKeywordPair);
+          } else if (info.comment) {
+            SetColor(w_, kSourceCommentPair);
+          } else if (info.sym->kind == slang::ast::SymbolKind::Instance ||
+                     info.sym->kind == slang::ast::SymbolKind::InstanceArray ||
+                     info.sym->kind == slang::ast::SymbolKind::Subroutine) {
             SetColor(w_, kSourceInstancePair);
-          } else if (sym->kind == slang::ast::SymbolKind::Parameter) {
+          } else if (info.sym->kind == slang::ast::SymbolKind::Parameter) {
             SetColor(w_, kSourceParamPair);
-          } else if (IsTraceable(nav_[id])) {
+          } else if (IsTraceable(info.sym)) {
             SetColor(w_, kSourceIdentifierPair);
           }
-          if (nav_[id] == sel_ && cursor_in_id) {
+          // Start highlighting the selected symbol, if the cursor is in it. But if currently
+          // showing the search preview (typing the search text), don't highlight if nothing is
+          // found because that would make it look like the selected item matches the search input.
+          const bool cursor_in_sel =
+              line_idx_ == line_idx && col_idx_ >= info.start_col && col_idx_ <= info.end_col;
+          if (sel_ != nullptr && info.sym == sel_ && cursor_in_sel &&
+              !(search_preview_ && search_start_col_ < 0)) {
             wattron(w_, highlight_attr);
+            // Save the position where the selected item starts. This is where the value label
+            // will be drawn.
             sel_pos = pos;
           }
         }
-        in_identifier = true;
-      } else if (active && !in_keyword && keywords.size() > k_idx && keywords[k_idx].first == pos) {
-        in_keyword = true;
-        SetColor(w_, kSourceKeywordPair);
-      } else if (!in_comment && comments.size() > c_idx && comments[c_idx].first == pos) {
-        // Highlight inactive comments still.
-        in_comment = true;
-        SetColor(w_, kSourceCommentPair);
+        if (pos == info.end_col) {
+          end_of_color = true;
+          // Advance to the next info item in the list for this line.
+          (*info_it_or_null)++;
+        }
       }
 
       // Highight partial search results.
@@ -213,23 +259,13 @@ void SourcePanel::Draw() {
         wattroff(w_, A_REVERSE);
       }
 
-      // See if the color should be turned off.
-      if (in_keyword && keywords[k_idx].second == pos) {
-        in_keyword = false;
-        k_idx++;
-        SetColor(w_, text_color);
-      } else if (in_identifier &&
-                 (identifiers[id_idx].first + identifiers[id_idx].second.size() - 1) == pos) {
-        in_identifier = false;
-        id_idx++;
+      // If the current colorized thing is now complete, turn off the color and advance.
+      if (end_of_color) {
         SetColor(w_, text_color);
         wattroff(w_, highlight_attr);
-      } else if (in_comment && comments[c_idx].second == pos) {
-        in_comment = false;
-        c_idx++;
-        SetColor(w_, text_color);
       }
-      // Always advance the screenn coordinate.
+
+      //  Always advance the screenn coordinate.
       screen_x++;
       // Only advance to the next character if spaces aren't being inserted for tab expansion.
       if (s[pos] != '\t' || (screen_x + scroll_col_ - max_digits - 1) % kTabSize == 0) {
@@ -248,7 +284,7 @@ void SourcePanel::Draw() {
       val = param->getValue().toString();
     } else {
       std::vector<const WaveData::Signal *> signals;
-      //  TODO: Reinstate when worksapce waves are slang-ified.
+      //  TODO: Reinstate when workspace waves are slang-ified.
       // std::vector<const WaveData::Signal *> signals =
       //    Workspace::Get().DesignToSignals(sel_);
       // Don't bother with large arrays.
@@ -448,10 +484,10 @@ void SourcePanel::UIChar(int ch) {
   }
   case 'p':
     // Go to the next highlightable thing.
-    if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
-      for (const auto &[loc, sym] : nav_by_line_[line_idx_]) {
-        if (loc > col_idx_) {
-          col_idx_ = loc;
+    if (auto it = src_info_.find(line_idx_); it != src_info_.end()) {
+      for (const SourceInfo &info : it->second) {
+        if (info.start_col > col_idx_) {
+          col_idx_ = info.start_col;
           max_col_idx_ = col_idx_;
           break;
         }
@@ -489,12 +525,12 @@ void SourcePanel::UIChar(int ch) {
 
 void SourcePanel::SelectItem() {
   sel_ = nullptr;
-  if (nav_by_line_.find(line_idx_) != nav_by_line_.end()) {
-    for (const auto &[loc, sym] : nav_by_line_[line_idx_]) {
-      if (col_idx_ >= loc && col_idx_ < (loc + sym->name.size())) {
-        sel_ = sym;
-        break;
-      }
+  const auto it = src_info_.find(line_idx_);
+  if (it == src_info_.end()) return;
+  for (const SourceInfo &info : it->second) {
+    if (info.sym != nullptr && col_idx_ >= info.start_col && col_idx_ <= info.end_col) {
+      sel_ = info.sym;
+      break;
     }
   }
 }
@@ -557,22 +593,14 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
 
   scope_ = GetScopeForUI(item);
   // Clear out old info.
-  nav_.clear();
-  nav_by_line_.clear();
+  src_info_.clear();
   sel_ = nullptr;
-  tokenizer_ = SimpleTokenizer();
+  // tokenizer_ = SimpleTokenizer();
 
-  // Populate the map with all navigable items in this scope.
-  // In the case of genblocks, first also populate it with everything in the enclosing isntance that
-  // isn't itself a genblock.
-  if (item->kind == slang::ast::SymbolKind::GenerateBlock) {
-    NavFinder nf(&nav_, /*skip_genblocks*/ true);
-    GetContainingInstance(item)->visit(nf);
-  }
-  const slang::ast::Symbol *sym = &scope_->asSymbol();
-  NavFinder nav_finder(&nav_);
-  sym->visit(nav_finder);
+  FindSymbols();
+  FindKeywordsAndComments();
   // Extract the lines as individial string_views.
+  const slang::ast::Symbol *sym = &scope_->asSymbol();
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
   src_.ProcessBuffer(sm->getSourceText(sym->location.buffer()));
   const int line_idx = sm->getLineNumber(item->location) - 1;
@@ -582,18 +610,17 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   max_col_idx_ = col_idx_;
   current_file_ = sm->getFileName(sym->location);
 
-  int n = 0;
-  for (std::string_view s : src_) {
-    tokenizer_.ProcessLine(s);
-    // Add all useful identifiers in this line to the appropriate list.
-    for (auto &[loc, id] : tokenizer_.Identifiers(n)) {
-      auto it = nav_.find(id);
-      if (it != nav_.end()) {
-        nav_by_line_[n].push_back({loc, it->second});
-      }
-    }
-    n++;
-  }
+  // TODO - find keywords somehow
+  // scope_->asSymbol().getSyntax(); // and then something....
+  // int n = 0;
+  // for (std::string_view s : src_) {
+  //  tokenizer_.ProcessLine(s);
+  //  // Add all useful identifiers in this line to the appropriate list.
+  //  for (auto &[start_col, end_col] : tokenizer_.Keywords(n)) {
+  //    nav_[n].push_back({.start_col = start_col, .end_col = end_col, .keyword = true});
+  //  }
+  //  n++;
+  //}
   SetLineAndScroll(line_idx);
   BuildHeader();
   UpdateWaveData();

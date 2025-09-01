@@ -14,11 +14,6 @@ find_package(Surelog REQUIRED)
 find_package(UHDM REQUIRED)
 find_package(ZLIB REQUIRED)  # needed for fst and optionally used by surelog
 
-add_library(simple_tokenizer simple_tokenizer.cc)
-target_link_libraries(simple_tokenizer PUBLIC absl::flat_hash_map)
-simview_add_test(simple_tokenizer_test simple_tokenizer_test.cc)
-target_link_libraries(simple_tokenizer_test PRIVATE simple_tokenizer)
-
 add_library(source_buffer source_buffer.cc)
 target_link_libraries(source_buffer PUBLIC absl::flat_hash_map absl::btree)
 simview_add_test(source_buffer_test source_buffer_test.cc)
@@ -52,7 +47,6 @@ add_executable(simview
 )
 target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR} ${UHDM_INCLUDE_DIR} ${SURELOG_INCLUDE_DIR})
 target_link_libraries(simview PRIVATE
-  simple_tokenizer
   source_buffer
   absl::str_format
   absl::time

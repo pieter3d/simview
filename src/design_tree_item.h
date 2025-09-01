@@ -10,7 +10,6 @@ namespace sv {
 class DesignTreeItem : public TreeItem {
  public:
   explicit DesignTreeItem(const slang::ast::Symbol *item);
-  DesignTreeItem(const slang::ast::Symbol *item, int idx);
   std::string_view Name() const final { return name_.empty() ? item_->name : name_; }
   std::string_view Type() const final { return type_; }
   bool AltType() const final;
@@ -33,7 +32,6 @@ class DesignTreeItem : public TreeItem {
   void BuildChildren() const;
   mutable bool children_built_ = false;
   mutable std::vector<DesignTreeItem> children_;
-  int index_ = 0;
 };
 
 } // namespace sv
