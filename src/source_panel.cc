@@ -635,6 +635,7 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   const slang::ast::Symbol *sym = &scope_->asSymbol();
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
   src_.ProcessBuffer(sm->getSourceText(sym->location.buffer()));
+  // Set line and column positions.
   const int line_idx = sm->getLineNumber(item->location) - 1;
   start_line_ = sm->getLineNumber(sym->getSyntax()->sourceRange().start());
   end_line_ = sm->getLineNumber(sym->getSyntax()->sourceRange().end());
@@ -642,17 +643,6 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
   max_col_idx_ = col_idx_;
   current_file_ = sm->getFileName(sym->location);
 
-  // TODO - find keywords somehow
-  // scope_->asSymbol().getSyntax(); // and then something....
-  // int n = 0;
-  // for (std::string_view s : src_) {
-  //  tokenizer_.ProcessLine(s);
-  //  // Add all useful identifiers in this line to the appropriate list.
-  //  for (auto &[start_col, end_col] : tokenizer_.Keywords(n)) {
-  //    nav_[n].push_back({.start_col = start_col, .end_col = end_col, .keyword = true});
-  //  }
-  //  n++;
-  //}
   SetLineAndScroll(line_idx);
   BuildHeader();
   UpdateWaveData();
