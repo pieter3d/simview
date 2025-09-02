@@ -3,9 +3,12 @@
 #include "radix.h"
 #include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Symbol.h"
+#include "slang/ast/expressions/CallExpression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
+#include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
+#include "slang/ast/symbols/SubroutineSymbols.h"
 #include "slang/parsing/LexerFacts.h"
 #include "slang/parsing/Token.h"
 #include "slang/syntax/SyntaxNode.h"
@@ -32,49 +35,78 @@ void SourcePanel::FindSymbols() {
   const slang::ast::Symbol &top = scope_->asSymbol();
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
   int depth = 0;
-  top.visit(slang::ast::makeVisitor(
-      [&](auto &visitor, const std::derived_from<slang::ast::Symbol> auto &sym) {
-        if (!(sym.kind == slang::ast::SymbolKind::Instance ||
-              sym.kind == slang::ast::SymbolKind::GenerateBlock ||
-              sym.kind == slang::ast::SymbolKind::GenerateBlockArray ||
-              sym.kind == slang::ast::SymbolKind::InstanceArray ||
-              sym.kind == slang::ast::SymbolKind::InstanceBody ||
-              sym.kind == slang::ast::SymbolKind::Parameter ||
-              sym.kind == slang::ast::SymbolKind::TypeAlias ||
-              sym.kind == slang::ast::SymbolKind::Net ||
-              sym.kind == slang::ast::SymbolKind::Variable ||
-              sym.kind == slang::ast::SymbolKind::Subroutine)) {
-          return;
-        }
-        // Skip anything without syntax, such as inferred variables for function return values.
-        if (!sym.getSyntax()) return;
-        const size_t start_col = sm->getColumnNumber(sym.location) - 1;
-        src_info_[sm->getLineNumber(sym.location) - 1].insert(
-            {.start_col = start_col, .end_col = start_col + sym.name.size() - 1, .sym = &sym});
+  // Collect all navigable things.
+  top.visit(slang::ast::makeVisitor([&](auto &visitor,
+                                        const std::derived_from<slang::ast::Symbol> auto &sym) {
+    if (!(sym.kind == slang::ast::SymbolKind::Instance ||
+          sym.kind == slang::ast::SymbolKind::GenerateBlock ||
+          sym.kind == slang::ast::SymbolKind::GenerateBlockArray ||
+          sym.kind == slang::ast::SymbolKind::InstanceArray ||
+          sym.kind == slang::ast::SymbolKind::InstanceBody ||
+          sym.kind == slang::ast::SymbolKind::Parameter ||
+          sym.kind == slang::ast::SymbolKind::TypeAlias ||
+          sym.kind == slang::ast::SymbolKind::Net || sym.kind == slang::ast::SymbolKind::Variable ||
+          sym.kind == slang::ast::SymbolKind::Subroutine)) {
+      return;
+    }
+    // Skip anything without syntax, such as inferred variables for function return values.
+    if (!sym.getSyntax()) return;
+    const size_t start_col = sm->getColumnNumber(sym.location) - 1;
+    src_info_[sm->getLineNumber(sym.location) - 1].insert(
+        {.start_col = start_col, .end_col = start_col + sym.name.size() - 1, .sym = &sym});
 
-        // Don't recurse into sub-instances, just find things within this scope.
-        // For generate array constructs, only recurse into the first one when the generate
-        // construct isn't the top of the traversal. That way the body of a generate block inside
-        // the scope is still navigable. Users can explicitly set the scope to a particular instance
-        // if index 0 isn't the desired one.
-        const bool skip = sym.kind == slang::ast::SymbolKind::Instance ||
-                          (sym.kind == slang::ast::SymbolKind::GenerateBlock && depth > 0 &&
-                           sym.getHierarchicalParent()->asSymbol().kind ==
-                               slang::ast::SymbolKind::GenerateBlockArray &&
-                           sym.template as<slang::ast::GenerateBlockSymbol>().constructIndex > 0);
+    // Don't recurse into sub-instances, just find things within this scope.
+    // For generate array constructs, only recurse into the first one when the generate
+    // construct isn't the top of the traversal. That way the body of a generate block inside
+    // the scope is still navigable. Users can explicitly set the scope to a particular instance
+    // if index 0 isn't the desired one.
+    const bool skip = sym.kind == slang::ast::SymbolKind::Instance ||
+                      (sym.kind == slang::ast::SymbolKind::GenerateBlock && depth > 0 &&
+                       sym.getHierarchicalParent()->asSymbol().kind ==
+                           slang::ast::SymbolKind::GenerateBlockArray &&
+                       sym.template as<slang::ast::GenerateBlockSymbol>().constructIndex > 0);
 
-        if (!skip) {
-          depth++;
-          visitor.visitDefault(sym);
-          depth--;
-        }
-      },
-      [&](auto &visitor, const slang::ast::NamedValueExpression &nve) {
-        // const int line = sm->getLineNumber(nve.sourceRange.start()) - 1;
-        // const size_t start_col = sm->getColumnNumber(nve.sourceRange.start()) - 1;
-        // const size_t end_col = sm->getColumnNumber(nve.sourceRange.start()) - 1;
-        // src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = &nve.symbol});
-      }));
+    if (!skip) {
+      depth++;
+      visitor.visitDefault(sym);
+      depth--;
+    }
+  }));
+  class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*VisitStatements*/ true,
+                                                  /*VisitExpressions*/ true> {
+   public:
+    NavFinder(SourcePanel *p) : panel_(p) {}
+    // Avoid recursing into any instances.
+    void handle(const slang::ast::InstanceSymbol &inst) {}
+    // Recurse into the first generate block only.
+    void handle(const slang::ast::GenerateBlockSymbol &gen) {
+      if (depth_ == 0 || gen.constructIndex == 0) {
+        depth_++;
+        visitDefault(gen);
+        depth_--;
+      }
+    }
+    // Collect named values and task/function calls.
+    void handle(const slang::ast::NamedValueExpression &nve) { AddNav(nve, &nve.symbol); }
+    void handle(const slang::ast::CallExpression &call) {
+      if (const auto *sub = std::get_if<const slang::ast::SubroutineSymbol *>(&call.subroutine)) {
+        AddNav(call, *sub);
+      }
+    }
+
+   private:
+    SourcePanel *panel_;
+    const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
+    void AddNav(const slang::ast::Expression &expr, const slang::ast::Symbol *sym) {
+      const int line = sm_->getLineNumber(expr.sourceRange.start()) - 1;
+      const size_t start_col = sm_->getColumnNumber(expr.sourceRange.start()) - 1;
+      const size_t end_col = sm_->getColumnNumber(expr.sourceRange.end()) - 1;
+      panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
+    }
+    int depth_ = 0;
+  };
+  NavFinder finder(this);
+  top.visit(finder);
 }
 
 void SourcePanel::FindKeywordsAndComments() {
