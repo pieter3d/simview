@@ -60,6 +60,7 @@ void DesignTreeItem::BuildChildren() const {
         children_.push_back(DesignTreeItem(&inst));
       },
       [&](auto &visitor, const slang::ast::GenerateBlockSymbol &gen) {
+        if (gen.isUninstantiated) return;
         children_.push_back(DesignTreeItem(&gen));
       },
       [&](auto &visitor, const slang::ast::UninstantiatedDefSymbol &undef) {

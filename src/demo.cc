@@ -39,40 +39,27 @@ int main(int argc, char *argv[]) {
                                    inst->getParentScope()->asSymbol().name);
     }
     if (inst->name == "top") {
-      //class TokenVisitor : public slang::syntax::SyntaxVisitor<TokenVisitor> {
-      // public:
-      //  void visitToken(slang::parsing::Token tk) {
-      //    std::cout << absl::StrFormat("%s = %s (%d,%d)\n", slang::parsing::toString(tk.kind),
-      //                                 tk.toString(), 
-      //                                 src->getColumnNumber(tk.range().start()),
-      //                                 src->getColumnNumber(tk.range().end())
-      //                                 );
-      //    for (auto &tr : tk.trivia()) {
-      //      std::cout << absl::StrFormat("  T: %s = %s\n", slang::parsing::toString(tr.kind),
-      //                                   tr.getRawText());
-      //    }
-      //  }
-      //};
-      //TokenVisitor tv;
-      //inst->body.getSyntax()->visit(tv);
-      //inst->visit(slang::ast::makeVisitor([&](const std::derived_from<slang::ast::Expression> auto &expr) {
-      //      std::cout << absl::StrFormat("%s at %d,%d\n", slang::ast::toString(expr.kind), 
-      //          src->getLineNumber(expr.sourceRange.start()),
-      //          src->getLineNumber(expr.sourceRange.end()));
-      //      }));
-      class EV : public slang::ast::ASTVisitor<EV, true, true> {
+      class TokenVisitor : public slang::syntax::SyntaxVisitor<TokenVisitor> {
        public:
-        void handle(const slang::ast::InstanceSymbol &inst) { }
-        void handle(const slang::ast::NamedValueExpression &expr) {
-            std::cout << absl::StrFormat("%s at %d,%d-%d : %s\n", slang::ast::toString(expr.kind), 
-                src->getLineNumber(expr.sourceRange.start()),
-                src->getColumnNumber(expr.sourceRange.start()),
-                src->getColumnNumber(expr.sourceRange.end()),
-                expr.symbol.name);
+        void visitToken(slang::parsing::Token tk) {
+          std::cout << absl::StrFormat("%s = %s (%d,%d)\n", slang::parsing::toString(tk.kind),
+                                       tk.toString(), 
+                                       src->getColumnNumber(tk.range().start()),
+                                       src->getColumnNumber(tk.range().end())
+                                       );
+          //for (auto &tr : tk.trivia()) {
+          //  std::cout << absl::StrFormat("  T: %s = %s\n", slang::parsing::toString(tr.kind),
+          //                               tr.getRawText());
+          //}
         }
       };
-      EV ev;
-      inst->body.visit(ev);
+      TokenVisitor tv;
+      inst->body.getSyntax()->visit(tv);
+      inst->visit(slang::ast::makeVisitor([&](const std::derived_from<slang::ast::Expression> auto &expr) {
+            std::cout << absl::StrFormat("%s at %d,%d\n", slang::ast::toString(expr.kind), 
+                src->getLineNumber(expr.sourceRange.start()),
+                src->getLineNumber(expr.sourceRange.end()));
+            }));
 
     }
   }

@@ -72,6 +72,20 @@ void SourcePanel::FindSymbols() {
       depth--;
     }
   }));
+  struct NamedTokenFinder : public slang::syntax::SyntaxVisitor<NamedTokenFinder> {
+    SourcePanel *panel_;
+    const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
+    const slang::ast::Symbol *sym_;
+    NamedTokenFinder(SourcePanel *p, const slang::ast::Symbol *s) : panel_(p), sym_(s) {}
+    void visitToken(slang::parsing::Token tok) {
+      if (tok.rawText() == sym_->name) {
+        const int line = sm_->getLineNumber(tok.range().start()) - 1;
+        const size_t start_col = sm_->getColumnNumber(tok.range().start()) - 1;
+        const size_t end_col = start_col + sym_->name.size() - 1;
+        panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym_});
+      }
+    }
+  };
   class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*VisitStatements*/ true,
                                                   /*VisitExpressions*/ true> {
    public:
@@ -98,10 +112,15 @@ void SourcePanel::FindSymbols() {
     SourcePanel *panel_;
     const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
     void AddNav(const slang::ast::Expression &expr, const slang::ast::Symbol *sym) {
-      const int line = sm_->getLineNumber(expr.sourceRange.start()) - 1;
-      const size_t start_col = sm_->getColumnNumber(expr.sourceRange.start()) - 1;
-      const size_t end_col = sm_->getColumnNumber(expr.sourceRange.end()) - 1;
-      panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
+      if (expr.syntax) {
+        NamedTokenFinder tf(panel_, sym);
+        expr.syntax->visit(tf);
+      } else {
+        const int line = sm_->getLineNumber(expr.sourceRange.start()) - 1;
+        const size_t start_col = sm_->getColumnNumber(expr.sourceRange.start()) - 1;
+        const size_t end_col = start_col + sym->name.size() - 1;
+        panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
+      }
     }
     int depth_ = 0;
   };
@@ -112,8 +131,8 @@ void SourcePanel::FindSymbols() {
 void SourcePanel::FindKeywordsAndComments() {
   struct TokenVisitor : public slang::syntax::SyntaxVisitor<TokenVisitor> {
     SourcePanel *panel_;
-    const slang::SourceManager *sm_;
-    TokenVisitor(SourcePanel *p, const slang::SourceManager *sm) : panel_(p), sm_(sm) {}
+    const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
+    TokenVisitor(SourcePanel *p) : panel_(p) {}
     void visitToken(slang::parsing::Token tok) {
       if (slang::parsing::LexerFacts::isKeyword(tok.kind)) {
         const int line = sm_->getLineNumber(tok.location()) - 1;
@@ -148,8 +167,7 @@ void SourcePanel::FindKeywordsAndComments() {
       }
     }
   };
-  const slang::SourceManager *sm = Workspace::Get().SourceManager();
-  scope_->asSymbol().getSyntax()->visit(TokenVisitor(this, sm));
+  scope_->asSymbol().getSyntax()->visit(TokenVisitor(this));
 }
 
 std::optional<std::pair<int, int>> SourcePanel::CursorLocation() const {
