@@ -73,16 +73,6 @@ class SourcePanel : public Panel {
   absl::flat_hash_map<int, absl::btree_set<SourceInfo>> src_info_;
   void FindSymbols();
   void FindKeywordsAndComments();
-  // absl::flat_hash_map<std::string, const slang::ast::Symbol *> nav_;
-  //  absl::flat_hash_map<int, std::vector<std::pair<int, const slang::ast::Symbol *>>>
-  //  nav_by_line_;
-  //  TODO remove when confirmed not needed.
-  //  Map of all textual parameters and their definitions.
-  //  absl::flat_hash_map<std::string, std::string> params_;
-  //  absl::flat_hash_map<int, std::vector<std::pair<int, std::string>>> params_by_line_;
-  //  Tokenizer that holds identifiers and keywords for each line. This
-  //  simplifies syntax highlighting for keywords and comments.
-  //SimpleTokenizer tokenizer_;
   // Limits active scope, for example files with more than one module
   // definition. Text rendering uses this grey out source outside this.
   int start_line_ = 0;

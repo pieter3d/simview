@@ -2,13 +2,16 @@
 #include "color.h"
 #include "radix.h"
 #include "slang/ast/ASTVisitor.h"
+#include "slang/ast/Expression.h"
 #include "slang/ast/Symbol.h"
 #include "slang/ast/expressions/CallExpression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
+#include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/SubroutineSymbols.h"
+#include "slang/ast/types/AllTypes.h"
 #include "slang/parsing/LexerFacts.h"
 #include "slang/parsing/Token.h"
 #include "slang/syntax/SyntaxNode.h"
@@ -20,7 +23,6 @@
 #include "workspace.h"
 
 #include <algorithm>
-#include <concepts>
 #include <curses.h>
 
 namespace sv {
@@ -33,45 +35,9 @@ constexpr int kTabSize = 4;
 
 void SourcePanel::FindSymbols() {
   const slang::ast::Symbol &top = scope_->asSymbol();
-  const slang::SourceManager *sm = Workspace::Get().SourceManager();
-  int depth = 0;
-  // Collect all navigable things.
-  top.visit(slang::ast::makeVisitor([&](auto &visitor,
-                                        const std::derived_from<slang::ast::Symbol> auto &sym) {
-    if (!(sym.kind == slang::ast::SymbolKind::Instance ||
-          sym.kind == slang::ast::SymbolKind::GenerateBlock ||
-          sym.kind == slang::ast::SymbolKind::GenerateBlockArray ||
-          sym.kind == slang::ast::SymbolKind::InstanceArray ||
-          sym.kind == slang::ast::SymbolKind::InstanceBody ||
-          sym.kind == slang::ast::SymbolKind::Parameter ||
-          sym.kind == slang::ast::SymbolKind::TypeAlias ||
-          sym.kind == slang::ast::SymbolKind::Net || sym.kind == slang::ast::SymbolKind::Variable ||
-          sym.kind == slang::ast::SymbolKind::Subroutine)) {
-      return;
-    }
-    // Skip anything without syntax, such as inferred variables for function return values.
-    if (!sym.getSyntax()) return;
-    const size_t start_col = sm->getColumnNumber(sym.location) - 1;
-    src_info_[sm->getLineNumber(sym.location) - 1].insert(
-        {.start_col = start_col, .end_col = start_col + sym.name.size() - 1, .sym = &sym});
-
-    // Don't recurse into sub-instances, just find things within this scope.
-    // For generate array constructs, only recurse into the first one when the generate
-    // construct isn't the top of the traversal. That way the body of a generate block inside
-    // the scope is still navigable. Users can explicitly set the scope to a particular instance
-    // if index 0 isn't the desired one.
-    const bool skip = sym.kind == slang::ast::SymbolKind::Instance ||
-                      (sym.kind == slang::ast::SymbolKind::GenerateBlock && depth > 0 &&
-                       sym.getHierarchicalParent()->asSymbol().kind ==
-                           slang::ast::SymbolKind::GenerateBlockArray &&
-                       sym.template as<slang::ast::GenerateBlockSymbol>().constructIndex > 0);
-
-    if (!skip) {
-      depth++;
-      visitor.visitDefault(sym);
-      depth--;
-    }
-  }));
+  // Token visitor to find tokens that string-match a particular symbol. This way a symbol like
+  // some_variable[WIDTH-1:0] only has the identifier highlighted, not the whole range. That would
+  // also prevent navigating through named variables in the range expression.
   struct NamedTokenFinder : public slang::syntax::SyntaxVisitor<NamedTokenFinder> {
     SourcePanel *panel_;
     const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
@@ -79,73 +45,168 @@ void SourcePanel::FindSymbols() {
     NamedTokenFinder(SourcePanel *p, const slang::ast::Symbol *s) : panel_(p), sym_(s) {}
     void visitToken(slang::parsing::Token tok) {
       if (tok.rawText() == sym_->name) {
-        const int line = sm_->getLineNumber(tok.range().start()) - 1;
-        const size_t start_col = sm_->getColumnNumber(tok.range().start()) - 1;
+        const int line = sm_->getLineNumber(tok.location()) - 1;
+        const size_t start_col = sm_->getColumnNumber(tok.location()) - 1;
         const size_t end_col = start_col + sym_->name.size() - 1;
         panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym_});
       }
     }
   };
+  // AST Visitor that finds all navigable things.
   class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*VisitStatements*/ true,
                                                   /*VisitExpressions*/ true> {
    public:
-    NavFinder(SourcePanel *p) : panel_(p) {}
+    NavFinder(SourcePanel *p)
+        : panel_(p), visible_buffer_(panel_->scope_->asSymbol().location.buffer()) {}
     // Avoid recursing into any instances.
-    void handle(const slang::ast::InstanceSymbol &inst) {}
-    // Recurse into the first generate block only.
-    void handle(const slang::ast::GenerateBlockSymbol &gen) {
-      if (depth_ == 0 || gen.constructIndex == 0) {
-        depth_++;
-        visitDefault(gen);
-        depth_--;
+    void handle(const slang::ast::InstanceSymbol &inst) {
+      // For array instances, save the location of the array instance, but link to the first actual
+      // instance so that there's an instance.body to display.
+      if (arr_inst_depth_ > 0) {
+        AddNav(*arr_sym_, inst);
+      } else {
+        AddNav(inst);
+      }
+      // Iterate through all parameters in the instance body to find the initializer expression.
+      for (const auto &param : inst.body.membersOfType<slang::ast::ParameterSymbol>()) {
+        if (param.isLocalParam()) continue;
+        if (const slang::ast::Expression *init_expr = param.getInitializer()) {
+          init_expr->visit(*this);
+        }
+      }
+      // Iterate through all ports to find the connections.
+      for (const slang::ast::PortConnection *conn : inst.getPortConnections()) {
+        if (const slang::ast::Expression *expr = conn->getExpression()) {
+          expr->visit(*this);
+        }
       }
     }
-    // Collect named values and task/function calls.
+    void handle(const slang::ast::InstanceArraySymbol &arr) {
+      // Only add the first sub-instance. Specific ones can be selected with the design tree.
+      if (arr.elements.empty()) return;
+      // Save a pointer to the first encountered
+      if (arr_inst_depth_ == 0) arr_sym_ = &arr;
+      arr_inst_depth_++;
+      arr.elements[0]->visit(*this);
+      arr_inst_depth_--;
+    }
+    void handle(const slang::ast::UninstantiatedDefSymbol &uninst) {
+      // Visit all the expressions on all the ports.
+      for (const slang::ast::AssertionExpr *expr : uninst.getPortConnections()) {
+        expr->visit(*this);
+      }
+    }
+    void handle(const slang::ast::ParameterSymbol &param) { AddNav(param); }
+    void handle(const slang::ast::NetSymbol &net) { AddNav(net); }
+    void handle(const slang::ast::VariableSymbol &var) { AddNav(var); }
+    void handle(const slang::ast::SubroutineSymbol &sub) { AddNav(sub); }
+    void handle(const slang::ast::GenerateBlockArraySymbol &arr) {
+      // Recurse into the first generate block only.
+      if (arr.entries.empty()) return;
+      arr.entries[0]->visit(*this);
+    }
+    // Collect named values and task/function calls in expressions too.
     void handle(const slang::ast::NamedValueExpression &nve) { AddNav(nve, &nve.symbol); }
     void handle(const slang::ast::CallExpression &call) {
+      // For subroutine calls, only bother with task/function calls, not system calls.
       if (const auto *sub = std::get_if<const slang::ast::SubroutineSymbol *>(&call.subroutine)) {
         AddNav(call, *sub);
+      }
+      // Also iterate through the call arguments.
+      for (const slang::ast::Expression *expr : call.arguments()) {
+        expr->visit(*this);
       }
     }
 
    private:
     SourcePanel *panel_;
+    const slang::BufferID visible_buffer_;
     const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
+    // Save state pertaining to instance arrays.
+    const slang::ast::InstanceArraySymbol *arr_sym_ = nullptr;
+    int arr_inst_depth_ = 0;
+    // Add an item to the source info, separate one for determining source location and one for
+    // what's actually linked in the UI, the thing who's defnition can be shown.
+    void AddNav(const slang::ast::Symbol &loc_sym, const slang::ast::Symbol &link_sym) {
+      // Avoid anything not actually defined in this same file as the source panel's top.
+      if (loc_sym.location.buffer() != visible_buffer_) return;
+      const int line = sm_->getLineNumber(loc_sym.location) - 1;
+      const size_t start_col = sm_->getColumnNumber(loc_sym.location) - 1;
+      const size_t end_col = start_col + loc_sym.name.size() - 1;
+      panel_->src_info_[line].insert(
+          {.start_col = start_col, .end_col = end_col, .sym = &link_sym});
+    }
+    // Common variant for when location and to-be-linked item are one and the same.
+    void AddNav(const slang::ast::Symbol &sym) { AddNav(sym, sym); }
+    // Add an expresion to the source info, with a separate symbol that it links to.
     void AddNav(const slang::ast::Expression &expr, const slang::ast::Symbol *sym) {
+      // Skip anything not in the same file as the panel's top scope. This can happen with `defines
+      // or `includes.
+      if (expr.sourceRange.start().buffer() != visible_buffer_) return;
+      // Anytime there's some syntax associated, find the token that matches the name.
       if (expr.syntax) {
         NamedTokenFinder tf(panel_, sym);
         expr.syntax->visit(tf);
       } else {
         const int line = sm_->getLineNumber(expr.sourceRange.start()) - 1;
         const size_t start_col = sm_->getColumnNumber(expr.sourceRange.start()) - 1;
-        const size_t end_col = start_col + sym->name.size() - 1;
+        const size_t end_col = sm_->getColumnNumber(expr.sourceRange.end()) - 2;
+        // Look for the .* glob connect-by-name syntax. In that case, skip this named value since it
+        // likely represents many connections that would be overloaded.
+        const std::string_view text =
+            sm_->getSourceText(visible_buffer_)
+                .substr(expr.sourceRange.start().offset(), end_col - start_col + 1);
+        if (text.size() == 2 && text == ".*") return;
         panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
       }
     }
-    int depth_ = 0;
   };
   NavFinder finder(this);
   top.visit(finder);
 }
 
 void SourcePanel::FindKeywordsAndComments() {
+  // Iterate over all tokens to find keywords and comments.
   struct TokenVisitor : public slang::syntax::SyntaxVisitor<TokenVisitor> {
-    SourcePanel *panel_;
     const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
-    TokenVisitor(SourcePanel *p) : panel_(p) {}
+    SourcePanel *panel_;
+    const slang::BufferID visible_buffer;
+    TokenVisitor(SourcePanel *p)
+        : panel_(p), visible_buffer(panel_->scope_->asSymbol().location.buffer()) {}
     void visitToken(slang::parsing::Token tok) {
+      // Don't bother with any tokens in different files.
+      if (tok.location().buffer() != visible_buffer) return;
       if (slang::parsing::LexerFacts::isKeyword(tok.kind)) {
         const int line = sm_->getLineNumber(tok.location()) - 1;
-        panel_->src_info_[line].insert({.start_col = sm_->getColumnNumber(tok.range().start()) - 1,
-                                        .end_col = sm_->getColumnNumber(tok.range().end()) - 1,
+        const size_t start_col = sm_->getColumnNumber(tok.range().start()) - 1;
+        panel_->src_info_[line].insert({.start_col = start_col,
+                                        .end_col = start_col + tok.rawText().size() - 1,
                                         .keyword = true});
       }
       slang::SourceLocation loc = tok.location();
       // Iterate from the last trivia, since they all come before the token. This enables
       // determining the characeter locations of the trivia blocks.
+      const slang::BufferID visible_buffer = panel_->scope_->asSymbol().location.buffer();
+      slang::BufferID buffer_id = panel_->scope_->asSymbol().location.buffer();
       for (const slang::parsing::Trivia &t : std::views::reverse(tok.trivia())) {
-        slang::SourceLocation end_loc = loc - 1;
-        loc -= t.getRawText().size();
+        slang::SourceLocation end_loc;
+        if (std::optional<slang::SourceLocation> explicit_loc = t.getExplicitLocation()) {
+          // When a trivia has an explicit location, such as comments from `includes, set the
+          // current location from that.
+          buffer_id = explicit_loc->buffer();
+          loc = *explicit_loc;
+          end_loc = loc + t.getRawText().size() - 1;
+        } else {
+          // Otherwise, assume the location comes before the previous trivia, or the token they all
+          // preceed.
+          end_loc = loc - 1;
+          loc -= t.getRawText().size();
+        }
+        // Don't store information for things outside the current file.
+        if (buffer_id != visible_buffer) continue;
+        // This is all for syntax highlighting, so skip other trivia like directives and whitespace.
+        // TODO: Could offer a way to browse include files this way, though it's pretty tricky with
+        // scope.
         if (t.kind != slang::parsing::TriviaKind::BlockComment &&
             t.kind != slang::parsing::TriviaKind::LineComment) {
           continue;
@@ -155,9 +216,11 @@ void SourcePanel::FindKeywordsAndComments() {
         const size_t start_col = sm_->getColumnNumber(loc) - 1;
         const size_t end_col = sm_->getColumnNumber(end_loc) - 1;
         if (start_line == end_line) {
+          // Single line comments, insert as usual.
           panel_->src_info_[start_line].insert(
               {.start_col = start_col, .end_col = end_col, .comment = true});
         } else {
+          // Multi-line comments, create an entry for each line.
           for (int line = start_line; line <= end_line; ++line) {
             const size_t a = line == start_line ? start_col : 0;
             const size_t b = line == end_line ? end_col : std::numeric_limits<int>::max();
@@ -396,6 +459,8 @@ void SourcePanel::UIChar(int ch) {
   int prev_col_idx = col_idx_;
   bool send_to_waves = false;
   switch (ch) {
+  case 'g': SetLineAndScroll(start_line_); break;
+  case 'G': SetLineAndScroll(end_line_); break;
   case 'u': {
     if (scope_->asSymbol().getHierarchicalParent()->asSymbol().kind ==
         slang::ast::SymbolKind::Root) {
@@ -649,7 +714,7 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
 
   FindSymbols();
   FindKeywordsAndComments();
-  // Extract the lines as individial string_views.
+  //  Extract the lines as individial string_views.
   const slang::ast::Symbol *sym = &scope_->asSymbol();
   const slang::SourceManager *sm = Workspace::Get().SourceManager();
   src_.ProcessBuffer(sm->getSourceText(sym->location.buffer()));
