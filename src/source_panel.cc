@@ -1,4 +1,5 @@
 #include "source_panel.h"
+#include "absl/container/flat_hash_map.h"
 #include "color.h"
 #include "radix.h"
 #include "slang/ast/ASTVisitor.h"
@@ -14,6 +15,7 @@
 #include "slang/ast/types/AllTypes.h"
 #include "slang/parsing/LexerFacts.h"
 #include "slang/parsing/Token.h"
+#include "slang/parsing/TokenKind.h"
 #include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxVisitor.h"
 #include "slang/text/SourceLocation.h"
@@ -24,6 +26,8 @@
 
 #include <algorithm>
 #include <curses.h>
+#include <ncurses.h>
+#include <string_view>
 
 namespace sv {
 namespace {
@@ -35,20 +39,17 @@ constexpr int kTabSize = 4;
 
 void SourcePanel::FindSymbols() {
   const slang::ast::Symbol &top = scope_->asSymbol();
-  // Token visitor to find tokens that string-match a particular symbol. This way a symbol like
-  // some_variable[WIDTH-1:0] only has the identifier highlighted, not the whole range. That would
-  // also prevent navigating through named variables in the range expression.
+  // Token visitor that finds all identifiers or one particular one based on a string match.
   struct NamedTokenFinder : public slang::syntax::SyntaxVisitor<NamedTokenFinder> {
-    SourcePanel *panel_;
-    const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
-    const slang::ast::Symbol *sym_;
-    NamedTokenFinder(SourcePanel *p, const slang::ast::Symbol *s) : panel_(p), sym_(s) {}
+    std::string_view name_;
+    std::function<void(slang::parsing::Token)> callback_;
+    NamedTokenFinder(decltype(callback_) &&cb) : callback_(std::move(cb)) {}
+    NamedTokenFinder(std::string_view name, decltype(callback_) &&cb)
+        : name_(name), callback_(std::move(cb)) {}
     void visitToken(slang::parsing::Token tok) {
-      if (tok.rawText() == sym_->name) {
-        const int line = sm_->getLineNumber(tok.location()) - 1;
-        const size_t start_col = sm_->getColumnNumber(tok.location()) - 1;
-        const size_t end_col = start_col + sym_->name.size() - 1;
-        panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym_});
+      if (tok.kind == slang::parsing::TokenKind::Identifier &&
+          (name_.empty() || tok.rawText() == name_)) {
+        callback_(tok);
       }
     }
   };
@@ -96,9 +97,25 @@ void SourcePanel::FindSymbols() {
         expr->visit(*this);
       }
     }
-    void handle(const slang::ast::ParameterSymbol &param) { AddNav(param); }
-    void handle(const slang::ast::NetSymbol &net) { AddNav(net); }
-    void handle(const slang::ast::VariableSymbol &var) { AddNav(var); }
+    void handle(const slang::ast::ParameterSymbol &param) {
+      AddNav(param);
+      // Also save all parameters found along the way.
+      parameters_[param.name] = &param;
+    }
+    void handle(const slang::ast::NetSymbol &net) {
+      AddNav(net);
+      if (!net.getSyntax()) return;
+      // Slang doesn't maintain expressions for variable declarations
+      // Get the full declaration syntax, not just the variable identifier.
+      FindParametersInTokens(net.getSyntax()->parent);
+    }
+    void handle(const slang::ast::VariableSymbol &var) {
+      AddNav(var);
+      if (!var.getSyntax()) return;
+      // Slang doesn't maintain expressions for variable declarations
+      // Get the full declaration syntax, not just the variable identifier.
+      FindParametersInTokens(var.getSyntax()->parent);
+    }
     void handle(const slang::ast::SubroutineSymbol &sub) { AddNav(sub); }
     void handle(const slang::ast::GenerateBlockArraySymbol &arr) {
       // Recurse into the first generate block only.
@@ -122,6 +139,8 @@ void SourcePanel::FindSymbols() {
     SourcePanel *panel_;
     const slang::BufferID visible_buffer_;
     const slang::SourceManager *sm_ = Workspace::Get().SourceManager();
+    // Save all parameters encountered, to allow for parameter lookup.
+    absl::flat_hash_map<std::string_view, const slang::ast::ParameterSymbol *> parameters_;
     // Save state pertaining to instance arrays.
     const slang::ast::InstanceArraySymbol *arr_sym_ = nullptr;
     int arr_inst_depth_ = 0;
@@ -145,7 +164,12 @@ void SourcePanel::FindSymbols() {
       if (expr.sourceRange.start().buffer() != visible_buffer_) return;
       // Anytime there's some syntax associated, find the token that matches the name.
       if (expr.syntax) {
-        NamedTokenFinder tf(panel_, sym);
+        NamedTokenFinder tf(sym->name, [&](slang::parsing::Token tok) {
+          const int line = sm_->getLineNumber(tok.location()) - 1;
+          const size_t start_col = sm_->getColumnNumber(tok.location()) - 1;
+          const size_t end_col = start_col + sym->name.size() - 1;
+          panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
+        });
         expr.syntax->visit(tf);
       } else {
         const int line = sm_->getLineNumber(expr.sourceRange.start()) - 1;
@@ -159,6 +183,20 @@ void SourcePanel::FindSymbols() {
         if (text.size() == 2 && text == ".*") return;
         panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
       }
+    }
+    void FindParametersInTokens(const slang::syntax::SyntaxNode *node) {
+      if (!node) return;
+      NamedTokenFinder tf([&](slang::parsing::Token tok) {
+        if (tok.location().buffer() != visible_buffer_) return;
+        if (auto it = parameters_.find(tok.rawText()); it != parameters_.end()) {
+          const int line = sm_->getLineNumber(tok.location()) - 1;
+          const size_t start_col = sm_->getColumnNumber(tok.location()) - 1;
+          const size_t end_col = start_col + it->second->name.size() - 1;
+          panel_->src_info_[line].insert(
+              {.start_col = start_col, .end_col = end_col, .sym = it->second});
+        }
+      });
+      node->visit(tf);
     }
   };
   NavFinder finder(this);
@@ -417,7 +455,6 @@ void SourcePanel::Draw() {
     }
   }
   if (!val.empty()) {
-    const int id_size = sel_->name.size();
     // Draw a nice box, with an empty value all around it, including the
     // connecting line:
     //
@@ -427,29 +464,39 @@ void SourcePanel::Draw() {
     //           |
     // blah blah identifier blah blah
     //
-    // The tag moves to the right and/or below the identifier depending on
-    // available room.
-    const std::string box = " +" + std::string(val.size() + 2, '-') + "+ ";
-    val = " | " + val + " | ";
     // Always try to draw above, unless the selected line is too close to the
     // top, then draw below.
     const int val_line = line_idx_ - scroll_row_ + 1;
     const bool above = line_idx_ - scroll_row_ > 3;
-    // Always try to draw to the right, unless it doesn't fit. In that case pick
-    // whichever side has more room.
-    const int start_col = max_digits + 1 + sel_pos - scroll_col_ - 1;
-    const bool right =
-        start_col + val.size() <= win_w || (((win_w - start_col) > (start_col + id_size - 1)));
+    const int col = max_digits + 1 + sel_pos - scroll_col_ - 1;
     SetColor(w_, kSourceValuePair);
     wattron(w_, A_BOLD);
-    int connector_col = start_col + (right ? 0 : id_size - 3 + 2);
-    int max_chars_connector = win_w - connector_col;
-    mvwaddnstr(w_, val_line + (above ? -1 : 1), connector_col, " | ", max_chars_connector);
-    const int col = start_col + (right ? 0 : id_size - val.size() + 2);
-    int max_chars = win_w - col;
-    mvwaddnstr(w_, val_line + (above ? -4 : 4), col, box.c_str(), max_chars);
-    mvwaddnstr(w_, val_line + (above ? -3 : 3), col, val.c_str(), max_chars);
-    mvwaddnstr(w_, val_line + (above ? -2 : 2), col, box.c_str(), max_chars);
+    for (int x = 0; x < val.size() + 6; ++x) {
+      if (x >= win_w) break;
+      if (x == 0 || x == val.size() + 5) {
+        mvwaddch(w_, val_line + (above ? -4 : 2), col + x, ' ');
+        mvwaddch(w_, val_line + (above ? -2 : 4), col + x, ' ');
+      } else if (x == 1) {
+        mvwaddch(w_, val_line + (above ? -4 : 2), col + x, !above ? ACS_LTEE : ACS_ULCORNER);
+        mvwaddch(w_, val_line + (above ? -2 : 4), col + x, above ? ACS_LTEE : ACS_LLCORNER);
+      } else if (x == val.size() + 4) {
+        mvwaddch(w_, val_line + (above ? -4 : 2), col + x, ACS_URCORNER);
+        mvwaddch(w_, val_line + (above ? -2 : 4), col + x, ACS_LRCORNER);
+      } else {
+        mvwaddch(w_, val_line + (above ? -4 : 2), col + x, ACS_HLINE);
+        mvwaddch(w_, val_line + (above ? -2 : 4), col + x, ACS_HLINE);
+      }
+      if (x == 0 || x == 2 || x == val.size() + 3 || x == val.size() + 5) {
+        mvwaddch(w_, val_line + (above ? -3 : 3), col + x, ' ');
+      } else if (x == 1 || x == val.size() + 4) {
+        mvwaddch(w_, val_line + (above ? -3 : 3), col + x, ACS_VLINE);
+      } else {
+        mvwaddch(w_, val_line + (above ? -3 : 3), col + x, val[x - 3]);
+      }
+      if (x == 0) mvwaddch(w_, val_line + (above ? -1 : 1), col + x, ' ');
+      if (x == 1) mvwaddch(w_, val_line + (above ? -1 : 1), col + x, ACS_VLINE);
+      if (x == 2) mvwaddch(w_, val_line + (above ? -1 : 1), col + x, ' ');
+    }
   }
 }
 
