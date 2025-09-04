@@ -4,7 +4,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <uhdm/design.h>
 #include <vector>
 
 namespace sv {

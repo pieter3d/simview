@@ -1,37 +1,52 @@
 #include "workspace.h"
+#include "slang/ast/Compilation.h"
+#include "slang/driver/Driver.h"
 #include "slang_utils.h"
 
+#include <cstring>
 #include <iostream>
+#include <memory>
 #include <stack>
 #include <stdexcept>
 
 namespace sv {
 
+Workspace::Workspace() = default;
+Workspace::~Workspace() = default;
+
+const slang::SourceManager *Workspace::SourceManager() const {
+  return slang_compilation_->getSourceManager();
+}
+
 bool Workspace::ParseDesign(int argc, char *argv[]) {
+  // Avoid invoking the slang compiler if only wave-reading options are specified.
+  const bool try_read_design =
+      !(argc == 3 && (std::strcmp(argv[1], "-w") == 0 || std::strcmp(argv[1], "--waves") == 0));
+  slang_driver_ = std::make_unique<slang::driver::Driver>();
   // Additional options from simview:
   std::optional<bool> show_help;
   std::optional<std::string> waves_file;
   std::optional<bool> keep_glitches = false;
-  slang_driver_.cmdLine.add("-h,--help", show_help, "Display available options");
-  slang_driver_.cmdLine.add("-w,--waves", waves_file,
-                            "Waves file to load. Supported formats are FST and VCD.");
-  slang_driver_.cmdLine.add("--keep_glitches", keep_glitches,
-                            "Retain 0-time transitions in the wave data. Normally pruned.");
+  slang_driver_->cmdLine.add("-h,--help", show_help, "Display available options");
+  slang_driver_->cmdLine.add("-w,--waves", waves_file,
+                             "Waves file to load. Supported formats are FST and VCD.");
+  slang_driver_->cmdLine.add("--keep_glitches", keep_glitches,
+                             "Retain 0-time transitions in the wave data. Normally pruned.");
 
-  slang_driver_.addStandardArgs();
-  if (!slang_driver_.parseCommandLine(argc, argv)) return false;
+  slang_driver_->addStandardArgs();
+  if (!slang_driver_->parseCommandLine(argc, argv)) return false;
   if (show_help == true) {
-    std::cout << slang_driver_.cmdLine.getHelpText(
+    std::cout << slang_driver_->cmdLine.getHelpText(
                      "simview: a terminal-based verilog design browser and waves viewer.")
               << "\n";
     return 0;
   }
-  if (slang_driver_.processOptions()) {
+  if (try_read_design && slang_driver_->processOptions()) {
     std::cout << "Parsing files...\n";
-    if (!slang_driver_.parseAllSources()) return false;
-    slang_compilation_ = slang_driver_.createCompilation();
+    if (!slang_driver_->parseAllSources()) return false;
+    slang_compilation_ = slang_driver_->createCompilation();
     design_root_ = &slang_compilation_->getRoot();
-    const bool success = slang_driver_.reportDiagnostics(/* quiet */ false);
+    const bool success = slang_driver_->reportDiagnostics(/* quiet */ false);
     // Give the user a chance to see any errors before proceeding.
     if (!success) {
       std::cout << "Errors encountered, press Enter to continue anyway...\n";

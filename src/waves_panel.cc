@@ -21,6 +21,12 @@ constexpr int kMinCharsPerTick = 12;
 const char *kTimeUnits[] = {"as", "fs", "ps", "ns", "us", "ms", "s", "ks"};
 const char *kBlankMarkerInFile = "[blank]";
 
+void AddUnicodeChar(WINDOW *w, wchar_t wc) {
+  cchar_t cc;
+  setcchar(&cc, &wc, A_NORMAL, 0, nullptr);
+  wadd_wch(w, &cc);
+}
+
 } // namespace
 
 WavesPanel::WavesPanel() : cursor_time_(Workspace::Get().WaveCursorTime()) {
@@ -36,14 +42,12 @@ WavesPanel::WavesPanel() : cursor_time_(Workspace::Get().WaveCursorTime()) {
     auto parsed = ParseTime(s, time_unit_);
     if (!parsed) return false;
     const uint64_t new_time = *parsed;
-    return new_time >= wave_data_->TimeRange().first &&
-           new_time <= wave_data_->TimeRange().second;
+    return new_time >= wave_data_->TimeRange().first && new_time <= wave_data_->TimeRange().second;
   });
   filename_input_.SetDims(0, 0, getmaxx(w_));
   // Writing is always allowed.
-  filename_input_.SetValdiator([&](const std::string &s) {
-    return inputting_save_ || ActualFileName(s).has_value();
-  });
+  filename_input_.SetValdiator(
+      [&](const std::string &s) { return inputting_save_ || ActualFileName(s).has_value(); });
   // Populate the list with a trailing blank signal so that inserts can happen
   // at the end of the list.
   items_.push_back(ListItem(nullptr));
@@ -70,8 +74,7 @@ std::string WavesPanel::ListItem::Name() const {
     }
     s += absl::StrFormat("[%d]", expanded_bit_idx);
   } else if (signal->width > 1 && !signal->has_suffix) {
-    s += absl::StrFormat("[%d:%d]", signal->width - 1 + signal->lsb,
-                         signal->lsb);
+    s += absl::StrFormat("[%d:%d]", signal->width - 1 + signal->lsb, signal->lsb);
   }
   return s;
 }
@@ -104,11 +107,9 @@ void WavesPanel::Resized() {
   filename_input_.SetDims(0, 0, getmaxx(w_));
 }
 
-void WavesPanel::GoToTime(uint64_t time, bool *time_changed,
-                          bool *range_changed) {
+void WavesPanel::GoToTime(uint64_t time, bool *time_changed, bool *range_changed) {
   // Make sure the parsed time actually is inside the wave data.
-  if (time >= wave_data_->TimeRange().first &&
-      time <= wave_data_->TimeRange().second) {
+  if (time >= wave_data_->TimeRange().first && time <= wave_data_->TimeRange().second) {
     cursor_time_ = time;
     *time_changed = true;
     const uint64_t current_time_span = right_time_ - left_time_;
@@ -121,29 +122,25 @@ void WavesPanel::GoToTime(uint64_t time, bool *time_changed,
       *range_changed = true;
     } else if (cursor_time_ < left_time_) {
       left_time_ = cursor_time_;
-      right_time_ = std::min(wave_data_->TimeRange().second,
-                             left_time_ + current_time_span);
+      right_time_ = std::min(wave_data_->TimeRange().second, left_time_ + current_time_span);
       *range_changed = true;
     }
     // Don't let the cursor go off the screen.
     const int max_cursor_pos = getmaxx(w_) - 1 - (name_value_size_);
-    cursor_pos_ = std::min((double)max_cursor_pos,
-                           (cursor_time_ - left_time_) / TimePerChar());
+    cursor_pos_ = std::min((double)max_cursor_pos, (cursor_time_ - left_time_) / TimePerChar());
   }
 }
 
-void WavesPanel::FindEdge(bool forward, bool *time_changed,
-                          bool *range_changed) {
+void WavesPanel::FindEdge(bool forward, bool *time_changed, bool *range_changed) {
   if (visible_items_[line_idx_]->signal == nullptr) return;
   const auto &wave = wave_data_->Wave(visible_items_[line_idx_]->signal);
-  const int sample_idx = wave_data_->FindSampleIndex(
-      cursor_time_, visible_items_[line_idx_]->signal);
+  const int sample_idx =
+      wave_data_->FindSampleIndex(cursor_time_, visible_items_[line_idx_]->signal);
   if (forward) {
     // No more data left.
     const uint64_t current_time = wave[sample_idx].time;
     int new_sample_idx = sample_idx + 1;
-    while (new_sample_idx < wave.size() &&
-           wave[new_sample_idx].time == current_time) {
+    while (new_sample_idx < wave.size() && wave[new_sample_idx].time == current_time) {
       new_sample_idx++;
     }
     if (new_sample_idx >= wave.size()) return;
@@ -251,9 +248,8 @@ void WavesPanel::Draw() {
   uint64_t tick_time = left_time_ - (left_time_ % time_per_tick);
   while (1) {
     const int xpos = wave_x + (tick_time - left_time_) / time_per_char;
-    const auto s =
-        absl::StrFormat("%s%s", AddDigitSeparators(tick_time * ruler_factor),
-                        kTimeUnits[ruler_unit_idx]);
+    const auto s = absl::StrFormat("%s%s", AddDigitSeparators(tick_time * ruler_factor),
+                                   kTimeUnits[ruler_unit_idx]);
     tick_time += time_per_tick;
     if (xpos < wave_x) continue;
     if (xpos + s.size() >= max_w) break;
@@ -272,22 +268,17 @@ void WavesPanel::Draw() {
   } else {
     const char *unit_string = kTimeUnits[(time_unit_ - kSmallestUnit) / 3];
     double time_factor = pow(10, wave_data_->Log10TimeUnits() - time_unit_);
-    std::string s = absl::StrFormat(
-        "time:%s%s ", AddDigitSeparators(cursor_time_ * time_factor),
-        unit_string);
+    std::string s =
+        absl::StrFormat("time:%s%s ", AddDigitSeparators(cursor_time_ * time_factor), unit_string);
     const int marker_start = s.size();
-    s += absl::StrFormat("marker:%s%s ",
-                         AddDigitSeparators(marker_time_ * time_factor),
+    s += absl::StrFormat("marker:%s%s ", AddDigitSeparators(marker_time_ * time_factor),
                          unit_string);
-    uint64_t marker_delta_value =
-        abs((int64_t)marker_time_ - (int64_t)cursor_time_);
+    uint64_t marker_delta_value = abs((int64_t)marker_time_ - (int64_t)cursor_time_);
     const int delta_start = s.size();
-    s += absl::StrFormat("|t-m|:%s%s ",
-                         AddDigitSeparators(time_factor * marker_delta_value),
+    s += absl::StrFormat("|t-m|:%s%s ", AddDigitSeparators(time_factor * marker_delta_value),
                          unit_string);
     if (marker_delta_value > 0) {
-      double freq =
-          1.0 / (marker_delta_value * pow(10, wave_data_->Log10TimeUnits()));
+      double freq = 1.0 / (marker_delta_value * pow(10, wave_data_->Log10TimeUnits()));
       std::vector<std::string> freq_units = {"", "k", "M", "G"};
       int freq_idx = 0;
       while (freq > 1000 && freq_idx < freq_units.size() - 1) {
@@ -312,11 +303,10 @@ void WavesPanel::Draw() {
     const int list_idx = row - 1 + scroll_row_;
     if (list_idx >= visible_items_.size()) break;
     const auto *item = visible_items_[list_idx];
-    const bool highlight =
-        multi_line_idx_ < 0
-            ? list_idx == line_idx_
-            : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
-               list_idx <= std::max(line_idx_, multi_line_idx_));
+    const bool highlight = multi_line_idx_ < 0
+                               ? list_idx == line_idx_
+                               : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
+                                  list_idx <= std::max(line_idx_, multi_line_idx_));
     if (highlight) {
       if (rename_item_ != nullptr) {
         rename_input_.Draw(w_);
@@ -342,9 +332,8 @@ void WavesPanel::Draw() {
         waddch(w_, item->collapsed ? '+' : '-');
       }
       const auto name = item->Name();
-      // Completely empty lines get a full width of blank spaces. This avoid
-      // highlighting nothing, which would look like the selected line
-      // disappeared.
+      // Completely empty lines get a full width of blank spaces. This avoid highlighting nothing,
+      // which would look like the selected line disappeared.
       const int len = name.empty() ? name_value_size_ : name.size();
       SetColor(w_, kWavesSignalNamePair);
       for (int i = 0; i < len; ++i) {
@@ -361,8 +350,7 @@ void WavesPanel::Draw() {
     wattrset(w_, A_NORMAL);
 
     // Render the signal value in the remaining space.
-    const int val_start =
-        item->value.size() - (name_value_size_ - getcurx(w_)) + 1;
+    const int val_start = item->value.size() - (name_value_size_ - getcurx(w_)) + 1;
     SetColor(w_, kWavesSignalValuePair);
     for (int i = val_start; i < (int)item->value.size(); ++i) {
       if (getcurx(w_) >= name_value_size_) break;
@@ -380,8 +368,7 @@ void WavesPanel::Draw() {
     if (item->signal == nullptr) {
       if (!item->unavailable_name.empty()) {
         SetColor(w_, kWavesXPair);
-        std::string msg(" No wave data available for " +
-                        item->unavailable_name);
+        std::string msg(" No wave data available for " + item->unavailable_name);
         wmove(w_, row, wave_x);
         for (int i = 0; i < msg.size(); ++i) {
           if (wave_x + i >= max_w) break;
@@ -418,8 +405,7 @@ void WavesPanel::Draw() {
       }
       continue; // Nothing more to do.
     }
-    const bool multi_bit =
-        item->signal->width > 1 && item->expanded_bit_idx < 0;
+    const bool multi_bit = item->signal->width > 1 && item->expanded_bit_idx < 0;
     int left_sample_idx = wave_data_->FindSampleIndex(left_time_, item->signal);
     // Save the locations of transitions and times to fill in values.
     struct WaveValueInfo {
@@ -437,11 +423,9 @@ void WavesPanel::Draw() {
     // Determine initial color.
     if (item->custom_color >= 0) {
       SetColor(w_, kWavesCustomPair + 2 * item->custom_color + highlight);
-    } else if (wave[left_sample_idx].value.find_first_of("xX") !=
-               std::string::npos) {
+    } else if (wave[left_sample_idx].value.find_first_of("xX") != std::string::npos) {
       SetColor(w_, kWavesXPair + highlight);
-    } else if (wave[left_sample_idx].value.find_first_of("zZ") !=
-               std::string::npos) {
+    } else if (wave[left_sample_idx].value.find_first_of("zZ") != std::string::npos) {
       SetColor(w_, kWavesZPair + highlight);
     } else {
       SetColor(w_, kWavesWaveformPair + highlight);
@@ -451,8 +435,7 @@ void WavesPanel::Draw() {
     for (int x = 0; x < max_w - wave_x; ++x) {
       // Find what sample index corresponds to the right edge of this character.
       const int right_sample_idx = wave_data_->FindSampleIndex(
-          left_time_ + (1 + x) * time_per_char, item->signal, left_sample_idx,
-          wave.size() - 1);
+          left_time_ + (1 + x) * time_per_char, item->signal, left_sample_idx, wave.size() - 1);
       int num_transitions = right_sample_idx - left_sample_idx;
       if (num_transitions > 0) {
         // See if anything has X or Z in it. Scan only the new values.
@@ -475,17 +458,25 @@ void WavesPanel::Draw() {
       }
       if (multi_bit) {
         if (num_transitions == 0) {
-          waddch(w_, '=');
+          if (unicode_) {
+            AddUnicodeChar(w_, U'\U0001fb80');
+          } else {
+            waddch(w_, '=');
+          }
         } else {
-          waddch(w_, '|');
+          if (unicode_) {
+            AddUnicodeChar(w_, u'\u2573'); // X-type character.
+          } else {
+            waddch(w_, '|');
+          }
           // Only save value locations if they are at least 3 characters.
           if (x - wvi.xpos >= 3) {
             wvi.size = x - wvi.xpos;
-            wvi.value = FormatValue(wave[wave_value_idx].value, item->radix,
-                                    leading_zeroes_, /*drop_size*/ true);
+            wvi.value = FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_,
+                                    /*drop_size*/ true);
             wave_value_list.push_back(wvi);
           }
-          wvi.xpos = x + 1;
+          wvi.xpos = x;
           wvi.time = wave[right_sample_idx].time;
           wave_value_idx = right_sample_idx;
         }
@@ -503,12 +494,24 @@ void WavesPanel::Draw() {
           }
         }
         if (num_transitions == 0) {
-          waddch(w_, wave[left_sample_idx].value[value_idx] == '0' ? '_' : '^');
+          const bool low = wave[left_sample_idx].value[value_idx] == '0';
+          if (unicode_) {
+            AddUnicodeChar(w_, low ? u'\u2581' : u'\u2594');
+          } else {
+            waddch(w_, low ? '_' : '^');
+          }
         } else if (num_transitions == 1) {
-          waddch(w_,
-                 wave[left_sample_idx].value[value_idx] == '0' ? '/' : '\\');
+          const bool rise = wave[left_sample_idx].value[value_idx] == '0';
+          if (unicode_) {
+            AddUnicodeChar(w_, rise ? u'\u2571' : u'\u2572');
+          } else
+            waddch(w_, rise ? '/' : '\\');
         } else {
-          waddch(w_, '|');
+          if (unicode_) {
+            AddUnicodeChar(w_, u'\u2573'); // X-type character.
+          } else {
+            waddch(w_, '|');
+          }
         }
       }
       left_sample_idx = right_sample_idx;
@@ -516,8 +519,8 @@ void WavesPanel::Draw() {
     // Add the remaining wave value if possible, sized against the right edge.
     if (multi_bit && max_w - wave_x - wvi.xpos >= 3) {
       wvi.size = max_w - wave_x - wvi.xpos;
-      wvi.value = FormatValue(wave[wave_value_idx].value, item->radix,
-                              leading_zeroes_, /*drop_size*/ true);
+      wvi.value =
+          FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_, /*drop_size*/ true);
       wave_value_list.push_back(wvi);
     }
 
@@ -549,8 +552,7 @@ void WavesPanel::Draw() {
         mvwvline(w_, row, col, ACS_VLINE, current_line - row);
       }
       if (current_line < max_h - 1) {
-        mvwvline(w_, current_line + 1, col, ACS_VLINE,
-                 max_h - current_line - 1);
+        mvwvline(w_, current_line + 1, col, ACS_VLINE, max_h - current_line - 1);
       }
     } else {
       mvwvline(w_, row, col, ACS_VLINE, max_h - row);
@@ -693,10 +695,8 @@ void WavesPanel::UIChar(int ch) {
       const int step = (ch == 'H' || ch == 0x189) ? 10 : 1;
       const uint64_t min_time = wave_data_->TimeRange().first;
       if (cursor_pos_ == 0 && left_time_ > min_time) {
-        left_time_ =
-            std::max((double)min_time, left_time_ - step * time_per_char);
-        right_time_ =
-            std::max((double)min_time, right_time_ - step * time_per_char);
+        left_time_ = std::max((double)min_time, left_time_ - step * time_per_char);
+        right_time_ = std::max((double)min_time, right_time_ - step * time_per_char);
         range_changed = true;
       } else if (cursor_pos_ > 0) {
         cursor_pos_ = std::max(0, cursor_pos_ - step);
@@ -712,10 +712,8 @@ void WavesPanel::UIChar(int ch) {
       const int max_cursor_pos = getmaxx(w_) - 1 - name_value_size_;
       const int max_time = wave_data_->TimeRange().second;
       if (cursor_pos_ == max_cursor_pos && right_time_ < max_time) {
-        left_time_ =
-            std::min((double)max_time, left_time_ + step * time_per_char);
-        right_time_ =
-            std::min((double)max_time, right_time_ + step * time_per_char);
+        left_time_ = std::min((double)max_time, left_time_ + step * time_per_char);
+        right_time_ = std::min((double)max_time, right_time_ + step * time_per_char);
         range_changed = true;
       } else if (cursor_pos_ < max_cursor_pos) {
         cursor_pos_ = std::min(max_cursor_pos, cursor_pos_ + step);
@@ -748,17 +746,27 @@ void WavesPanel::UIChar(int ch) {
       // No point in going further than this.
       const double scale = ch == 'z' ? kZoomStep : (1.0 / kZoomStep);
       if (scale < 1 && right_time_ - left_time_ < 10) break;
-      left_time_ =
-          std::max(0.0, cursor_time_ - scale * (cursor_time_ - left_time_));
-      right_time_ = std::min(
-          wave_data_->TimeRange().second,
-          (uint64_t)(cursor_time_ + scale * (right_time_ - cursor_time_)));
+      left_time_ = std::max(0.0, cursor_time_ - scale * (cursor_time_ - left_time_));
+      right_time_ = std::min(wave_data_->TimeRange().second,
+                             (uint64_t)(cursor_time_ + scale * (right_time_ - cursor_time_)));
+      range_changed = true;
+    } break;
+    case 0x1a: { // ctrl-z
+      if (std::abs(static_cast<int64_t>(marker_time_ - cursor_time_)) < 10) break;
+      if (marker_time_ < cursor_time_) {
+        left_time_ = marker_time_;
+        right_time_ = cursor_time_ - TimePerChar();
+        cursor_pos_ = (right_time_ - left_time_) / TimePerChar() - 1;
+      } else {
+        left_time_ = cursor_time_;
+        right_time_ = marker_time_ - TimePerChar();
+        cursor_pos_ = 0;
+      }
       range_changed = true;
     } break;
     case 'C': {
       const uint64_t half = (right_time_ - left_time_) / 2;
-      if (cursor_time_ > half &&
-          cursor_time_ < wave_data_->TimeRange().second - half) {
+      if (cursor_time_ > half && cursor_time_ < wave_data_->TimeRange().second - half) {
         left_time_ = cursor_time_ - half;
         right_time_ = cursor_time_ + half;
         cursor_pos_ = (getmaxx(w_) - 1 - name_value_size_) / 2;
@@ -772,10 +780,13 @@ void WavesPanel::UIChar(int ch) {
       if (name_value_size_ > 10) name_value_size_--;
       break;
     case 'm': marker_time_ = cursor_time_; break;
-    case 'M': marker_selection_ = true; break;
+    case 'M':
+      marker_selection_ = true;
+      tooltips_changed_ = true;
+      break;
     case 'T':
-      time_input_.SetPrompt(absl::StrFormat(
-          "Go to time (%s):", kTimeUnits[(time_unit_ - kSmallestUnit) / 3]));
+      time_input_.SetPrompt(
+          absl::StrFormat("Go to time (%s):", kTimeUnits[(time_unit_ - kSmallestUnit) / 3]));
       inputting_time_ = true;
       break;
     case 't': CycleTimeUnits(); break;
@@ -826,6 +837,7 @@ void WavesPanel::UIChar(int ch) {
       }
       color_selection_ = true;
       cancel_multi_line = false;
+      tooltips_changed_ = true;
       break;
     case 'd':
       if (Workspace::Get().Design() != nullptr) {
@@ -844,6 +856,9 @@ void WavesPanel::UIChar(int ch) {
       filename_input_.SetPrompt("Save:");
       inputting_save_ = true;
       break;
+    case 0x15: // Ctrl-u
+      unicode_ = !unicode_;
+      break;
     default: Panel::UIChar(ch);
     }
   }
@@ -861,17 +876,15 @@ void WavesPanel::AddSignal(const WaveData::Signal *signal) {
   AddSignals(one_signal);
 }
 
-void WavesPanel::AddSignals(
-    const std::vector<const WaveData::Signal *> &signals) {
+void WavesPanel::AddSignals(const std::vector<const WaveData::Signal *> &signals) {
   // By default, insert at the same depth as the current signal.
   int new_depth = visible_items_[line_idx_]->depth;
   if (line_idx_ > 0 && line_idx_ == items_.size() - 1) {
     // Try to match the depth of the item above when appending at the end.
     auto *prev = visible_items_[line_idx_ - 1];
     // If that item is an uncollapsed group, increase the depth.
-    new_depth = (prev->is_group || prev->expandable_net) && !prev->collapsed
-                    ? prev->depth + 1
-                    : prev->depth;
+    new_depth = (prev->is_group || prev->expandable_net) && !prev->collapsed ? prev->depth + 1
+                                                                             : prev->depth;
   }
   int pos = visible_to_full_lookup_[line_idx_];
   // It's much more efficient to get samples from all signals at once, so no
@@ -896,13 +909,11 @@ void WavesPanel::DeleteItem() {
   if (line_idx_ == visible_items_.size() - 1) return;
   int start_pos, end_pos;
   start_pos = visible_to_full_lookup_[line_idx_];
-  end_pos = multi_line_idx_ < 0 ? start_pos
-                                : visible_to_full_lookup_[multi_line_idx_];
+  end_pos = multi_line_idx_ < 0 ? start_pos : visible_to_full_lookup_[multi_line_idx_];
   if (start_pos > end_pos) std::swap(start_pos, end_pos);
   // Delete the group and everying under it with greater depth.
   if (items_[end_pos].is_group || items_[end_pos].expandable_net) {
-    while (end_pos != items_.size() &&
-           items_[end_pos + 1].depth > items_[start_pos].depth) {
+    while (end_pos != items_.size() && items_[end_pos + 1].depth > items_[start_pos].depth) {
       end_pos++;
     }
   }
@@ -922,29 +933,25 @@ void WavesPanel::MoveSignal(bool up) {
   if (up && (line_idx_ == 0 || multi_line_idx_ == 0)) return;
   auto *item = visible_items_[line_idx_];
   // Second to last line can't move down unless it's not at the lowest depth.
-  if (!up &&
-      std::max(multi_line_idx_, line_idx_) == visible_items_.size() - 2 &&
+  if (!up && std::max(multi_line_idx_, line_idx_) == visible_items_.size() - 2 &&
       item->depth == 0) {
     return;
   }
   // If a multi-line selection isn't an even depth, just give up. Too
   // complicated.
   if (multi_line_idx_ >= 0) {
-    if (visible_items_[line_idx_]->depth !=
-        visible_items_[multi_line_idx_]->depth) {
+    if (visible_items_[line_idx_]->depth != visible_items_[multi_line_idx_]->depth) {
       return;
     }
   }
   // Find the range of things to move.
   int start_pos, end_pos;
   start_pos = visible_to_full_lookup_[line_idx_];
-  end_pos = multi_line_idx_ < 0 ? start_pos
-                                : visible_to_full_lookup_[multi_line_idx_];
+  end_pos = multi_line_idx_ < 0 ? start_pos : visible_to_full_lookup_[multi_line_idx_];
   if (start_pos > end_pos) std::swap(start_pos, end_pos);
   // Move the group and everying under it with greater depth.
   if (items_[end_pos].is_group || items_[end_pos].expandable_net) {
-    while (end_pos != items_.size() &&
-           items_[end_pos + 1].depth > items_[start_pos].depth) {
+    while (end_pos != items_.size() && items_[end_pos + 1].depth > items_[start_pos].depth) {
       end_pos++;
     }
   }
@@ -961,13 +968,10 @@ void WavesPanel::MoveSignal(bool up) {
   if (up) {
     // Move into the above group without moving.
     const int above_pos =
-        (multi_line_idx_ < 0 ? line_idx_
-                             : std::min(line_idx_, multi_line_idx_)) -
-        1;
+        (multi_line_idx_ < 0 ? line_idx_ : std::min(line_idx_, multi_line_idx_)) - 1;
     const auto *above_item = visible_items_[above_pos];
     if (above_item->depth > item->depth ||
-        (above_item->depth == item->depth &&
-         (above_item->is_group || above_item->expandable_net) &&
+        (above_item->depth == item->depth && (above_item->is_group || above_item->expandable_net) &&
          !above_item->collapsed)) {
       adjust_depth(true);
     } else {
@@ -989,8 +993,7 @@ void WavesPanel::MoveSignal(bool up) {
     } else {
       destination = visible_to_full_lookup_[below_pos];
       // If the below item is a group, move deeper.
-      if ((visible_items_[below_pos]->is_group ||
-           visible_items_[below_pos]->expandable_net) &&
+      if ((visible_items_[below_pos]->is_group || visible_items_[below_pos]->expandable_net) &&
           !visible_items_[below_pos]->collapsed) {
         adjust_depth(true);
       }
@@ -1008,8 +1011,7 @@ void WavesPanel::MoveSignal(bool up) {
     // Insert them at the new spot, accounting for the additional range that was
     // just deleted when moving down.
     const int insert_pos = destination - (up ? 0 : (end_pos - start_pos));
-    items_.insert(items_.begin() + insert_pos, temp_list.begin(),
-                  temp_list.end());
+    items_.insert(items_.begin() + insert_pos, temp_list.begin(), temp_list.end());
     // Also move the selected line down.
     line_idx_ += up ? -1 : 1;
     if (multi_line_idx_ >= 0) multi_line_idx_ += up ? -1 : 1;
@@ -1112,20 +1114,18 @@ void WavesPanel::AddGroup() {
   // under the group.
   const int start_pos = line_idx_ + 1;
   // Avoid groupifying the last item.
-  const int end_pos =
-      std::min(multi_line_idx_ + 1, (int)visible_items_.size() - 2);
+  const int end_pos = std::min(multi_line_idx_ + 1, (int)visible_items_.size() - 2);
   for (int i = start_pos; i <= end_pos; ++i) {
     if (visible_items_[i]->depth != visible_items_[line_idx_]->depth) return;
   }
-  for (int i = visible_to_full_lookup_[start_pos];
-       i <= visible_to_full_lookup_[end_pos]; ++i) {
+  for (int i = visible_to_full_lookup_[start_pos]; i <= visible_to_full_lookup_[end_pos]; ++i) {
     items_[i].depth++;
   }
 }
 
 bool WavesPanel::Modal() const {
-  return rename_item_ != nullptr || inputting_time_ || showing_path_ ||
-         inputting_open_ || inputting_save_;
+  return rename_item_ != nullptr || inputting_time_ || showing_path_ || inputting_open_ ||
+         inputting_save_;
 }
 
 std::vector<Tooltip> WavesPanel::Tooltips() const {
@@ -1138,14 +1138,15 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
     };
   }
   // TODO: Missing features
-  // "C-r: Reload",
-  // "aA:  Adjust analog signal height",
+  // "C-r": "Reload",
+  // "aA" : "Adjust analog height",
   std::vector<Tooltip> tt{
       {"zZ", "Zoom"},
-      {"F", "Zoom full range"},
+      {"F", "Zoom full"},
       {"C", "Center"},
+      {"C-z", "Zoom cursor-marker"},
       {"eE", "Prev/next edge"},
-      {"sS", "Adjust signal name & value size"},
+      {"sS", "Adjust size"},
       {"0", "Show leading zeroes"},
       {"c", "Change signal color"},
       {"p", "Show full signal path"},
@@ -1159,6 +1160,7 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
       {"b", "Insert blank signal"},
       {"x", "Delete highlighted signal"},
       {"r", "Cycle signal radix"},
+      {"C-u", "Toggle Unicode"},
       {"C-o", "Open list file"},
       {"C-s", "Save list file"},
   };
@@ -1178,8 +1180,7 @@ void WavesPanel::ListItem::CycleRadix() {
   case Radix::kSignedDecimal: radix = Radix::kUnsignedDecimal; break;
   case Radix::kUnsignedDecimal:
     // Float only makes sense for fp32/fp64 formats.
-    radix = signal->width == 32 || signal->width == 64 ? Radix::kFloat
-                                                       : Radix::kHex;
+    radix = signal->width == 32 || signal->width == 64 ? Radix::kFloat : Radix::kHex;
     break;
   case Radix::kFloat: radix = Radix::kHex; break;
   }
@@ -1286,15 +1287,13 @@ void WavesPanel::LoadList(const std::string &file_name) {
     } else if (line.substr(depth) == kBlankMarkerInFile) {
       // Nothing else to do.
     } else {
-      std::vector<std::string> elements =
-          absl::StrSplit(line.substr(depth), ' ');
+      std::vector<std::string> elements = absl::StrSplit(line.substr(depth), ' ');
       // Look for something that looks like a bit index.
       bool maybe_has_bit_index = false;
       int bit_index = 0;
       const auto bit_bracket_start_pos = elements[0].find_last_of('[');
       const auto bit_bracket_end_pos = elements[0].find_last_of(']');
-      if (bit_bracket_start_pos != std::string::npos &&
-          bit_bracket_end_pos != std::string::npos &&
+      if (bit_bracket_start_pos != std::string::npos && bit_bracket_end_pos != std::string::npos &&
           bit_bracket_end_pos - bit_bracket_start_pos > 1) {
         maybe_has_bit_index = true;
         for (int i = bit_bracket_start_pos + 1; i < bit_bracket_end_pos; ++i) {
@@ -1309,8 +1308,7 @@ void WavesPanel::LoadList(const std::string &file_name) {
       if (auto signal = wave_data_->PathToSignal(elements[0])) {
         item.signal = *signal;
       } else if (maybe_has_bit_index) {
-        if (auto signal = wave_data_->PathToSignal(
-                elements[0].substr(0, bit_bracket_start_pos))) {
+        if (auto signal = wave_data_->PathToSignal(elements[0].substr(0, bit_bracket_start_pos))) {
           // Only if the name + suffix didn't match, but it does with the suffix
           // removed can it be considered an expanded bit index.
           has_bit_index = true;
@@ -1350,8 +1348,7 @@ void WavesPanel::LoadList(const std::string &file_name) {
   }
   // Make sure the cursor screen position matches.
   const int max_cursor_pos = getmaxx(w_) - 1 - name_value_size_;
-  cursor_pos_ = std::min((double)max_cursor_pos,
-                         (cursor_time_ - left_time_) / TimePerChar());
+  cursor_pos_ = std::min((double)max_cursor_pos, (cursor_time_ - left_time_) / TimePerChar());
   // Restore the blank line at the end too.
   items_.push_back(ListItem(nullptr));
   UpdateVisibleSignals();

@@ -1,11 +1,22 @@
 #pragma once
 
-#include "slang/ast/Compilation.h"
-#include "slang/ast/symbols/CompilationUnitSymbols.h"
-#include "slang/driver/Driver.h"
 #include "wave_data.h"
 #include <cstdint>
 #include <vector>
+
+// Forward-declare slang types since otherwise the huge slang headers have to be pulled in.
+namespace slang {
+class SourceManager;
+namespace driver {
+class Driver;
+} // namespace driver
+namespace ast {
+class Compilation;
+class Symbol;
+class RootSymbol;
+class RootSymbol;
+} // namespace ast
+} // namespace slang
 
 namespace sv {
 
@@ -18,7 +29,7 @@ class Workspace {
     return w;
   }
 
-  // Parse the design using command line arguments for Surelog. Return true on success.
+  // Parse the design and/or waves using command line arguments. Return true on success.
   bool ParseDesign(int argc, char *argv[]);
 
   const slang::ast::RootSymbol *Design() const { return design_root_; }
@@ -26,9 +37,7 @@ class Workspace {
   // Find the definition of the module that contains the given item.
   uint64_t &WaveCursorTime() { return wave_cursor_time_; }
 
-  const slang::SourceManager *SourceManager() const {
-    return slang_compilation_->getSourceManager();
-  }
+  const slang::SourceManager *SourceManager() const;
 
   const WaveData *Waves() const { return wave_data_.get(); }
 
@@ -51,9 +60,10 @@ class Workspace {
 
  private:
   // Singleton
-  Workspace() = default;
+  Workspace();
+  ~Workspace();
 
-  slang::driver::Driver slang_driver_;
+  std::unique_ptr<slang::driver::Driver> slang_driver_;
   std::unique_ptr<slang::ast::Compilation> slang_compilation_;
   const slang::ast::RootSymbol *design_root_;
   const slang::ast::Symbol *matched_design_scope_ = nullptr;

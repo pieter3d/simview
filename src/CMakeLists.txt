@@ -8,11 +8,11 @@ set(CMAKE_CXX_FLAGS "-Werror \
 # Full debug symbols for DEBUG
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
-find_package(Curses REQUIRED ncursesw)
+set(CURSES_NEED_WIDE TRUE)
+find_package(Curses REQUIRED COMPONENTS ncursesw)
+
 find_package(Threads REQUIRED)
-find_package(Surelog REQUIRED)
-find_package(UHDM REQUIRED)
-find_package(ZLIB REQUIRED)  # needed for fst and optionally used by surelog
+find_package(ZLIB REQUIRED)  # needed for fst
 
 add_library(source_buffer source_buffer.cc)
 target_link_libraries(source_buffer PUBLIC absl::flat_hash_map absl::btree)
@@ -33,7 +33,6 @@ add_executable(simview
   text_input.cc
   tree_data.cc
   tree_panel.cc
-  uhdm_utils.cc
   ui.cc
   utils.cc
   vcd_tokenizer.cc
@@ -45,7 +44,7 @@ add_executable(simview
   waves_panel.cc
   workspace.cc
 )
-target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR} ${UHDM_INCLUDE_DIR} ${SURELOG_INCLUDE_DIR})
+target_include_directories(simview SYSTEM PRIVATE ${CURSES_INCLUDE_DIR})
 target_link_libraries(simview PRIVATE
   source_buffer
   absl::str_format
@@ -53,9 +52,7 @@ target_link_libraries(simview PRIVATE
   absl::flat_hash_map
   fst
   slang::slang
-  surelog::surelog
-  uhdm::uhdm
-  ${CURSES_LIBRARIES}
+  ${NCURSES_LIBRARY_NAME}
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")

@@ -95,6 +95,7 @@ class WavesPanel : public Panel {
   bool showing_path_ = false;
   bool inputting_open_ = false;
   bool inputting_save_ = false;
+  bool unicode_ = true;
   int time_unit_ = -9; // nanoseconds.
   bool leading_zeroes_ = true;
   const WaveData::Signal *signal_for_source_ = nullptr;

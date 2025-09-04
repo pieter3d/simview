@@ -4,14 +4,6 @@
 #include "fst_wave_data.h"
 #include "vcd_wave_data.h"
 #include <filesystem>
-#include <uhdm/module_inst.h>
-#include <uhdm/net.h>
-#include <uhdm/ref_typespec.h>
-#include <uhdm/logic_typespec.h>
-#include <uhdm/struct_net.h>
-#include <uhdm/struct_typespec.h>
-#include <uhdm/typespec.h>
-#include <uhdm/typespec_member.h>
 
 namespace sv {
 

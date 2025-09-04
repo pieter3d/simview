@@ -1,6 +1,7 @@
 #include "design_tree_panel.h"
 
 #include "slang/ast/Symbol.h"
+#include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang_utils.h"
 #include "workspace.h"
