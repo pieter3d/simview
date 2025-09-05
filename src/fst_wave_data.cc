@@ -11,8 +11,7 @@ namespace {
 std::string ParseSignalLsb(const std::string &s, int *lsb) {
   auto range_pos = s.find_last_of('[');
   auto colon_pos = s.find_last_of(':');
-  if (range_pos != std::string::npos && colon_pos != std::string::npos &&
-      range_pos < colon_pos) {
+  if (range_pos != std::string::npos && colon_pos != std::string::npos && range_pos < colon_pos) {
     *lsb = std::stoi(s.substr(colon_pos + 1));
     while (range_pos > 0 && s[range_pos - 1] == ' ') {
       range_pos--;
@@ -36,9 +35,7 @@ FstWaveData::FstWaveData(const std::string &file_name, bool keep_glitches)
 
 FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
 
-int FstWaveData::Log10TimeUnits() const {
-  return fstReaderGetTimescale(reader_);
-}
+int FstWaveData::Log10TimeUnits() const { return fstReaderGetTimescale(reader_); }
 
 void FstWaveData::ReadScopes() {
   std::stack<SignalScope *> stack;
@@ -95,8 +92,7 @@ std::pair<uint64_t, uint64_t> FstWaveData::TimeRange() const {
   return range;
 }
 
-void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
-                                    uint64_t start_time,
+void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals, uint64_t start_time,
                                     uint64_t end_time) const {
   // Build a map to know where each result goes during the unpredictable order
   // in callbacks.
@@ -123,8 +119,7 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
       reader_,
       +[](void *user_callback_data_pointer, uint64_t time, fstHandle facidx,
           const unsigned char *value) {
-        FstWaveData *fst =
-            reinterpret_cast<FstWaveData *>(user_callback_data_pointer);
+        FstWaveData *fst = reinterpret_cast<FstWaveData *>(user_callback_data_pointer);
         std::vector<Sample> &samples = fst->waves_[facidx];
         const char *str_val = reinterpret_cast<const char *>(value);
         if (!fst->keep_glitches_ && !samples.empty()) {
@@ -133,8 +128,7 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals,
             return; // Ignore duplicates.
           } else if (time == prev_sample.time) {
             // Does this new value make the previous one pointless?
-            if (samples.size() > 1 &&
-                samples[samples.size() - 2].value == str_val) {
+            if (samples.size() > 1 && samples[samples.size() - 2].value == str_val) {
               samples.pop_back();
             } else {
               // Just update the previous with this new value.

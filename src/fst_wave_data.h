@@ -11,8 +11,8 @@ class FstWaveData : public WaveData {
   ~FstWaveData() override;
   int Log10TimeUnits() const final;
   std::pair<uint64_t, uint64_t> TimeRange() const final;
-  void LoadSignalSamples(const std::vector<const Signal *> &signals,
-                         uint64_t start_time, uint64_t end_time) const final;
+  void LoadSignalSamples(const std::vector<const Signal *> &signals, uint64_t start_time,
+                         uint64_t end_time) const final;
   void Reload() final;
 
  private:
