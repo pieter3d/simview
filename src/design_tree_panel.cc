@@ -105,7 +105,7 @@ void DesignTreePanel::UIChar(int ch) {
       if (const auto *inst = dynamic_cast<const DesignTreeItem *>(data_[line_idx_])
                                  ->DesignItem()
                                  ->as_if<slang::ast::InstanceSymbol>()) {
-        Workspace::Get().SetMatchedDesignScope(inst);
+        Workspace::Get().SetMatchedDesignScope(&inst->body);
       }
     }
     break;

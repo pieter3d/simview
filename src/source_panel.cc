@@ -1,4 +1,5 @@
 #include "source_panel.h"
+
 #include "absl/container/flat_hash_map.h"
 #include "color.h"
 #include "radix.h"
@@ -434,10 +435,7 @@ void SourcePanel::Draw() {
     if (const auto *param = sel_->as_if<slang::ast::ParameterSymbol>()) {
       val = param->getValue().toString();
     } else {
-      std::vector<const WaveData::Signal *> signals;
-      //  TODO: Reinstate when workspace waves are slang-ified.
-      // std::vector<const WaveData::Signal *> signals =
-      //    Workspace::Get().DesignToSignals(sel_);
+      std::vector<const WaveData::Signal *> signals = Workspace::Get().DesignToSignals(sel_);
       // Don't bother with large arrays.
       // TODO: Is it useful to try to do something here?
       if (signals.size() == 1) {
@@ -781,14 +779,20 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
 void SourcePanel::UpdateWaveData() {
   WaveData *waves = Workspace::Get().Waves();
   if (waves == nullptr) return;
+  // Iterate over all variables/nets
   std::vector<const WaveData::Signal *> signals;
-  // TODO: reinstante after waves are slang-ified.
-  // for (auto &[id, item] : nav_) {
-  //   auto signals_for_item = Workspace::Get().DesignToSignals(item);
-  //   signals.insert(signals.end(), signals_for_item.begin(), signals_for_item.end());
-  // }
-  // // TODO: Loading for the full range here. Is there a way to bound it?
-  // waves->LoadSignalSamples(signals, waves->TimeRange().first, waves->TimeRange().second);
+  for (const auto &[line, info_list] : src_info_) {
+    for (const SourceInfo &info : info_list) {
+      if (!info.sym) continue;
+      // Don't bother loading wave data for parameters.
+      if (info.sym->kind == slang::ast::SymbolKind::Parameter) continue;
+      std::vector<const WaveData::Signal *> signals_for_item =
+          Workspace::Get().DesignToSignals(info.sym);
+      signals.insert(signals.end(), signals_for_item.begin(), signals_for_item.end());
+    }
+  }
+  // TODO: Loading for the full range here. Is there a way to bound it?
+  waves->LoadSignalSamples(signals, waves->TimeRange().first, waves->TimeRange().second);
 }
 
 bool SourcePanel::Search(bool search_down) {

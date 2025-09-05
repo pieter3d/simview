@@ -12,8 +12,8 @@ class Driver;
 } // namespace driver
 namespace ast {
 class Compilation;
+class Scope;
 class Symbol;
-class RootSymbol;
 class RootSymbol;
 } // namespace ast
 } // namespace slang
@@ -46,14 +46,15 @@ class Workspace {
 
   void TryMatchDesignWithWaves();
 
-  const slang::ast::Symbol *MatchedDesignScope() const { return matched_design_scope_; }
+  const slang::ast::Scope *MatchedDesignScope() const { return matched_design_scope_; }
 
   const WaveData::SignalScope *MatchedSignalScope() const { return matched_signal_scope_; }
 
-  void SetMatchedDesignScope(const slang::ast::Symbol *s);
+  void SetMatchedDesignScope(const slang::ast::Scope *s);
 
   void SetMatchedSignalScope(const WaveData::SignalScope *s);
 
+  // Design nets/variables could map to multiple signals if the waves contain unrolled arrays.
   std::vector<const WaveData::Signal *> DesignToSignals(const slang::ast::Symbol *item) const;
 
   const slang::ast::Symbol *SignalToDesign(const WaveData::Signal *signal) const;
@@ -66,7 +67,7 @@ class Workspace {
   std::unique_ptr<slang::driver::Driver> slang_driver_;
   std::unique_ptr<slang::ast::Compilation> slang_compilation_;
   const slang::ast::RootSymbol *design_root_;
-  const slang::ast::Symbol *matched_design_scope_ = nullptr;
+  const slang::ast::Scope *matched_design_scope_ = nullptr;
   std::unique_ptr<WaveData> wave_data_;
   const WaveData::SignalScope *matched_signal_scope_ = nullptr;
   // Wave time is used in source too, so it's held here.

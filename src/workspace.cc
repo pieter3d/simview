@@ -1,5 +1,10 @@
 #include "workspace.h"
+#include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Compilation.h"
+#include "slang/ast/symbols/BlockSymbols.h"
+#include "slang/ast/symbols/CompilationUnitSymbols.h"
+#include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/driver/Driver.h"
 #include "slang_utils.h"
 
@@ -45,13 +50,15 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
     std::cout << "Parsing files...\n";
     if (!slang_driver_->parseAllSources()) return false;
     slang_compilation_ = slang_driver_->createCompilation();
-    design_root_ = &slang_compilation_->getRoot();
+    // This print all tops, and collects diagnostics.
+    slang_driver_->reportCompilation(*slang_compilation_, /* quiet */ false);
     const bool success = slang_driver_->reportDiagnostics(/* quiet */ false);
     // Give the user a chance to see any errors before proceeding.
     if (!success) {
       std::cout << "Errors encountered, press Enter to continue anyway...\n";
       std::cin.get();
     }
+    design_root_ = &slang_compilation_->getRoot();
   }
 
   if (waves_file) {
@@ -70,70 +77,73 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
 
 void Workspace::TryMatchDesignWithWaves() {
   // Don't do anything unless there are both waves and design.
-  //  if (wave_data_ == nullptr || design_ == nullptr) return;
-  //  // Look for a scope with stuff in it.
-  //  std::vector<const WaveData::SignalScope *> signal_scopes;
-  //  for (const auto &root_scope : wave_data_->Roots()) {
-  //    signal_scopes.push_back(&root_scope);
-  //    for (const auto &sub : root_scope.children) {
-  //      signal_scopes.push_back(&sub);
-  //      for (const auto &subsub : sub.children) {
-  //        signal_scopes.push_back(&subsub);
-  //      }
-  //    }
-  //  }
-  //  // Okay, good enough. Now try to build a list of design scopes that look
-  //  // interesting. Not considering generate blocks here for the auto-detect.
-  //  std::vector<const UHDM::any *> design_scopes;
-  //  for (const auto *top : *design_->TopModules()) {
-  //    design_scopes.push_back(top);
-  //    // If the top module has some guts, add it's modules too.
-  //    if (top->Modules() != nullptr && !top->Modules()->empty()) {
-  //      for (const auto *sub : *top->Modules()) {
-  //        design_scopes.push_back(sub);
-  //        if (sub->Modules() != nullptr && !sub->Modules()->empty()) {
-  //          for (const auto *subsub : *sub->Modules()) {
-  //            design_scopes.push_back(subsub);
-  //          }
-  //        }
-  //      }
-  //    }
-  //  }
-  //  // Try to match the two candidate scopes against each other by looking for
-  //  // matching signals.
-  //  int max_common = 0;
-  //  for (const auto *design_scope : design_scopes) {
-  //    const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
-  //    for (const auto *signal_scope : signal_scopes) {
-  //      if (signal_scope->signals.empty()) continue;
-  //      int num_common_signals = 0;
-  //      if (m->Nets() != nullptr) {
-  //        for (const auto *n : *m->Nets()) {
-  //          for (const auto &s : signal_scope->signals) {
-  //            if (n->VpiName() == s.name) {
-  //              num_common_signals++;
-  //            }
-  //          }
-  //        }
-  //      }
-  //      if (m->Variables() != nullptr) {
-  //        for (const auto *v : *m->Variables()) {
-  //          for (const auto &s : signal_scope->signals) {
-  //            if (v->VpiName() == s.name) {
-  //              num_common_signals++;
-  //            }
-  //          }
-  //        }
-  //      }
-  //      // Save the best result.
-  //      if (num_common_signals > max_common) {
-  //        max_common = num_common_signals;
-  //        // TODO: re-enable this when above is all slang-ified.
-  //        // matched_design_scope_ = design_scope;
-  //        matched_signal_scope_ = signal_scope;
-  //      }
-  //    }
-  //  }
+  if (wave_data_ == nullptr || design_root_ == nullptr) return;
+  // Look for a scope with stuff in it, go 3 levels in.
+  std::vector<const WaveData::SignalScope *> signal_scopes;
+  for (const WaveData::SignalScope &root_scope : wave_data_->Roots()) {
+    signal_scopes.push_back(&root_scope);
+    for (const WaveData::SignalScope &sub : root_scope.children) {
+      signal_scopes.push_back(&sub);
+      for (const WaveData::SignalScope &subsub : sub.children) {
+        signal_scopes.push_back(&subsub);
+      }
+    }
+  }
+  // Okay, good enough. Now try to build a list of design scopes that aren't too far from the top.
+  std::vector<const slang::ast::Scope *> design_scopes;
+  int depth = 0;
+  for (const slang::ast::InstanceSymbol *top : design_root_->topInstances) {
+    design_scopes.push_back(&top->body);
+    top->visit(slang::ast::makeVisitor(
+        [&](auto &visitor, const slang::ast::InstanceSymbol &inst) {
+          design_scopes.push_back(&inst.body);
+          if (depth < 3) {
+            depth++;
+            visitor.visitDefault(inst);
+            depth--;
+          }
+        },
+        [&](auto &visitor, const slang::ast::GenerateBlockSymbol &gen) {
+          design_scopes.push_back(&gen);
+          if (depth < 3) {
+            depth++;
+            visitor.visitDefault(gen);
+            depth--;
+          }
+        }));
+  }
+
+  // Try to match the two candidate scopes against each other by looking for
+  // matching signals.
+  int max_common = 0;
+  // Default scope is just the first root.
+  if (!wave_data_->Roots().empty()) matched_signal_scope_ = &wave_data_->Roots()[0];
+  for (const slang::ast::Scope *design_scope : design_scopes) {
+    for (const WaveData::SignalScope *signal_scope : signal_scopes) {
+      if (signal_scope->signals.empty()) continue;
+      int num_common_signals = 0;
+      for (const auto &net : design_scope->membersOfType<slang::ast::NetSymbol>()) {
+        for (const auto &s : signal_scope->signals) {
+          if (net.name == s.name) {
+            num_common_signals++;
+          }
+        }
+      }
+      for (const auto &var : design_scope->membersOfType<slang::ast::VariableSymbol>()) {
+        for (const auto &s : signal_scope->signals) {
+          if (var.name == s.name) {
+            num_common_signals++;
+          }
+        }
+      }
+      // Save the best result.
+      if (num_common_signals > max_common) {
+        max_common = num_common_signals;
+        matched_design_scope_ = design_scope;
+        matched_signal_scope_ = signal_scope;
+      }
+    }
+  }
 }
 
 std::vector<const WaveData::Signal *>
@@ -142,57 +152,61 @@ Workspace::DesignToSignals(const slang::ast::Symbol *item) const {
   std::vector<const WaveData::Signal *> signals;
   // Make sure it's actually something that would have ended up in a wave.
   if (!IsTraceable(item)) return signals;
-  // Build a stack of all parents up to the top module, or the matched design
-  // scope, whichever comes first.
-  // std::stack<const UHDM::any *> stack;
-  // const UHDM::any *parent = item->VpiParent();
-  // while (parent != nullptr) {
-  //  // Drop out any genscopes, there's always a genscope_array above it.
-  //  if (parent->VpiType() == vpiGenScope) parent = parent->VpiParent();
-  //  // TODO: Re-instante when slang-ified.
-  //  // if (parent == matched_design_scope_) break;
-  //  stack.push(parent);
-  //  parent = parent->VpiParent();
-  //}
+  // Build a stack of all parents up to the top module, or the matched design scope, whichever comes
+  // first.
+  std::stack<const slang::ast::Scope *> stack;
+  const slang::ast::Scope *parent = item->getParentScope();
+  while (parent != nullptr) {
+    if (parent == matched_design_scope_) break;
+    stack.push(parent);
+    parent = parent->asSymbol().getHierarchicalParent();
+  }
 
-  // const WaveData::SignalScope *signal_scope = matched_signal_scope_;
-  // while (!stack.empty()) {
-  //   auto *design_scope = stack.top();
-  //   bool found = false;
-  //   if (ScopeMatch(design_scope->VpiName(), signal_scope->name)) {
-  //     found = true;
-  //   } else {
-  //     for (const auto &sub : signal_scope->children) {
-  //       if (ScopeMatch(design_scope->VpiName(), sub.name)) {
-  //         signal_scope = &sub;
-  //         found = true;
-  //         break;
-  //       }
-  //     }
-  //   }
-  //   // Total abort if there is no matching scope in the wave data.
-  //   if (!found) return signals;
-  //   stack.pop();
-  // }
-  //// Now add any signals in the drilled-down scope that match the net name
-  //// exactly, with optional square bracket suffixes.
-  // const std::string net_name = StripWorklib(item->VpiName());
-  // for (const auto &signal : signal_scope->signals) {
-  //   auto pos = signal.name.find(StripWorklib(item->VpiName()));
-  //   if (pos != 0) continue;
-  //   if (signal.name.size() > net_name.size() && signal.name[net_name.size()] != '[') {
-  //     continue;
-  //   }
-  //   signals.push_back(&signal);
-  // }
+  const WaveData::SignalScope *signal_scope = matched_signal_scope_;
+  while (!stack.empty()) {
+    const slang::ast::Scope *design_scope = stack.top();
+    std::string_view scope_name;
+    if (const auto *body = design_scope->asSymbol().as_if<slang::ast::InstanceBodySymbol>()) {
+      scope_name = body->parentInstance->name;
+    } else {
+      scope_name = design_scope->asSymbol().name;
+    }
+    bool found = false;
+    if (scope_name == signal_scope->name) {
+      found = true;
+    } else {
+      for (const WaveData::SignalScope &sub : signal_scope->children) {
+        if (scope_name == sub.name) {
+          signal_scope = &sub;
+          found = true;
+          break;
+        }
+      }
+    }
+    // Total abort if there is no matching scope in the wave data.
+    if (!found) return signals;
+    stack.pop();
+  }
+  // Now add any signals in the drilled-down scope that match the net name exactly, with optional
+  // square bracket suffixes.
+  for (const auto &signal : signal_scope->signals) {
+    auto pos = signal.name.find(item->name);
+    if (pos != 0) continue;
+    // If the next character starts an array index, accept it. Otherwise move on.
+    if (signal.name.size() > item->name.size() &&
+        signal.name.find_first_of(" [", item->name.size()) != item->name.size()) {
+      continue;
+    }
+    signals.push_back(&signal);
+  }
 
   return signals;
 }
 
 const slang::ast::Symbol *Workspace::SignalToDesign(const WaveData::Signal *signal) const {
   if (matched_design_scope_ == nullptr) return nullptr;
-  // Build a stack of all parents up to the root, or the matched signal scope,
-  // whichever comes first.
+  // Build a stack of all parents up to the root, or the matched signal scope, whichever comes
+  // first.
   std::stack<const WaveData::SignalScope *> stack;
   const auto *scope = signal->scope;
   while (scope != nullptr) {
@@ -201,9 +215,12 @@ const slang::ast::Symbol *Workspace::SignalToDesign(const WaveData::Signal *sign
     scope = scope->parent;
   }
   // Traverse the stack down the design tree hierarcy.
-  // TODO: slang-ify this.
-  // const UHDM::any *design_scope = matched_design_scope_;
-  // const UHDM::any *design_scope = nullptr;
+  const slang::ast::Scope *design_scope = matched_design_scope_;
+  matched_design_scope_->asSymbol().visit(slang::ast::makeVisitor(
+        [&](auto &visitor, const slang::ast::InstanceSymbol &inst) {
+        }));
+  (void)design_scope;
+  // TODO:finish
   // while (design_scope != nullptr && !stack.empty()) {
   //  auto *signal_scope = stack.top();
   //  // Running the search as an anonoymous lambda allows for an easier exit out
@@ -319,7 +336,7 @@ const slang::ast::Symbol *Workspace::SignalToDesign(const WaveData::Signal *sign
   return nullptr;
 }
 
-void Workspace::SetMatchedDesignScope(const slang::ast::Symbol *s) {
+void Workspace::SetMatchedDesignScope(const slang::ast::Scope *s) {
   matched_design_scope_ = s;
   // ApplyDesignData(matched_design_scope_, matched_signal_scope_);
 }

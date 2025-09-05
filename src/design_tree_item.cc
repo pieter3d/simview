@@ -78,6 +78,14 @@ void DesignTreeItem::BuildChildren() const {
   children_built_ = true;
 }
 
-bool DesignTreeItem::MatchColor() const { return item_ == Workspace::Get().MatchedDesignScope(); }
+bool DesignTreeItem::MatchColor() const {
+  if (const auto *body = Workspace::Get()
+                             .MatchedDesignScope()
+                             ->asSymbol()
+                             .as_if<slang::ast::InstanceBodySymbol>()) {
+    return item_ == body->parentInstance;
+  }
+  return false;
+}
 
 } // namespace sv

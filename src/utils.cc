@@ -6,15 +6,6 @@
 
 namespace sv {
 
-// TODO:
-// To be removed
-std::string StripWorklib(std::string_view s) {
-  std::string lib(s);
-  const int lib_delimieter_pos = s.find('@');
-  if (lib_delimieter_pos == std::string::npos) return lib;
-  return lib.substr(lib_delimieter_pos + 1);
-}
-
 int NumDecimalDigits(int n) {
   return 1 + std::floor(std::log10(n));
 }
