@@ -56,9 +56,10 @@ class UI {
   int focused_panel_idx_ = 0;
   std::string error_message_;
   // State for tooltips
-  int tooltips_to_show;
+  int tooltips_to_show_;
   std::vector<Tooltip> tooltips_;
   bool draw_tooltips_ = false;
+  int tooltip_start_idx_ = 0;
 
   // Search state.
   bool searching_ = false;

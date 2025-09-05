@@ -4,6 +4,7 @@
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/MemberSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/driver/Driver.h"
 #include "slang_utils.h"
@@ -217,123 +218,50 @@ const slang::ast::Symbol *Workspace::SignalToDesign(const WaveData::Signal *sign
   // Traverse the stack down the design tree hierarcy.
   const slang::ast::Scope *design_scope = matched_design_scope_;
   matched_design_scope_->asSymbol().visit(slang::ast::makeVisitor(
-        [&](auto &visitor, const slang::ast::InstanceSymbol &inst) {
-        }));
-  (void)design_scope;
-  // TODO:finish
-  // while (design_scope != nullptr && !stack.empty()) {
-  //  auto *signal_scope = stack.top();
-  //  // Running the search as an anonoymous lambda allows for an easier exit out
-  //  // of next loops when the hierarchy item is found. An alternative would be a
-  //  // goto statement.
-  //  [&] {
-  //    if (ScopeMatch(design_scope->VpiName(), signal_scope->name)) {
-  //      return;
-  //    } else if (design_scope->VpiType() == vpiModule) {
-  //      const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
-  //      if (m->Modules() != nullptr) {
-  //        for (const auto *sub : *m->Modules()) {
-  //          if (ScopeMatch(sub->VpiName(), signal_scope->name)) {
-  //            design_scope = sub;
-  //            return;
-  //          }
-  //        }
-  //      }
-  //      if (m->Gen_scope_arrays() != nullptr) {
-  //        for (const auto *ga : *m->Gen_scope_arrays()) {
-  //          // Surelog always has an unrolled list of gen scope arrays with a
-  //          // single generate scope as the only child.
-  //          const auto *g = (*ga->Gen_scopes())[0];
-  //          if (ScopeMatch(ga->VpiName(), signal_scope->name)) {
-  //            design_scope = g;
-  //            return;
-  //          }
-  //        }
-  //      }
-  //    } else if (design_scope->VpiType() == vpiGenScope) {
-  //      // Nearly identical code to the above, but the Surelog classes don't
-  //      // have this virtualized.
-  //      const auto *g = dynamic_cast<const UHDM::gen_scope *>(design_scope);
-  //      if (g->Modules() != nullptr) {
-  //        for (const auto *sub : *g->Modules()) {
-  //          if (ScopeMatch(sub->VpiName(), signal_scope->name)) {
-  //            design_scope = sub;
-  //            return;
-  //          }
-  //        }
-  //      }
-  //      if (g->Gen_scope_arrays() != nullptr) {
-  //        for (const auto *ga : *g->Gen_scope_arrays()) {
-  //          const auto *g = (*ga->Gen_scopes())[0];
-  //          if (ScopeMatch(ga->VpiName(), signal_scope->name)) {
-  //            design_scope = g;
-  //            return;
-  //          }
-  //        }
-  //      }
-  //    }
-  //    // Not considering anything else
-  //    design_scope = nullptr;
-  //  }();
-  //  stack.pop();
-  //}
-  // Bail out if there is no matching design.
-  // if (design_scope == nullptr) return nullptr;
-  //// Helper to match without [n] suffix, since the design does not contain
-  //// unrolled net arrays.
-  // auto array_match = [](std::string_view val, std::string_view val_with_suffix) {
-  //   const auto pos = val_with_suffix.find(val);
-  //   if (pos == std::string::npos) return false;
-  //   if (val.size() == val_with_suffix.size()) return true;
-  //   return val_with_suffix[val.size()] == '[';
-  // };
-  //// Look for nets, variables.
-  // if (design_scope->VpiType() == vpiModule) {
-  //   const auto *m = dynamic_cast<const UHDM::module_inst *>(design_scope);
-  //   if (m->Nets() != nullptr) {
-  //     for (const auto *n : *m->Nets()) {
-  //       if (n->VpiName() == signal->name) return n;
-  //     }
-  //   }
-  //   if (m->Variables() != nullptr) {
-  //     for (const auto *v : *m->Variables()) {
-  //       if (v->VpiName() == signal->name) return v;
-  //     }
-  //   }
-  //   if (m->Array_nets() != nullptr) {
-  //     for (const auto *a : *m->Array_nets()) {
-  //       if (array_match(a->VpiName(), signal->name)) return a;
-  //     }
-  //   }
-  //   if (m->Array_vars() != nullptr) {
-  //     for (const auto *a : *m->Array_vars()) {
-  //       if (array_match(a->VpiName(), signal->name)) return a;
-  //     }
-  //   }
-  // } else if (design_scope->VpiType() == vpiGenScope) {
-  //   const auto *g = dynamic_cast<const UHDM::gen_scope *>(design_scope);
-  //   if (g->Nets() != nullptr) {
-  //     for (const auto *n : *g->Nets()) {
-  //       if (n->VpiName() == signal->name) return n;
-  //     }
-  //   }
-  //   if (g->Variables() != nullptr) {
-  //     for (const auto *v : *g->Variables()) {
-  //       if (v->VpiName() == signal->name) return v;
-  //     }
-  //   }
-  //   if (g->Array_nets() != nullptr) {
-  //     for (const auto *a : *g->Array_nets()) {
-  //       if (array_match(a->VpiName(), signal->name)) return a;
-  //     }
-  //   }
-  //   if (g->Array_vars() != nullptr) {
-  //     for (const auto *a : *g->Array_vars()) {
-  //       if (array_match(a->VpiName(), signal->name)) return a;
-  //     }
-  //   }
-  // }
-  return nullptr;
+      [&](auto &visitor, const slang::ast::InstanceSymbol &inst) {
+        if (stack.empty()) return;
+        // Handle array instances this way.
+        if (inst.getArrayName() == stack.top()->name) stack.pop();
+        // Traverse deeper into the tree if there are still signal levels left to match.
+        if (!stack.empty()) {
+          visitor.visitDefault(inst);
+        } else {
+          // Stack was just emptied, this must be the matching scope of the signal.
+          design_scope = &inst.body;
+        }
+      },
+      [&](auto &visitor, const slang::ast::GenerateBlockSymbol &gen) {
+        if (stack.empty()) return;
+        if (gen.name == stack.top()->name) stack.pop();
+        if (!stack.empty()) {
+          visitor.visitDefault(gen);
+        } else {
+          design_scope = &gen;
+        }
+      }));
+  // The signal scope stack should be empty if the design hierarchy was matched.
+  if (!stack.empty()) return nullptr;
+  // Helper to match without [n] suffix, since the design does not contain
+  // unrolled net arrays.
+  auto array_match = [](std::string_view val, std::string_view val_with_suffix) {
+    const auto pos = val_with_suffix.find(val);
+    if (pos == std::string::npos) return false;
+    if (val.size() == val_with_suffix.size()) return true;
+    return val_with_suffix[val.size()] == '[' || val_with_suffix.substr(val.size()) == " [";
+  };
+  // Find nets and variables withing the discovered scope.
+  const slang::ast::Symbol *sym = nullptr;
+  design_scope->asSymbol().visit(slang::ast::makeVisitor(
+      // Do nothing for instances and generate blocks, to avoid going deeper.
+      [&](auto &visitor, const slang::ast::InstanceSymbol &) {},
+      [&](auto &visitor, const slang::ast::GenvarSymbol &) {},
+      [&](auto &visitor, const slang::ast::NetSymbol &net) {
+        if (sym == nullptr && array_match(net.name, signal->name)) sym = &net;
+      },
+      [&](auto &visitor, const slang::ast::VariableSymbol &var) {
+        if (sym == nullptr && array_match(var.name, signal->name)) sym = &var;
+      }));
+  return sym;
 }
 
 void Workspace::SetMatchedDesignScope(const slang::ast::Scope *s) {

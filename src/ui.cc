@@ -74,7 +74,7 @@ void UI::UpdateTooltips() {
   }
   auto panel_tooltips = panels_[focused_panel_idx_]->Tooltips();
   tooltips_.insert(tooltips_.end(), panel_tooltips.begin(), panel_tooltips.end());
-  tooltips_to_show = tooltips_.size();
+  tooltips_to_show_ = tooltips_.size();
   int tt_width = 0;
   for (auto &tt : tooltips_) {
     tt_width += tt.Width() + 1;
@@ -82,9 +82,9 @@ void UI::UpdateTooltips() {
   tt_width--; // no trailing space.
   const int help_width = kHelpTT.Width();
   if (tt_width > term_w) {
-    while ((tt_width + 1 + help_width) > term_w && tooltips_to_show > 0) {
-      tt_width -= tooltips_[tooltips_to_show - 1].Width() + 1;
-      tooltips_to_show--;
+    while ((tt_width + 1 + help_width) > term_w && tooltips_to_show_ > 0) {
+      tt_width -= tooltips_[tooltips_to_show_ - 1].Width() + 1;
+      tooltips_to_show_--;
     }
   }
 }
@@ -166,7 +166,15 @@ void UI::EventLoop() {
       LayoutPanels();
       UpdateTooltips();
     } else if (draw_tooltips_) {
-      draw_tooltips_ = false;
+      const int max_h = getmaxy(panels_[focused_panel_idx_]->Window());
+      const bool incomplete = tooltips_.size() - tooltip_start_idx_ > max_h;
+      // One row is taken up by the "...more..." indicator.
+      if (incomplete) {
+        tooltip_start_idx_ += max_h - 1;
+      } else {
+        tooltip_start_idx_ = 0;
+        draw_tooltips_ = false;
+      }
     } else if (searching_) {
       // Searching is modal, so do nothing else until that is handled.
       const auto search_state = search_box_.HandleKey(ch);
@@ -271,7 +279,7 @@ void UI::EventLoop() {
           quit = true;
           break;
         case '?':
-          if (tooltips_to_show < tooltips_.size()) draw_tooltips_ = true;
+          if (tooltips_to_show_ < tooltips_.size()) draw_tooltips_ = true;
           break;
         default:
           focused_panel->UIChar(ch);
@@ -305,17 +313,16 @@ void UI::EventLoop() {
           waves_panel_->AddSignals(*signals);
         }
       } else if (focused_panel == waves_panel_.get()) {
-        if (const auto signal = waves_panel_->SignalForSource()) {
-          // TODO - reinstate when slang-ified.
-          // auto design_item = Workspace::Get().SignalToDesign(*signal);
-          // if (design_item == nullptr) {
-          //  error_message_ =
-          //      absl::StrFormat("Signal %s not found in design.",
-          //      WaveData::SignalToPath(*signal));
-          //} else {
-          //  source_panel_->SetItem(design_item, /* show_def*/ true);
-          //  design_tree_panel_->SetItem(design_item);
-          //}
+        if (const std::optional<const WaveData::Signal *> signal =
+                waves_panel_->SignalForSource()) {
+          const slang::ast::Symbol *design_item = Workspace::Get().SignalToDesign(*signal);
+          if (design_item == nullptr) {
+            error_message_ =
+                absl::StrFormat("Signal %s not found in design.", WaveData::SignalToPath(*signal));
+          } else {
+            source_panel_->SetItem(design_item);
+            design_tree_panel_->SetItem(design_item);
+          }
         }
       }
     }
@@ -328,29 +335,30 @@ void UI::DrawHelp(int panel_idx) const {
   WINDOW *w = panels_[panel_idx]->Window();
   // Clear old stuff in the window, it can show if the terminal is resized.
   werase(w);
-  // Find the widest signal.
+  // Find the widest tooltip.
   size_t widest_key = 0;
   size_t widest_description = 0;
-  for (auto &tt : tooltips_) {
+  for (const Tooltip &tt : tooltips_) {
     widest_key = std::max(widest_key, tt.hotkeys.size());
     widest_description = std::max(widest_description, tt.description.size());
   }
   // Width of the help box accounts for the colon and a left + right margin.
+  const int num_tt_to_draw = tooltips_.size() - tooltip_start_idx_;
   const int widest_text = widest_key + widest_description + 3;
   const int max_w = getmaxx(w);
   const int max_h = getmaxy(w);
   const int x_start = std::max(0, max_w / 2 - widest_text / 2);
   const int x_stop = std::min(max_w - 1, max_w / 2 + widest_text / 2);
-  const int y_start = std::max(0, max_h / 2 - (int)tooltips_.size() / 2);
-  const int y_stop = std::min(max_h - 1, max_h / 2 + (int)tooltips_.size() / 2);
-  const int max_tt_idx = std::min((int)tooltips_.size() - 1, y_stop - y_start);
+  const int y_start = std::max(0, max_h / 2 - num_tt_to_draw / 2);
+  const int y_stop = std::min(max_h - 1, max_h / 2 + num_tt_to_draw / 2);
+  const int max_tt_idx = std::min(num_tt_to_draw - 1, y_stop - y_start);
   for (int y = 0; y <= max_tt_idx; ++y) {
     wmove(w, y_start + y, x_start);
     SetColor(w, kTooltipPair);
     waddch(w, ' ');
     SetColor(w, kTooltipKeyPair);
-    const auto &tt = tooltips_[y];
-    const bool overflow = y == (max_h - 1) && y < (tooltips_.size() - 1);
+    const Tooltip &tt = tooltips_[y + tooltip_start_idx_];
+    const bool overflow = y == (max_h - 1) && y < (num_tt_to_draw - 1);
     for (int x = 0; x <= x_stop - x_start; ++x) {
       if (overflow) {
         static std::string more = "... more ...";
@@ -456,11 +464,11 @@ void UI::Draw() const {
     int tt_description_idx = 0;
     // If not all tooltips can be shown, include an extra index for the trailing
     // help tooltip.
-    const int num_tt_to_draw = tooltips_to_show + (tooltips_to_show < tooltips_.size() ? 1 : 0);
+    const int num_tt_to_draw = tooltips_to_show_ + (tooltips_to_show_ < tooltips_.size() ? 1 : 0);
     enum { KEY, COLON, DESCRIPTION, SPACE } tt_state = KEY;
     SetColor(stdscr, kTooltipKeyPair);
     for (int x = 0; x < term_w; ++x) {
-      const auto &tt = tt_idx >= tooltips_to_show ? kHelpTT : tooltips_[tt_idx];
+      const auto &tt = tt_idx >= tooltips_to_show_ ? kHelpTT : tooltips_[tt_idx];
       switch (tt_state) {
       case KEY:
         mvaddch(term_h - 1, x, tt.hotkeys[tt_key_idx++]);

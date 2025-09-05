@@ -6,6 +6,8 @@
 namespace sv {
 namespace {
 
+// For a string like "foo [5:3]", return the "3" and the leading name up to the last "[" but without
+// any trailing spaces.
 std::string ParseSignalLsb(const std::string &s, int *lsb) {
   auto range_pos = s.find_last_of('[');
   auto colon_pos = s.find_last_of(':');
@@ -15,7 +17,7 @@ std::string ParseSignalLsb(const std::string &s, int *lsb) {
     while (range_pos > 0 && s[range_pos - 1] == ' ') {
       range_pos--;
     }
-    return s.substr(0, range_pos + 1);
+    return s.substr(0, range_pos);
   } else {
     return s;
   }
