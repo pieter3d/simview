@@ -637,6 +637,7 @@ void WavesPanel::UIChar(int ch) {
       numbered_marker_times_[ch - '0'] = cursor_time_;
     }
     marker_selection_ = false;
+    tooltips_changed_ = true;
   } else if (rename_item_ != nullptr) {
     const auto state = rename_input_.HandleKey(ch);
     if (state != TextInput::kTyping) {
