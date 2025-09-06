@@ -79,6 +79,7 @@ void DesignTreeItem::BuildChildren() const {
 }
 
 bool DesignTreeItem::MatchColor() const {
+  if (Workspace::Get().MatchedDesignScope() == nullptr) return false;
   if (const auto *body = Workspace::Get()
                              .MatchedDesignScope()
                              ->asSymbol()

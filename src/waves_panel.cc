@@ -631,6 +631,7 @@ void WavesPanel::UIChar(int ch) {
     }
     color_selection_ = false;
     cancel_multi_line = false; // Keep changing lots of colors.
+    tooltips_changed_ = true;
   } else if (marker_selection_) {
     if (ch >= '0' && ch <= '9') {
       numbered_marker_times_[ch - '0'] = cursor_time_;

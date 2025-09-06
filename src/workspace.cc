@@ -211,13 +211,18 @@ const slang::ast::Symbol *Workspace::SignalToDesign(const WaveData::Signal *sign
   std::stack<const WaveData::SignalScope *> stack;
   const auto *scope = signal->scope;
   while (scope != nullptr) {
-    if (scope == matched_signal_scope_) break;
     stack.push(scope);
+    if (scope == matched_signal_scope_) break;
     scope = scope->parent;
   }
+  const slang::ast::Symbol *design_top = &matched_design_scope_->asSymbol();
+  // Use the instance as the traversal start.
+  if (const auto *body = design_top->as_if<slang::ast::InstanceBodySymbol>()) {
+    design_top = body->parentInstance;
+  }
   // Traverse the stack down the design tree hierarcy.
-  const slang::ast::Scope *design_scope = matched_design_scope_;
-  matched_design_scope_->asSymbol().visit(slang::ast::makeVisitor(
+  const slang::ast::Scope *design_scope = nullptr;
+  design_top->visit(slang::ast::makeVisitor(
       [&](auto &visitor, const slang::ast::InstanceSymbol &inst) {
         if (stack.empty()) return;
         // Handle array instances this way.
@@ -241,6 +246,8 @@ const slang::ast::Symbol *Workspace::SignalToDesign(const WaveData::Signal *sign
       }));
   // The signal scope stack should be empty if the design hierarchy was matched.
   if (!stack.empty()) return nullptr;
+  // If not found, also abort.
+  if (design_scope == nullptr) return nullptr;
   // Helper to match without [n] suffix, since the design does not contain
   // unrolled net arrays.
   auto array_match = [](std::string_view val, std::string_view val_with_suffix) {
