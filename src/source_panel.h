@@ -1,10 +1,12 @@
 #pragma once
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_map.h"
 #include "panel.h"
+#include "slang/ast/Expression.h"
 #include "slang/ast/Symbol.h"
 #include "source_buffer.h"
+#include "src/slang_utils.h"
 
 #include <deque>
 #include <vector>
@@ -37,7 +39,9 @@ class SourcePanel : public Panel {
   void SetItem(const slang::ast::Symbol *item, bool save_state);
   // Jump to particular location in the current file, using the item's line and
   // column number.
-  void SetLocation(const slang::ast::Symbol *item);
+  void SetLocation(const slang::ast::Symbol *sym);
+  void SetLocation(const slang::ast::Expression *expr);
+  void SetLocation(int line, int col);
   // Sets the selected item based on the cursor location
   void SelectItem();
   // Generates a nice header that probably fits in the current window width.
@@ -83,7 +87,7 @@ class SourcePanel : public Panel {
   const slang::ast::Symbol *item_for_waves_ = nullptr;
   // Drivers and loads
   int trace_idx_;
-  std::vector<const slang::ast::Symbol *> drivers_or_loads_;
+  std::vector<SlangDriverOrLoad> drivers_or_loads_;
 
   // Stack of states, to allow going back/forth while browsing source.
   struct State {

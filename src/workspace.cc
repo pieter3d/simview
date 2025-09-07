@@ -1,4 +1,5 @@
 #include "workspace.h"
+#include "slang/analysis/AnalysisManager.h"
 #include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/symbols/BlockSymbols.h"
@@ -50,7 +51,11 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
   if (try_read_design && slang_driver_->processOptions()) {
     std::cout << "Parsing files...\n";
     if (!slang_driver_->parseAllSources()) return false;
+    std::cout << "Elaborating...\n";
     slang_compilation_ = slang_driver_->createCompilation();
+    // TODO: This freezes the design and somehow makes traversal throw exceptions.
+    // std::cout << "Analyzing...\n";
+    // slang_analysis_ = slang_driver_->runAnalysis(*slang_compilation_);
     // This print all tops, and collects diagnostics.
     slang_driver_->reportCompilation(*slang_compilation_, /* quiet */ false);
     const bool success = slang_driver_->reportDiagnostics(/* quiet */ false);

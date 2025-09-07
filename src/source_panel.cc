@@ -584,20 +584,26 @@ void SourcePanel::UIChar(int ch) {
   case 'D':
   case 'L':
     if (sel_ != nullptr) {
-      bool trace_drivers = ch == 'D';
-      (void)trace_drivers;
-      // TODO: reinstate
-      // GetDriversOrLoads(sel_, trace_drivers, &drivers_or_loads_);
+      const bool trace_drivers = ch == 'D';
+      if (trace_drivers) {
+        drivers_or_loads_ = GetDrivers(sel_);
+      } else {
+        // TODO - loads!
+      }
       trace_idx_ = 0;
-      if (!drivers_or_loads_.empty()) SetLocation(drivers_or_loads_[0]);
+      if (!drivers_or_loads_.empty()) {
+        std::visit([&](auto &&port_or_name) { SetLocation(port_or_name); }, drivers_or_loads_[0]);
+      } else {
+        error_message_ = trace_drivers ? "No drivers found." : "No loads found.";
+      }
     }
     break;
   case 'c':
-    if (!drivers_or_loads_.empty()) {
-      trace_idx_++;
-      if (trace_idx_ == drivers_or_loads_.size()) trace_idx_ = 0;
-      SetLocation(drivers_or_loads_[trace_idx_]);
-    }
+    if (drivers_or_loads_.empty()) break;
+    trace_idx_++;
+    if (trace_idx_ == drivers_or_loads_.size()) trace_idx_ = 0;
+    std::visit([&](auto &&port_or_name) { SetLocation(port_or_name); },
+               drivers_or_loads_[trace_idx_]);
     break;
   case 'v':
     show_vals_ = !show_vals_;
@@ -716,15 +722,28 @@ std::optional<const slang::ast::Symbol *> SourcePanel::ItemForWaves() {
   return item;
 }
 
-void SourcePanel::SetLocation(const slang::ast::Symbol *item) {
-  const slang::SourceManager *sm = Workspace::Get().SourceManager();
-  // 0-based counting internally.
-  const int line = sm->getLineNumber(item->location) - 1;
+void SourcePanel::SetLocation(int line, int col) {
   // Avoid history entries on the same line.
   if (line_idx_ != line) SaveState();
-  col_idx_ = src_.DisplayCol(line, sm->getColumnNumber(item->location) - 1);
+  col_idx_ = col;
   max_col_idx_ = col_idx_;
   SetLineAndScroll(line);
+}
+
+void SourcePanel::SetLocation(const slang::ast::Symbol *sym) {
+  const slang::SourceManager *sm = Workspace::Get().SourceManager();
+  // 0-based counting internally.
+  const int line = sm->getLineNumber(sym->location) - 1;
+  const int col = src_.DisplayCol(line, sm->getColumnNumber(sym->location) - 1);
+  SetLocation(line, col);
+}
+
+void SourcePanel::SetLocation(const slang::ast::Expression *expr) {
+  const slang::SourceManager *sm = Workspace::Get().SourceManager();
+  // 0-based counting internally.
+  const int line = sm->getLineNumber(expr->sourceRange.start()) - 1;
+  const int col = src_.DisplayCol(line, sm->getColumnNumber(expr->sourceRange.start()) - 1);
+  SetLocation(line, col);
 }
 
 void SourcePanel::SaveState() {

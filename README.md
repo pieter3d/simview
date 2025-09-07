@@ -61,7 +61,6 @@ A list of features that have not yet been implemented.
 * A colorscheme that works with white backgrounds.
 * Polish: Syntax highlighting of macros
 * Source window: Need a clean way to add multiple signals from the source to the waves at once.
-* alternate layout maybe: left has waves and signals stacked vertically
 * Expose local nets in functions and tasks
 * Expose local variables in always blocks?
 * tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`
@@ -76,4 +75,3 @@ A list of features that have not yet been implemented.
 * Someday: Support FSDB via dynamically loading the necessary .so's on systems
   that have them installed with a valid license.
 * Command line option to load a saved signal list file at startup.
-* Investigate including Surelog as a git submodule, to avoid breakages.

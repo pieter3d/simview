@@ -7,6 +7,9 @@
 // Forward-declare slang types since otherwise the huge slang headers have to be pulled in.
 namespace slang {
 class SourceManager;
+namespace analysis {
+class AnalysisManager;
+} // namespace analysis
 namespace driver {
 class Driver;
 } // namespace driver
@@ -66,6 +69,7 @@ class Workspace {
 
   std::unique_ptr<slang::driver::Driver> slang_driver_;
   std::unique_ptr<slang::ast::Compilation> slang_compilation_;
+  std::unique_ptr<slang::analysis::AnalysisManager> slang_analysis_;
   const slang::ast::RootSymbol *design_root_;
   const slang::ast::Scope *matched_design_scope_ = nullptr;
   std::unique_ptr<WaveData> wave_data_;
