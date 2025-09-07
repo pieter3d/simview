@@ -63,7 +63,6 @@ A list of features that have not yet been implemented.
 * Source window: Need a clean way to add multiple signals from the source to the waves at once.
 * Expose local nets in functions and tasks
 * Expose local variables in always blocks?
-* tracing loads does not trace things on the left side, e.g idx isn't traced in `net[idx] = val;`
 * Time multiplier for waves (e.g. wave 1 unit is really X us/ns/ps/)
 * Wave + source should be able to figure out enums in waves.
 * Reload waves, and possibly live updates.
