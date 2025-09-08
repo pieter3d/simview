@@ -18,7 +18,7 @@ jobs:
       with:
         access_token: ${{ github.token }}
 
-    - name: Install build dependencies for simview and surelog
+    - name: Install build dependencies for simview
       run: |
         sudo apt-get update -qq
         sudo apt install -y libunwind-dev
@@ -43,20 +43,14 @@ jobs:
     - name: Configure shell
       run: |
         echo 'PATH=/usr/lib/ccache:'"$PATH" >> $GITHUB_ENV
-        echo 'PREFIX=${GITHUB_WORKSPACE}/surelog-install' >> $GITHUB_ENV
 
     - name: Show shell configuration
       run: |
         env
 
-    - name: Build Surelog
-      run: |
-        git clone --recursive https://github.com/chipsalliance/Surelog.git
-        (cd Surelog ; make install)
-
     - name: Build
       run: |
-        cmake -B build -GNinja -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/surelog-install -DCMAKE_CXX_FLAGS="-Wall -W -Wextra -Werror"  .
+        cmake -B build -GNinja -DCMAKE_CXX_FLAGS="-Wall -W -Wextra -Werror"  .
         ninja -C build
 
     - name: Test
