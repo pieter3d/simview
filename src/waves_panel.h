@@ -1,5 +1,6 @@
 #pragma once
 
+#include "absl/container/flat_hash_map.h"
 #include "panel.h"
 #include "radix.h"
 #include "text_input.h"
@@ -26,6 +27,8 @@ class WavesPanel : public Panel {
   bool Searchable() const final { return true; }
   bool Search(bool search_down) final;
   std::optional<const WaveData::Signal *> SignalForSource();
+  void PrepareForWaveDataReload() final;
+  void HandleReloadedWaves() final;
 
  private:
   struct ListItem {
@@ -58,7 +61,6 @@ class WavesPanel : public Panel {
   void AddGroup();
   void UpdateValues();
   void UpdateWaves();
-  void ReloadWaves();
   void UpdateValue(ListItem *item);
   void UpdateWave(ListItem *item);
   void SnapToValue();
@@ -104,6 +106,10 @@ class WavesPanel : public Panel {
   int name_value_size_ = 30;
   // Convenience to avoid repeated workspace Get() calls.
   const WaveData *wave_data_;
+
+  // When waves are reloaded, the current wave paths are stored here as strings, so they can be
+  // re-looked up afterwards.
+  absl::flat_hash_map<int, std::string> reload_waves_;
 };
 
 } // namespace sv

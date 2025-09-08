@@ -16,8 +16,10 @@ class WaveDataTreePanel : public TreePanel {
   std::vector<Tooltip> Tooltips() const final;
   bool Searchable() const final { return true; }
   std::optional<const WaveData::SignalScope *> ScopeForSignals();
+  void HandleReloadedWaves() final;
 
  private:
+  void BuildInitialTree();
   const WaveData::SignalScope *scope_for_signals_ = nullptr;
   std::vector<std::unique_ptr<WaveDataTreeItem>> roots_;
 };

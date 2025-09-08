@@ -46,6 +46,8 @@ class Panel : public TextReceiver {
   virtual bool Modal() const { return false; }
   // Returns the current error message and clears it.
   std::string Error() const;
+  virtual void PrepareForWaveDataReload() {}
+  virtual void HandleReloadedWaves() {}
 
  protected:
   virtual int NumLines() const = 0;

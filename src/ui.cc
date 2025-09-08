@@ -63,7 +63,9 @@ void UI::UpdateTooltips() {
   tooltips_.clear();
   // Add the tooltips that are always present.
   tooltips_.push_back({"C-q", "quit"});
-  if (layout_.has_waves) {
+  if (layout_.has_waves && (panels_[focused_panel_idx_] == waves_panel_.get() ||
+                            panels_[focused_panel_idx_] == wave_tree_panel_.get() ||
+                            panels_[focused_panel_idx_] == wave_signals_panel_.get())) {
     tooltips_.push_back(
         {.hotkeys = "C-p",
          .description =
@@ -250,14 +252,18 @@ void UI::EventLoop() {
           break;
           break;
         case 0x10: // ctrl-P
-          layout_.show_wave_picker = !layout_.show_wave_picker;
-          // If one of those panels was selected, move focus to the wave panel.
-          if (focused_panel == wave_tree_panel_.get() || wave_signals_panel_.get()) {
-            focused_panel->SetFocus(false);
-            waves_panel_->SetFocus(true);
-            focused_panel_idx_ = panels_.size() - 1;
+          if (layout_.has_waves && (panels_[focused_panel_idx_] == waves_panel_.get() ||
+                                    panels_[focused_panel_idx_] == wave_tree_panel_.get() ||
+                                    panels_[focused_panel_idx_] == wave_signals_panel_.get())) {
+            layout_.show_wave_picker = !layout_.show_wave_picker;
+            // If one of those panels was selected, move focus to the wave panel.
+            if (focused_panel == wave_tree_panel_.get() || wave_signals_panel_.get()) {
+              focused_panel->SetFocus(false);
+              waves_panel_->SetFocus(true);
+              focused_panel_idx_ = panels_.size() - 1;
+            }
+            LayoutPanels();
           }
-          LayoutPanels();
           break;
         case 0x9:     // tab
         case 0x161: { // shift-tab

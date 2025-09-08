@@ -4,7 +4,7 @@
 
 namespace sv {
 
-WaveDataTreePanel::WaveDataTreePanel() {
+void WaveDataTreePanel::BuildInitialTree() {
   if (Workspace::Get().Waves() == nullptr) return;
   for (const auto &scope : Workspace::Get().Waves()->Roots()) {
     roots_.push_back(std::make_unique<WaveDataTreeItem>(scope));
@@ -15,6 +15,14 @@ WaveDataTreePanel::WaveDataTreePanel() {
   if (data_.ListSize() == 2) {
     data_.ToggleExpand(1);
   }
+  line_idx_ = 0;
+}
+
+WaveDataTreePanel::WaveDataTreePanel() { BuildInitialTree(); }
+
+void WaveDataTreePanel::HandleReloadedWaves() {
+  BuildInitialTree();
+  scope_for_signals_ = dynamic_cast<WaveDataTreeItem *>(data_[line_idx_])->SignalScope();
 }
 
 void WaveDataTreePanel::UIChar(int ch) {
@@ -22,15 +30,13 @@ void WaveDataTreePanel::UIChar(int ch) {
   switch (ch) {
   case 'S':
     Workspace::Get().SetMatchedSignalScope(
-        dynamic_cast<const WaveDataTreeItem *>(data_[line_idx_])
-            ->SignalScope());
+        dynamic_cast<const WaveDataTreeItem *>(data_[line_idx_])->SignalScope());
     break;
   default: TreePanel::UIChar(ch);
   }
   // If the selection moved, update the signals panel
   if (line_idx_ != initial_line) {
-    scope_for_signals_ =
-        dynamic_cast<WaveDataTreeItem *>(data_[line_idx_])->SignalScope();
+    scope_for_signals_ = dynamic_cast<WaveDataTreeItem *>(data_[line_idx_])->SignalScope();
   }
 }
 
@@ -38,8 +44,7 @@ std::vector<Tooltip> WaveDataTreePanel::Tooltips() const {
   return std::vector<Tooltip>{{"S", "set scope for source"}};
 }
 
-std::optional<const WaveData::SignalScope *>
-WaveDataTreePanel::ScopeForSignals() {
+std::optional<const WaveData::SignalScope *> WaveDataTreePanel::ScopeForSignals() {
   if (scope_for_signals_ == nullptr) return std::nullopt;
   auto ptr = scope_for_signals_;
   scope_for_signals_ = nullptr;

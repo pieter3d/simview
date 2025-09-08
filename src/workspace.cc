@@ -84,6 +84,9 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
 void Workspace::TryMatchDesignWithWaves() {
   // Don't do anything unless there are both waves and design.
   if (wave_data_ == nullptr || design_root_ == nullptr) return;
+  // Reset initial to unmatched, to avoid stale pointers after wave-reload.
+  matched_design_scope_ = nullptr;
+  matched_signal_scope_ = nullptr;
   // Look for a scope with stuff in it, go 3 levels in.
   std::vector<const WaveData::SignalScope *> signal_scopes;
   for (const WaveData::SignalScope &root_scope : wave_data_->Roots()) {

@@ -1220,19 +1220,19 @@ bool WavesPanel::Search(bool search_down) {
   }
 }
 
-void WavesPanel::ReloadWaves() {
+void WavesPanel::PrepareForWaveDataReload() {
   // After the wave file is reloaded, the signal pointers are no longer valid.
   // Save the signal hierarchical paths so they can be re-discovered.
-  absl::flat_hash_map<int, std::string> signal_paths;
   for (int i = 0; i < items_.size(); ++i) {
     if (items_[i].signal != nullptr) {
-      signal_paths[i] = WaveData::SignalToPath(items_[i].signal);
+      reload_waves_[i] = WaveData::SignalToPath(items_[i].signal);
     }
   }
-  // Do the actual reload...
-  Workspace::Get().Waves()->Reload();
+}
+
+void WavesPanel::HandleReloadedWaves() {
   // Redo all the pointers.
-  for (auto &[idx, path] : signal_paths) {
+  for (auto &[idx, path] : reload_waves_) {
     auto &item = items_[idx];
     if (auto signal = wave_data_->PathToSignal(path)) {
       item.signal = *signal;
