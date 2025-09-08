@@ -588,7 +588,7 @@ void SourcePanel::UIChar(int ch) {
       if (trace_drivers) {
         drivers_or_loads_ = GetDrivers(sel_);
       } else {
-        // TODO - loads!
+        drivers_or_loads_ = GetLoads(sel_);
       }
       trace_idx_ = 0;
       if (!drivers_or_loads_.empty()) {

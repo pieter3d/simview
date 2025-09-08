@@ -12,6 +12,100 @@
 
 namespace sv {
 
+namespace {
+
+// Helper class to traverse the instance looking for drivers or loads.
+template <bool DRIVERS>
+class DriverOrLoadFinder
+    : public slang::ast::ASTVisitor<DriverOrLoadFinder<DRIVERS>, /*VisitStatements*/ true,
+                                    /*VisitExpressions*/ true> {
+ public:
+  DriverOrLoadFinder(const slang::ast::Symbol *sym, std::vector<SlangDriverOrLoad> &d)
+      : sym_(sym), drivers_or_loads_(d) {}
+  // Don't traverse into sub-instances, but do inspect the expressions on instance ports.
+  void handle(const slang::ast::InstanceSymbol &inst) {
+    // Iterate through all ports to find the connections that are driving/loading.
+    for (const slang::ast::PortConnection *conn : inst.getPortConnections()) {
+      if (const auto *port = conn->port.as_if<slang::ast::PortSymbol>()) {
+        if (port->direction !=
+            (DRIVERS ? slang::ast::ArgumentDirection::In : slang::ast::ArgumentDirection::Out)) {
+          if (const slang::ast::Expression *expr = conn->getExpression()) {
+            checking_instance_port_expression_ = true;
+            expr->visit(*this);
+            checking_instance_port_expression_ = false;
+          }
+        }
+      }
+    }
+  }
+  // The module's ports could be a driver/load too.
+  void handle(const slang::ast::PortSymbol &port) {
+    if (port.direction !=
+            (DRIVERS ? slang::ast::ArgumentDirection::Out : slang::ast::ArgumentDirection::In) &&
+        port.internalSymbol != nullptr && port.internalSymbol == sym_) {
+      drivers_or_loads_.push_back(&port);
+    }
+  }
+  // Assignments: only check the left side. Note that this also covers task/function call output
+  // arguments.
+  void handle(const slang::ast::AssignmentExpression &assignment) {
+    // For drivers, onle check the left side. Loads could be on either side.
+    checking_lhs_ = true;
+    assignment.left().visit(*this);
+    checking_lhs_ = false;
+    if constexpr (!DRIVERS) {
+      checking_rhs_ = true;
+      assignment.right().visit(*this);
+      checking_rhs_ = false;
+    }
+  }
+  // For selection expressions, only check the value for drivers, not the selector. Both should be
+  // checked in the case of loads.
+  void handle(const slang::ast::RangeSelectExpression &expr) {
+    expr.value().visit(*this);
+    if constexpr (!DRIVERS) {
+      selector_depth_++;
+      expr.left().visit(*this);
+      expr.right().visit(*this);
+      selector_depth_--;
+    }
+  }
+  void handle(const slang::ast::ElementSelectExpression &expr) {
+    expr.value().visit(*this);
+    if constexpr (!DRIVERS) {
+      selector_depth_++;
+      expr.selector().visit(*this);
+      selector_depth_--;
+    }
+  }
+  // Under the right conditions, named-value expressions matching the symbol are saved as drivers.
+  void handle(const slang::ast::NamedValueExpression &nve) {
+    if (&nve.symbol != sym_) return;
+    if constexpr (DRIVERS) {
+      if (checking_instance_port_expression_ || checking_lhs_) {
+        drivers_or_loads_.push_back(&nve);
+      }
+    } else {
+      // Any matching NamedValue is a load unless it's a left-side non-selector.
+      if (!(checking_lhs_ && selector_depth_ == 0)) {
+        drivers_or_loads_.push_back(&nve);
+      }
+    }
+  }
+  // Skip instances without a definition, since the port directions are unknown.
+  void handle(const slang::ast::UninstantiatedDefSymbol &uninst) {}
+
+ private:
+  const slang::ast::Symbol *sym_;
+  std::vector<SlangDriverOrLoad> &drivers_or_loads_;
+  bool checking_instance_port_expression_ = false;
+  bool checking_lhs_ = false;
+  bool checking_rhs_ = false;
+  int selector_depth_ = 0;
+};
+
+} // namespace
+
 bool SymbolHasSubs(const slang::ast::Symbol *s) {
   if (s == nullptr) return false;
   if (const auto *inst = s->as_if<slang::ast::InstanceSymbol>()) {
@@ -44,73 +138,22 @@ bool IsTraceable(const slang::ast::Symbol *sym) {
 }
 
 std::vector<SlangDriverOrLoad> GetDrivers(const slang::ast::Symbol *sym) {
-  // Helper class to traverse the instance looking for drivers.
-  class DriverFinder : public slang::ast::ASTVisitor<DriverFinder, /*VisitStatements*/ true,
-                                                     /*VisitExpressions*/ true> {
-   public:
-    DriverFinder(const slang::ast::Symbol *sym, std::vector<SlangDriverOrLoad> &d)
-        : sym_(sym), drivers_(d) {}
-    // Don't traverse into sub-instances, but do inspect the expressions on instance ports.
-    void handle(const slang::ast::InstanceSymbol &inst) {
-      // Iterate through all inout/outout ports to find the connections.
-      for (const slang::ast::PortConnection *conn : inst.getPortConnections()) {
-        if (const auto *port = conn->port.as_if<slang::ast::PortSymbol>()) {
-          if (port->direction != slang::ast::ArgumentDirection::In) {
-            if (const slang::ast::Expression *expr = conn->getExpression()) {
-              checking_driving_port_ = true;
-              expr->visit(*this);
-              checking_driving_port_ = false;
-            }
-          }
-        }
-      }
-    }
-    // The module's input or inout ports could be a driver too.
-    void handle(const slang::ast::PortSymbol &port) {
-      if (port.direction != slang::ast::ArgumentDirection::Out && port.internalSymbol != nullptr &&
-          port.internalSymbol == sym_) {
-        drivers_.push_back(&port);
-      }
-    }
-    // Assignments: only check the left side. Note that this also covers task/function call output
-    // arguments.
-    void handle(const slang::ast::AssignmentExpression &assignment) {
-      checking_lhs_ = true;
-      assignment.left().visit(*this);
-      checking_lhs_ = false;
-    }
-    // For selection expressions, only check the value, not the selector.
-    void handle(const slang::ast::RangeSelectExpression &expr) { expr.value().visit(*this); }
-    void handle(const slang::ast::ElementSelectExpression &expr) { expr.value().visit(*this); }
-    // Under the right conditions, named-value expressions matching the symbol are saved as drivers.
-    void handle(const slang::ast::NamedValueExpression &nve) {
-      if (&nve.symbol != sym_) return;
-      if (checking_driving_port_ || checking_lhs_) {
-        drivers_.push_back(&nve);
-      }
-    }
-    // Skip instances without a definition, since the port directions are unknown.
-    void handle(const slang::ast::UninstantiatedDefSymbol &uninst) {}
-
-   private:
-    const slang::ast::Symbol *sym_;
-    std::vector<SlangDriverOrLoad> &drivers_;
-    bool checking_driving_port_ = false;
-    bool checking_lhs_ = false;
-  };
-
   std::vector<SlangDriverOrLoad> drivers;
   // Look only in the containing instance.
   const slang::ast::InstanceBodySymbol *body = GetContainingInstance(sym);
   if (body == nullptr) return drivers;
-  DriverFinder df(sym, drivers);
+  DriverOrLoadFinder</*DRIVERS*/ true> df(sym, drivers);
   body->visit(df);
-
   return drivers;
 }
 
 std::vector<SlangDriverOrLoad> GetLoads(const slang::ast::Symbol *sym) {
   std::vector<SlangDriverOrLoad> loads;
+  // Look only in the containing instance.
+  const slang::ast::InstanceBodySymbol *body = GetContainingInstance(sym);
+  if (body == nullptr) return loads;
+  DriverOrLoadFinder</*DRIVERS*/ false> lf(sym, loads);
+  body->visit(lf);
   return loads;
 }
 
