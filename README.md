@@ -1,13 +1,12 @@
 # simview
 Simview is a text-based SystemVerilog design browser and waveform viewer. As an
-[ncurses](https://en.wikipedia.org/wiki/Ncurses) TUI application, it has very
-little library dependencies and can be easily run over an SSH connection in
-your favorite terminal emulator. Control of the UI is intuitive and fully
-keyboard shortcut driven. While that may sound contradictory, there is nice
-contextual help for every function.
+[ncurses](https://en.wikipedia.org/wiki/Ncurses) TUI application, it has very little library
+dependencies and can be easily run over an SSH connection in your favorite terminal emulator.
+Control of the UI is intuitive and fully keyboard shortcut driven. While that may sound
+contradictory, there is nice contextual help for every function.
 
-Simview is generally meant to debug and analyze hardware designs written in
-SystemVerilog. Support for non-synthesizable testbench code is limited.
+Simview is generally meant to debug and analyze hardware designs written in SystemVerilog. Support
+for non-synthesizable testbench code is limited.
 
 ![Screenshot](simview.png)
 
@@ -20,12 +19,10 @@ SystemVerilog. Support for non-synthesizable testbench code is limited.
 * Search source code and signal lists.
 
 ## Usage
-Simview can be launched with either a VCD/FST wave file, a SystemVerilog
-design, or both. To load a wave file use the `-waves <file>` command line
-option. All other command line options are passed to the Surelog parser. These
-generally match most EDA tools, with things like `-timescale`, `+incdir`,
-`+define=val` etc. Use `-help` to get the full list of parsing options from
-Surelog.
+Simview can be launched with either a VCD/FST wave file, a SystemVerilog design, or both. To load a
+wave file use the `-waves <file>` command line option. All other command line options are passed to
+the slang parser. These generally match most EDA tools, with things like `-timescale`, `+incdir`,
+    `+define=val` etc. Use `-help` to get the full list of parsing options from slang.
 Tips for UI navigation:
   * Use Tab to cycle through the available panes.
   * Keep an eye on the bottom tooltip bar for available commands.
@@ -34,9 +31,8 @@ Tips for UI navigation:
   * vim-style hjkl keys generally work. Also $^ for horizontal and gG for vertical movement.
 
 ## Build
-Simview is written with C++17 and uses CMake as the build system. Linux or Linux under WSL are
-currently the only supported platforms, no native Windows or MacOSX support at the
-moment.
+Simview is written with C++20 and uses CMake as the build system. Linux or Linux under WSL are
+currently the only supported platforms, no native Windows or MacOSX support at the moment.
 
 1. Install pre-requisite packages (Ubuntu 20.04 LTS)
   * `sudo apt install build-essential cmake git pkg-config tclsh swig uuid-dev ninja-build
