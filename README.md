@@ -26,7 +26,7 @@ the slang parser. These generally match most EDA tools, with things like `-times
 Tips for UI navigation:
   * Use Tab to cycle through the available panes.
   * Keep an eye on the bottom tooltip bar for available commands.
-  * Ctrl-arrow keys to resize UI panes.
+  * Ctrl-HJKL keys to resize UI panes.
   * Enter/space to expand collapse tree items.
   * vim-style hjkl keys generally work. Also $^ for horizontal and gG for vertical movement.
 
