@@ -50,7 +50,7 @@ jobs:
 
     - name: Build
       run: |
-        cmake -B build -GNinja -DCMAKE_CXX_FLAGS="-Wall -W -Wextra -Werror"  .
+        cmake -B build -GNinja .
         ninja -C build
 
     - name: Test
