@@ -30,6 +30,7 @@ class UI {
   void UpdateTooltips();
   void Draw() const;
   void DrawHelp(int panel_idx) const;
+  void ReloadWaves();
 
   std::unique_ptr<DesignTreePanel> design_tree_panel_;
   std::unique_ptr<SourcePanel> source_panel_;

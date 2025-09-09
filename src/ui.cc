@@ -70,6 +70,7 @@ void UI::UpdateTooltips() {
         {.hotkeys = "C-p",
          .description =
              std::string(layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE") + " picker"});
+    tooltips_.push_back({.hotkeys = "C-r", .description = "Reload waves"});
   }
   if (panels_[focused_panel_idx_]->Searchable()) {
     tooltips_.push_back({"/nN", "search"});
@@ -150,6 +151,21 @@ UI::UI() : search_box_("/") {
 UI::~UI() {
   // Cleanup ncurses
   endwin();
+}
+
+void UI::ReloadWaves() {
+  for (Panel *p : panels_) {
+    p->PrepareForWaveDataReload();
+  }
+  Workspace::Get().Waves()->Reload();
+  Workspace::Get().TryMatchDesignWithWaves();
+  for (Panel *p : panels_) {
+    p->HandleReloadedWaves();
+  }
+  //  Force a refresh on the signals in the refreshed wave data tree.
+  if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
+    wave_signals_panel_->SetScope(*scope);
+  }
 }
 
 void UI::EventLoop() {
@@ -263,6 +279,13 @@ void UI::EventLoop() {
               focused_panel_idx_ = panels_.size() - 1;
             }
             LayoutPanels();
+          }
+          break;
+        case 0x12: // ctrl-R
+          if (layout_.has_waves && (panels_[focused_panel_idx_] == waves_panel_.get() ||
+                                    panels_[focused_panel_idx_] == wave_tree_panel_.get() ||
+                                    panels_[focused_panel_idx_] == wave_signals_panel_.get())) {
+            ReloadWaves();
           }
           break;
         case 0x9:     // tab

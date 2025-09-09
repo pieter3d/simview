@@ -792,6 +792,7 @@ void SourcePanel::SetItem(const slang::ast::Symbol *item, bool save_state) {
 
   SetLineAndScroll(line_idx);
   BuildHeader();
+  // TODO: This is overkill, reading all wave data on every item set.
   UpdateWaveData();
 }
 

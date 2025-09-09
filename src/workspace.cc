@@ -48,6 +48,7 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
               << "\n";
     return 0;
   }
+  bool design_ok = false;
   if (try_read_design && slang_driver_->processOptions()) {
     std::cout << "Parsing files...\n";
     if (!slang_driver_->parseAllSources()) return false;
@@ -65,11 +66,14 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
       std::cin.get();
     }
     design_root_ = &slang_compilation_->getRoot();
+    design_ok = true;
   }
 
+  bool waves_ok = false;
   if (waves_file) {
     try {
       wave_data_ = WaveData::ReadWaveFile(*waves_file, *keep_glitches);
+      waves_ok = true;
     } catch (std::runtime_error &e) {
       std::cout << "Problem reading waves: " << e.what() << "\n";
       return false;
@@ -78,7 +82,7 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
     sv::Workspace::Get().TryMatchDesignWithWaves();
   }
 
-  return true;
+  return design_ok || waves_ok;
 }
 
 void Workspace::TryMatchDesignWithWaves() {

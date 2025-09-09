@@ -21,6 +21,7 @@ void WaveDataTreePanel::BuildInitialTree() {
 WaveDataTreePanel::WaveDataTreePanel() { BuildInitialTree(); }
 
 void WaveDataTreePanel::HandleReloadedWaves() {
+  data_.Clear();
   BuildInitialTree();
   scope_for_signals_ = dynamic_cast<WaveDataTreeItem *>(data_[line_idx_])->SignalScope();
 }

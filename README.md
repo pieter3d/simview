@@ -61,7 +61,6 @@ A list of features that have not yet been implemented.
 * Expose local variables in always blocks?
 * Time multiplier for waves (e.g. wave 1 unit is really X us/ns/ps/)
 * Wave + source should be able to figure out enums in waves.
-* Reload waves, and possibly live updates.
 * Search for value in wave.
 * Analog signals.
 * Detect unrolled arrays in waves, make them expandable in the waveforms
