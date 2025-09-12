@@ -41,7 +41,7 @@ class WavesPanel : public Panel {
     // Member data.
     Radix radix = Radix::kHex;
     const WaveData::Signal *signal = nullptr;
-    int analog_size = 1;
+    int analog_rows = 0;
     int depth = 0;
     int custom_color = -1;
     // Members when this item represents a group container.

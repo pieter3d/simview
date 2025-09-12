@@ -1,25 +1,62 @@
 #include "radix.h"
 #include "absl/strings/str_format.h"
+#include <optional>
 
 namespace sv {
-std::string FormatValue(const std::string &bin, Radix radix,
-                        bool leading_zeroes, bool drop_size) {
+
+namespace {
+
+int64_t SignExtend(uint64_t val, int bits) {
+  if (val & (1ull << (bits - 1))) return val | (static_cast<uint64_t>(-1) << bits);
+  return val;
+}
+
+template <typename T>
+std::optional<T> BinStringCast(std::string_view bin) {
+  std::optional<uint64_t> val_or = BinStringToUnsigned(bin);
+  if (!val_or) return std::nullopt;
+  const uint64_t val = *val_or;
+  T t;
+  memcpy(&t, &val, sizeof(T));
+  return t;
+}
+
+} // namespace
+
+std::optional<uint64_t> BinStringToUnsigned(std::string_view bin) {
+  if (bin.size() > 64) return std::nullopt;
+  uint64_t val = 0;
+  for (char ch : bin) {
+    if (ch != '0' && ch != '1') return std::nullopt;
+    val <<= 1;
+    val |= ch == '1';
+  }
+  return val;
+}
+
+std::optional<float> BinStringToFp32(std::string_view bin) { return BinStringCast<float>(bin); }
+
+std::optional<double> BinStringToFp64(std::string_view bin) { return BinStringCast<double>(bin); }
+
+std::optional<int64_t> BinStringToSigned(std::string_view bin) {
+  std::optional<uint64_t> val_or = BinStringToUnsigned(bin);
+  if (!val_or) return std::nullopt;
+  return SignExtend(*val_or, bin.size());
+}
+
+std::string FormatValue(const std::string &bin, Radix radix, bool leading_zeroes, bool drop_size) {
   if (radix == Radix::kUnsignedDecimal || radix == Radix::kSignedDecimal ||
       radix == Radix::kFloat) {
     // These formats can use a real machine type and therefore take advantage of
     // printf style formatting.
-    uint64_t val = 0;
-    for (int i = 0; i < bin.size(); ++i) {
-      const char ch = std::tolower(bin[bin.size() - 1 - i]);
-      if (ch == 'z' || ch == 'x') return "x";
-      if (bin[bin.size() - 1 - i] == '1') val |= 1ull << i;
-    }
+    std::optional<uint64_t> maybe_val = BinStringToUnsigned(bin);
+    if (!maybe_val) return "x";
+    uint64_t val = *maybe_val;
     if (radix == Radix::kUnsignedDecimal) {
-      return (drop_size ? "" : absl::StrFormat("%d'd", bin.size())) +
-             absl::StrFormat("%lu", val);
+      return (drop_size ? "" : absl::StrFormat("%d'd", bin.size())) + absl::StrFormat("%lu", val);
     } else if (radix == Radix::kSignedDecimal) {
-      return (drop_size ? "" : absl::StrFormat("%d'sd", bin.size())) +
-             absl::StrFormat("%ld", val);
+      int64_t sval = SignExtend(val, bin.size());
+      return (drop_size ? "" : absl::StrFormat("%d'sd", bin.size())) + absl::StrFormat("%ld", sval);
     } else if (bin.size() == 32) {
       float f;
       memcpy(&f, &val, sizeof(float));

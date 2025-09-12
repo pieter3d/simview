@@ -5,6 +5,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "color.h"
+#include "src/wave_image.h"
 #include "utils.h"
 #include "workspace.h"
 #include <algorithm>
@@ -15,6 +16,8 @@
 namespace sv {
 
 namespace {
+
+constexpr int kMaxAnalogHeight = 20;
 constexpr float kZoomStep = 0.75;
 constexpr int kSmallestUnit = -18;
 constexpr int kMinCharsPerTick = 12;
@@ -299,10 +302,12 @@ void WavesPanel::Draw() {
   }
 
   // Render signals, values and waves.
-  for (int row = 1; row < max_h; ++row) {
-    const int list_idx = row - 1 + scroll_row_;
+  int list_idx = scroll_row_;
+  int row = 1;
+  while (row < max_h) {
     if (list_idx >= visible_items_.size()) break;
-    const auto *item = visible_items_[list_idx];
+    const ListItem *item = visible_items_[list_idx];
+    const bool analog = item->analog_rows > 0;
     const bool highlight = multi_line_idx_ < 0
                                ? list_idx == line_idx_
                                : (list_idx >= std::min(line_idx_, multi_line_idx_) &&
@@ -377,6 +382,8 @@ void WavesPanel::Draw() {
       }
 
       // Nothing more to do for blanks/groups.
+      list_idx++;
+      row++;
       continue;
     }
 
@@ -394,7 +401,7 @@ void WavesPanel::Draw() {
     // Compressed multi-bit signals
     //   ||||=||||||=||||||||||||||||
     //
-    const auto &wave = wave_data_->Wave(item->signal);
+    const std::vector<WaveData::Sample> &wave = wave_data_->Wave(item->signal);
     if (wave.empty()) {
       SetColor(w_, kWavesXPair);
       std::string msg(" No wave data available for " + item->Name());
@@ -430,116 +437,132 @@ void WavesPanel::Draw() {
     } else {
       SetColor(w_, kWavesWaveformPair + highlight);
     }
-    // Draw charachter by charachter
-    wmove(w_, row, wave_x);
-    for (int x = 0; x < max_w - wave_x; ++x) {
-      // Find what sample index corresponds to the right edge of this character.
-      const int right_sample_idx = wave_data_->FindSampleIndex(
-          left_time_ + (1 + x) * time_per_char, item->signal, left_sample_idx, wave.size() - 1);
-      int num_transitions = right_sample_idx - left_sample_idx;
-      if (num_transitions > 0) {
-        // See if anything has X or Z in it. Scan only the new values.
-        bool has_x = false;
-        bool has_z = false;
-        for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
-          has_x |= wave[i].value.find_first_of("xX") != std::string::npos;
-          has_z |= wave[i].value.find_first_of("zZ") != std::string::npos;
-        }
-        // Update color.
-        if (item->custom_color >= 0) {
-          SetColor(w_, kWavesCustomPair + 2 * item->custom_color + highlight);
-        } else if (has_x) {
-          SetColor(w_, kWavesXPair + highlight);
-        } else if (has_z) {
-          SetColor(w_, kWavesZPair + highlight);
+    // Each wave is nominally 1 row, but analog waveforms might take up several.
+    const int num_rows = item->analog_rows > 1 ? item->analog_rows : 1;
+    std::optional<WaveImage> analog_image;
+    if (analog) {
+      // TODO
+    }
+    for (int render_row = 0; render_row < num_rows && row < max_h; render_row++, row++) {
+      // Draw charachter by charachter
+      wmove(w_, row, wave_x);
+      for (int x = 0; x < max_w - wave_x; ++x) {
+        if (analog) {
+          // TODO
         } else {
-          SetColor(w_, kWavesWaveformPair + highlight);
-        }
-      }
-      if (multi_bit) {
-        if (num_transitions == 0) {
-          if (unicode_) {
-            AddUnicodeChar(w_, U'\U0001fb80');
-          } else {
-            waddch(w_, '=');
-          }
-        } else {
-          if (unicode_) {
-            AddUnicodeChar(w_, u'\u2573'); // X-type character.
-          } else {
-            waddch(w_, '|');
-          }
-          // Only save value locations if they are at least 3 characters.
-          if (x - wvi.xpos >= 3) {
-            wvi.size = x - wvi.xpos;
-            wvi.value = FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_,
-                                    /*drop_size*/ true);
-            wave_value_list.push_back(wvi);
-          }
-          wvi.xpos = x;
-          wvi.time = wave[right_sample_idx].time;
-          wave_value_idx = right_sample_idx;
-        }
-      } else {
-        int value_idx = 0;
-        if (item->expanded_bit_idx >= 0) {
-          value_idx = item->signal->width - item->expanded_bit_idx - 1;
+          // Find what sample index corresponds to the right edge of this character.
+          const int right_sample_idx = wave_data_->FindSampleIndex(
+              left_time_ + (1 + x) * time_per_char, item->signal, left_sample_idx, wave.size() - 1);
+          int num_transitions = right_sample_idx - left_sample_idx;
           if (num_transitions > 0) {
-            num_transitions = 0;
+            // See if anything has X or Z in it. Scan only the new values.
+            bool has_x = false;
+            bool has_z = false;
             for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
-              if (wave[i - 1].value[value_idx] != wave[i].value[value_idx]) {
-                num_transitions++;
+              has_x |= wave[i].value.find_first_of("xX") != std::string::npos;
+              has_z |= wave[i].value.find_first_of("zZ") != std::string::npos;
+            }
+            // Update color.
+            if (item->custom_color >= 0) {
+              SetColor(w_, kWavesCustomPair + 2 * item->custom_color + highlight);
+            } else if (has_x) {
+              SetColor(w_, kWavesXPair + highlight);
+            } else if (has_z) {
+              SetColor(w_, kWavesZPair + highlight);
+            } else {
+              SetColor(w_, kWavesWaveformPair + highlight);
+            }
+          }
+          if (multi_bit) {
+            if (num_transitions == 0) {
+              if (unicode_) {
+                AddUnicodeChar(w_, U'\U0001fb80');
+              } else {
+                waddch(w_, '=');
+              }
+            } else {
+              if (unicode_) {
+                AddUnicodeChar(w_, u'\u2573'); // X-type character.
+              } else {
+                waddch(w_, '|');
+              }
+              // Only save value locations if they are at least 3 characters.
+              if (x - wvi.xpos >= 3) {
+                wvi.size = x - wvi.xpos;
+                wvi.value = FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_,
+                                        /*drop_size*/ true);
+                wave_value_list.push_back(wvi);
+              }
+              wvi.xpos = x;
+              wvi.time = wave[right_sample_idx].time;
+              wave_value_idx = right_sample_idx;
+            }
+          } else {
+            int value_idx = 0;
+            if (item->expanded_bit_idx >= 0) {
+              value_idx = item->signal->width - item->expanded_bit_idx - 1;
+              if (num_transitions > 0) {
+                num_transitions = 0;
+                for (int i = left_sample_idx + 1; i <= right_sample_idx; ++i) {
+                  if (wave[i - 1].value[value_idx] != wave[i].value[value_idx]) {
+                    num_transitions++;
+                  }
+                }
+              }
+            }
+            if (num_transitions == 0) {
+              const bool low = wave[left_sample_idx].value[value_idx] == '0';
+              if (unicode_) {
+                AddUnicodeChar(w_, low ? u'\u2581' : u'\u2594');
+              } else {
+                waddch(w_, low ? '_' : '^');
+              }
+            } else if (num_transitions == 1) {
+              const bool rise = wave[left_sample_idx].value[value_idx] == '0';
+              if (unicode_) {
+                AddUnicodeChar(w_, rise ? u'\u2571' : u'\u2572');
+              } else
+                waddch(w_, rise ? '/' : '\\');
+            } else {
+              if (unicode_) {
+                AddUnicodeChar(w_, u'\u2573'); // X-type character.
+              } else {
+                waddch(w_, '|');
               }
             }
           }
-        }
-        if (num_transitions == 0) {
-          const bool low = wave[left_sample_idx].value[value_idx] == '0';
-          if (unicode_) {
-            AddUnicodeChar(w_, low ? u'\u2581' : u'\u2594');
-          } else {
-            waddch(w_, low ? '_' : '^');
-          }
-        } else if (num_transitions == 1) {
-          const bool rise = wave[left_sample_idx].value[value_idx] == '0';
-          if (unicode_) {
-            AddUnicodeChar(w_, rise ? u'\u2571' : u'\u2572');
-          } else
-            waddch(w_, rise ? '/' : '\\');
-        } else {
-          if (unicode_) {
-            AddUnicodeChar(w_, u'\u2573'); // X-type character.
-          } else {
-            waddch(w_, '|');
-          }
-        }
+          left_sample_idx = right_sample_idx;
+        } // if not analog
       }
-      left_sample_idx = right_sample_idx;
     }
     // Add the remaining wave value if possible, sized against the right edge.
-    if (multi_bit && max_w - wave_x - wvi.xpos >= 3) {
+    if (multi_bit && max_w - wave_x - wvi.xpos >= 3 && !analog) {
       wvi.size = max_w - wave_x - wvi.xpos;
       wvi.value =
           FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_, /*drop_size*/ true);
       wave_value_list.push_back(wvi);
     }
 
-    // Draw waveform values inline where possible.
-    SetColor(w_, kWavesInlineValuePair + highlight);
-    for (const auto &wv : wave_value_list) {
-      int start_pos, char_offset;
-      if (wv.size - 1 < wv.value.size()) {
-        start_pos = wv.xpos + 1;
-        char_offset = wv.value.size() - wv.size + 1;
-      } else {
-        start_pos = wv.xpos + wv.size / 2 - wv.value.size() / 2;
-        char_offset = 0;
-      }
-      wmove(w_, row, start_pos + wave_x);
-      for (int i = char_offset; i < wv.value.size(); ++i) {
-        waddch(w_, (i == char_offset && char_offset != 0) ? '.' : wv.value[i]);
+    if (!analog) {
+      // Draw waveform values inline where possible.
+      SetColor(w_, kWavesInlineValuePair + highlight);
+      for (const auto &wv : wave_value_list) {
+        int start_pos, char_offset;
+        if (wv.size - 1 < wv.value.size()) {
+          start_pos = wv.xpos + 1;
+          char_offset = wv.value.size() - wv.size + 1;
+        } else {
+          start_pos = wv.xpos + wv.size / 2 - wv.value.size() / 2;
+          char_offset = 0;
+        }
+        // Draw on row-1, since row was already incremented after rendering the wave.
+        wmove(w_, row-1, start_pos + wave_x);
+        for (int i = char_offset; i < wv.value.size(); ++i) {
+          waddch(w_, (i == char_offset && char_offset != 0) ? '.' : wv.value[i]);
+        }
       }
     }
+    list_idx++;
   }
 
   // Draw the cursor and markers.
@@ -609,7 +632,7 @@ void WavesPanel::Draw() {
 void WavesPanel::UIChar(int ch) {
   // Convenience.
   double time_per_char = std::max(1.0, TimePerChar());
-  auto *item = visible_items_[line_idx_];
+  ListItem *item = visible_items_[line_idx_];
 
   bool time_changed = false;
   bool range_changed = false;
@@ -860,6 +883,12 @@ void WavesPanel::UIChar(int ch) {
       break;
     case 0x15: // Ctrl-u
       unicode_ = !unicode_;
+      break;
+    case 'a':
+      if (item->analog_rows < kMaxAnalogHeight) item->analog_rows++;
+      break;
+    case 'A':
+      if (item->analog_rows > 0) item->analog_rows--;
       break;
     default: Panel::UIChar(ch);
     }
@@ -1149,6 +1178,7 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
       {"C-z", "Zoom cursor-marker"},
       {"eE", "Prev/next edge"},
       {"sS", "Adjust size"},
+      {"aA", "Analog size"},
       {"0", "Show leading zeroes"},
       {"c", "Change signal color"},
       {"p", "Show full signal path"},

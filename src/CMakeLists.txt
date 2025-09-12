@@ -40,6 +40,7 @@ add_executable(simview
   wave_data.cc
   wavedata_tree_item.cc
   wavedata_tree_panel.cc
+  wave_image.cc
   wave_signals_panel.cc
   waves_panel.cc
   workspace.cc
