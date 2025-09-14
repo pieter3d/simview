@@ -57,12 +57,9 @@ A list of features that have not yet been implemented.
 * A colorscheme that works with white backgrounds.
 * Polish: Syntax highlighting of macros
 * Source window: Need a clean way to add multiple signals from the source to the waves at once.
-* Expose local nets in functions and tasks
-* Expose local variables in always blocks?
 * Time multiplier for waves (e.g. wave 1 unit is really X us/ns/ps/)
 * Wave + source should be able to figure out enums in waves.
 * Search for value in wave.
-* Analog signals.
 * Detect unrolled arrays in waves, make them expandable in the waveforms
 * Lazy / on-demand loading of VCD wave data. Not clear if this is useful since
   loading anything requires parsing the whole file anyway.

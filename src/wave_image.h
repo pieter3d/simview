@@ -22,6 +22,8 @@ class WaveImage {
   std::vector<bool> buffer_;
 };
 
+enum class AnalogWaveType { kSampleAndHold = 0, kLinear };
+
 struct WaveImageConfig {
   int char_w;
   int char_h;
@@ -30,8 +32,12 @@ struct WaveImageConfig {
   uint64_t left_time;
   uint64_t right_time;
   Radix radix = Radix::kBinary;
+  AnalogWaveType analog_type;
 };
 
 WaveImage RenderWaves(const WaveImageConfig &cfg, const std::vector<WaveData::Sample> &wave);
+
+// Returns a close-enough ASCII character for the given braille pattern.
+char BraillePatternToAscii(uint8_t b);
 
 } // namespace sv

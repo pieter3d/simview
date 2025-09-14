@@ -162,8 +162,8 @@ void WavesPanel::FindEdge(bool forward, bool *time_changed, bool *range_changed)
 void WavesPanel::SnapToValue() {
   const auto *item = visible_items_[line_idx_];
   if (item->signal == nullptr) return;
-  auto time_per_char = TimePerChar();
-  auto &wave = wave_data_->Wave(item->signal);
+  const double time_per_char = TimePerChar();
+  const std::vector<WaveData::Sample> &wave = wave_data_->Wave(item->signal);
   // See if there is an edge within the current cursor's character span
   const uint64_t left_time = left_time_ + cursor_pos_ * time_per_char;
   const uint64_t right_time = left_time_ + (cursor_pos_ + 1) * time_per_char;
@@ -416,7 +416,7 @@ void WavesPanel::Draw() {
     int left_sample_idx = wave_data_->FindSampleIndex(left_time_, item->signal);
     // Save the locations of transitions and times to fill in values.
     struct WaveValueInfo {
-      int xpos;
+      int xpos = 0;
       int size;
       uint64_t time;
       std::string value;
@@ -441,14 +441,27 @@ void WavesPanel::Draw() {
     const int num_rows = item->analog_rows > 1 ? item->analog_rows : 1;
     std::optional<WaveImage> analog_image;
     if (analog) {
-      // TODO
+      const WaveImageConfig cfg = {
+          .char_w = max_w - wave_x,
+          .char_h = item->analog_rows,
+          .left_idx = left_sample_idx,
+          .left_time = left_time_,
+          .right_time = right_time_,
+          .radix = item->radix,
+          .analog_type = item->analog_type,
+      };
+      analog_image.emplace(RenderWaves(cfg, wave));
     }
     for (int render_row = 0; render_row < num_rows && row < max_h; render_row++, row++) {
       // Draw charachter by charachter
       wmove(w_, row, wave_x);
       for (int x = 0; x < max_w - wave_x; ++x) {
         if (analog) {
-          // TODO
+          if (unicode_) {
+            AddUnicodeChar(w_, analog_image->GetBrailleChar(x, render_row));
+          } else {
+            waddch(w_, BraillePatternToAscii(analog_image->GetBrailleChar(x, render_row)));
+          }
         } else {
           // Find what sample index corresponds to the right edge of this character.
           const int right_sample_idx = wave_data_->FindSampleIndex(
@@ -486,7 +499,8 @@ void WavesPanel::Draw() {
               } else {
                 waddch(w_, '|');
               }
-              // Only save value locations if they are at least 3 characters.
+              // Only save value locations if they are at least 3 characters, comparing against the
+              // previous one.
               if (x - wvi.xpos >= 3) {
                 wvi.size = x - wvi.xpos;
                 wvi.value = FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_,
@@ -546,17 +560,17 @@ void WavesPanel::Draw() {
     if (!analog) {
       // Draw waveform values inline where possible.
       SetColor(w_, kWavesInlineValuePair + highlight);
-      for (const auto &wv : wave_value_list) {
+      for (const WaveValueInfo &wv : wave_value_list) {
         int start_pos, char_offset;
         if (wv.size - 1 < wv.value.size()) {
           start_pos = wv.xpos + 1;
           char_offset = wv.value.size() - wv.size + 1;
         } else {
-          start_pos = wv.xpos + wv.size / 2 - wv.value.size() / 2;
+          start_pos = wv.xpos + 1 + (wv.size - 1) / 2 - wv.value.size() / 2;
           char_offset = 0;
         }
         // Draw on row-1, since row was already incremented after rendering the wave.
-        wmove(w_, row-1, start_pos + wave_x);
+        wmove(w_, row - 1, start_pos + wave_x);
         for (int i = char_offset; i < wv.value.size(); ++i) {
           waddch(w_, (i == char_offset && char_offset != 0) ? '.' : wv.value[i]);
         }
@@ -568,19 +582,23 @@ void WavesPanel::Draw() {
   // Draw the cursor and markers.
   const auto draw_vline = [&](int row, int col) {
     const int current_line = 1 + line_idx_ - scroll_row_;
-    if (visible_items_[line_idx_]->signal != nullptr) {
+    if (visible_items_[line_idx_]->signal != nullptr &&
+        visible_items_[line_idx_]->analog_rows == 0) {
       // Draw the line in two sections, above and below the current line to
-      // avoid overwriting the drawn wave.
+      // avoid overwriting the drawn wave. Draw over analog waves though.
       if (current_line > row) {
         mvwvline(w_, row, col, ACS_VLINE, current_line - row);
       }
-      if (current_line < max_h - 1) {
-        mvwvline(w_, current_line + 1, col, ACS_VLINE, max_h - current_line - 1);
+      const int next_line_start =
+          current_line + std::max(1, visible_items_[line_idx_]->analog_rows);
+      if (next_line_start < max_h) {
+        mvwvline(w_, next_line_start, col, ACS_VLINE, max_h - next_line_start);
       }
     } else {
       mvwvline(w_, row, col, ACS_VLINE, max_h - row);
     }
   };
+  // Helper to see if the marker should start under the current time, to avoid covering it.
   auto vline_row = [&](int col) { return col >= time_width ? 0 : 1; };
   for (int i = -1; i < 10; ++i) {
     const uint64_t time = i < 0 ? marker_time_ : numbered_marker_times_[i];
@@ -590,17 +608,17 @@ void WavesPanel::Draw() {
       std::string marker_label = "m";
       if (i >= 0) marker_label += '0' + i;
       SetColor(w_, kWavesMarkerPair);
-      const int col = wave_x + marker_pos;
-      const int row = vline_row(wave_x + marker_pos);
-      draw_vline(row, col);
+      const int marker_col = wave_x + marker_pos;
+      const int marker_row = vline_row(wave_x + marker_pos);
+      draw_vline(marker_row, marker_col);
       if (marker_pos + marker_label.size() < max_w) {
-        mvwaddstr(w_, row, col, marker_label.c_str());
+        mvwaddstr(w_, marker_row, marker_col, marker_label.c_str());
       }
     }
   }
   // Also the interactive cursor.
-  int cursor_col = wave_x + cursor_pos_;
-  int cursor_row = vline_row(cursor_col);
+  const int cursor_col = wave_x + cursor_pos_;
+  const int cursor_row = vline_row(cursor_col);
   SetColor(w_, kWavesCursorPair);
   draw_vline(cursor_row, cursor_col);
 
@@ -636,6 +654,7 @@ void WavesPanel::UIChar(int ch) {
 
   bool time_changed = false;
   bool range_changed = false;
+  bool edge_search = false;
   // Most actions cancel multi-line.
   bool cancel_multi_line = true;
   if (showing_path_) {
@@ -846,7 +865,10 @@ void WavesPanel::UIChar(int ch) {
       }
       break;
     case 'e':
-    case 'E': FindEdge(ch == 'e', &time_changed, &range_changed); break;
+    case 'E':
+      FindEdge(ch == 'e', &time_changed, &range_changed);
+      edge_search = true;
+      break;
     case 'r':
       if (item->signal != nullptr) {
         item->CycleRadix();
@@ -890,11 +912,14 @@ void WavesPanel::UIChar(int ch) {
     case 'A':
       if (item->analog_rows > 0) item->analog_rows--;
       break;
+    case 0x1: // Ctrl-a
+      item->CycleAnalogType();
+      break;
     default: Panel::UIChar(ch);
     }
   }
   if (time_changed) {
-    SnapToValue();
+    if (!edge_search) SnapToValue();
     UpdateValues();
   }
   if (range_changed) UpdateWaves();
@@ -1168,9 +1193,6 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
         {"-", "default color"},
     };
   }
-  // TODO: Missing features
-  // "C-r": "Reload",
-  // "aA" : "Adjust analog height",
   std::vector<Tooltip> tt{
       {"zZ", "Zoom"},
       {"F", "Zoom full"},
@@ -1179,25 +1201,26 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
       {"eE", "Prev/next edge"},
       {"sS", "Adjust size"},
       {"aA", "Analog size"},
-      {"0", "Show leading zeroes"},
-      {"c", "Change signal color"},
-      {"p", "Show full signal path"},
+      {"C-a", "Analog type"},
+      {"0", "Leading zeroes"},
+      {"c", "Signal color"},
+      {"p", "Show path"},
       {"T", "Go to time"},
       {"t", "Cycle time units"},
       {"m", "Place marker"},
-      {"M", "Place numbered marker"},
+      {"M", "Place # marker"},
       {"C-g", "Create group"},
       {"R", "Rename group"},
-      {"UD", "Move signal up / down"},
-      {"b", "Insert blank signal"},
-      {"x", "Delete highlighted signal"},
-      {"r", "Cycle signal radix"},
+      {"UD", "Move signal up/dn"},
+      {"b", "Insert blank"},
+      {"x", "Delete"},
+      {"r", "Cycle radix"},
       {"C-u", "Toggle Unicode"},
       {"C-o", "Open list file"},
       {"C-s", "Save list file"},
   };
   if (Workspace::Get().Design() != nullptr) {
-    tt.push_back({"d", "Show signal declaration in source"});
+    tt.push_back({"d", "Declaration"});
   }
   return tt;
 }
@@ -1215,6 +1238,13 @@ void WavesPanel::ListItem::CycleRadix() {
     radix = signal->width == 32 || signal->width == 64 ? Radix::kFloat : Radix::kHex;
     break;
   case Radix::kFloat: radix = Radix::kHex; break;
+  }
+}
+
+void WavesPanel::ListItem::CycleAnalogType() {
+  switch (analog_type) {
+  case AnalogWaveType::kLinear: analog_type = AnalogWaveType::kSampleAndHold; break;
+  case AnalogWaveType::kSampleAndHold: analog_type = AnalogWaveType::kLinear; break;
   }
 }
 

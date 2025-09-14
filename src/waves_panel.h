@@ -5,6 +5,7 @@
 #include "radix.h"
 #include "text_input.h"
 #include "wave_data.h"
+#include "wave_image.h"
 
 namespace sv {
 
@@ -38,10 +39,12 @@ class WavesPanel : public Panel {
     // Helpers
     std::string Name() const;
     void CycleRadix();
+    void CycleAnalogType();
     // Member data.
     Radix radix = Radix::kHex;
     const WaveData::Signal *signal = nullptr;
     int analog_rows = 0;
+    AnalogWaveType analog_type = AnalogWaveType::kSampleAndHold;
     int depth = 0;
     int custom_color = -1;
     // Members when this item represents a group container.
