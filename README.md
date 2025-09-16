@@ -36,14 +36,14 @@ currently the only supported platforms, no native Windows or MacOSX support at t
 
 1. Install pre-requisite packages (Ubuntu 20.04 LTS)
   * `sudo apt install build-essential cmake git pkg-config tclsh swig uuid-dev ninja-build
-      libgoogle-perftools-dev python3 python3-orderedmultidict python3-dev default-jre lcov libncurses-dev`
+     python3 python3-orderedmultidict python3-dev libncurses-dev`
 1. Build simview:
   * `git clone git@github.com:pieter3d/simview.git`
   * `cd simview`
   * `mkdir build`
   * `cd build`
   * `cmake ..` or `cmake -GNinja ..`
-  * `make`
+  * `make` or `ninja`
 
 ## TODO
 A list of features that have not yet been implemented.
