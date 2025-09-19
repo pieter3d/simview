@@ -19,5 +19,8 @@ std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit);
 // Return nullopt if the file doesn't exist, otherwise the true path accounting
 // for expanded home directory tilde and environment variables.
 std::optional<std::string> ActualFileName(const std::string &file_name);
+// Same as above, but with a way to allow non-existant files to be returned (e.g. a new file with an
+// environment variable in the name.
+std::optional<std::string> ActualFileName(const std::string &file_name, bool allow_noexist);
 
 } // namespace sv

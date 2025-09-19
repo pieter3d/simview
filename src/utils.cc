@@ -6,9 +6,7 @@
 
 namespace sv {
 
-int NumDecimalDigits(int n) {
-  return 1 + std::floor(std::log10(n));
-}
+int NumDecimalDigits(int n) { return 1 + std::floor(std::log10(n)); }
 
 std::string AddDigitSeparators(uint64_t val) {
   std::string val_digits = absl::StrFormat("%ld", val);
@@ -31,8 +29,7 @@ std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit) {
   }
   // See if some kind of unit was typed.
   int suffix_pos = t.size();
-  while (suffix_pos > 0 &&
-         (t[suffix_pos - 1] < '0' || t[suffix_pos - 1] > '9')) {
+  while (suffix_pos > 0 && (t[suffix_pos - 1] < '0' || t[suffix_pos - 1] > '9')) {
     suffix_pos--;
   }
   int units = smallest_unit;
@@ -66,7 +63,7 @@ std::optional<uint64_t> ParseTime(const std::string &s, int smallest_unit) {
   return std::nullopt;
 }
 
-std::optional<std::string> ActualFileName(const std::string &file_name) {
+std::optional<std::string> ActualFileName(const std::string &file_name, bool allow_noexist) {
   wordexp_t results;
   // Don't run any commands, that's weird in this context.
   int ret = wordexp(file_name.c_str(), &results, WRDE_NOCMD);
@@ -75,7 +72,12 @@ std::optional<std::string> ActualFileName(const std::string &file_name) {
   wordfree(&results);
   if (ret != 0) return std::nullopt;
   if (expanded_name.empty()) return std::nullopt;
-  if (!std::filesystem::exists(expanded_name)) return std::nullopt;
+  if (!allow_noexist && !std::filesystem::exists(expanded_name)) return std::nullopt;
   return expanded_name;
 }
+
+std::optional<std::string> ActualFileName(const std::string &file_name) {
+  return ActualFileName(file_name, /*allow_noexist*/ false);
+}
+
 } // namespace sv

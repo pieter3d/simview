@@ -1306,7 +1306,12 @@ void WavesPanel::HandleReloadedWaves() {
 }
 
 void WavesPanel::LoadList(const std::string &file_name) {
-  std::ifstream file(file_name);
+  std::optional<std::string> f = ActualFileName(file_name, /*allow_noexist*/ true);
+  if (!f) {
+    error_message_ = "Cannot open " + file_name;
+    return;
+  }
+  std::ifstream file(*f);
   if (!file.is_open()) {
     error_message_ = "Failed to open file " + file_name;
     return;
@@ -1419,7 +1424,12 @@ void WavesPanel::LoadList(const std::string &file_name) {
 }
 
 void WavesPanel::SaveList(const std::string &file_name) {
-  std::ofstream file(file_name);
+  std::optional<std::string> f = ActualFileName(file_name, /*allow_noexist*/ true);
+  if (!f) {
+    error_message_ = "Cannot save to " + file_name;
+    return;
+  }
+  std::ofstream file(*f);
   file << "$time=" << cursor_time_ << "\n";
   file << "$tmin=" << left_time_ << "\n";
   file << "$tmax=" << right_time_ << "\n";

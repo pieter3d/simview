@@ -88,6 +88,7 @@ TextInput::InputState TextInput::HandleKey(int key) {
       history_idx_++;
       text_ = history_[history_idx_];
       cursor_pos_ = text_.size();
+      text_changed = true;
     }
     break;
   case 0x102: // down

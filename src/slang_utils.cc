@@ -46,18 +46,15 @@ class DriverOrLoadFinder
       drivers_or_loads_.push_back(&port);
     }
   }
-  // Assignments: only check the left side. Note that this also covers task/function call output
-  // arguments.
+  // Assignments: make note of which side is being checked. Note that function calls on the right
+  // side that have output arguments result in further nested assignments with their own left/right.
   void handle(const slang::ast::AssignmentExpression &assignment) {
-    // For drivers, onle check the left side. Loads could be on either side.
     checking_lhs_ = true;
     assignment.left().visit(*this);
     checking_lhs_ = false;
-    if constexpr (!DRIVERS) {
-      checking_rhs_ = true;
-      assignment.right().visit(*this);
-      checking_rhs_ = false;
-    }
+    checking_rhs_ = true;
+    assignment.right().visit(*this);
+    checking_rhs_ = false;
   }
   // For selection expressions, only check the value for drivers, not the selector. Both should be
   // checked in the case of loads.
