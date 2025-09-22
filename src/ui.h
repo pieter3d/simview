@@ -10,18 +10,17 @@
 
 namespace sv {
 
-// This is the main UI. It owns all UI sub elements, all of which decend from
-// sv::Panel. It responds to terminal resizing and attempts to keep the layout
-// properly balanced.
+// This is the main UI. It owns all UI sub elements, all of which decend from sv::Panel. It responds
+// to terminal resizing and attempts to keep the layout properly balanced.
 class UI {
  public:
   // Constructor enters NCurses mode.
   UI();
-  ~UI();
 
-  // This is the main event loop. This function doesn't return until the user
-  // has pressed Ctrl-Q to exit the UI.
+  // This is the main event loop. This function doesn't return until the user has pressed Ctrl-Q to
+  // exit the UI. A closing message is returned, in case of some kind of error.
   void EventLoop();
+  const std::string &FinalMessage() const { return final_message_; }
 
  private:
   void CalcLayout(bool update_frac = false);
@@ -30,7 +29,8 @@ class UI {
   void UpdateTooltips();
   void Draw() const;
   void DrawHelp(int panel_idx) const;
-  void ReloadWaves();
+  // False if some fatal error requires abort.
+  bool Reload();
 
   std::unique_ptr<DesignTreePanel> design_tree_panel_;
   std::unique_ptr<SourcePanel> source_panel_;
@@ -65,6 +65,9 @@ class UI {
   // Search state.
   bool searching_ = false;
   TextInput search_box_;
+
+  // Terminating message for the user after the UI exits.
+  std::string final_message_;
 };
 
 } // namespace sv

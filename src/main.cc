@@ -10,6 +10,9 @@ int main(int argc, char *argv[]) {
   // Start the UI and the event loop.
   sv::UI ui;
   ui.EventLoop();
+  if (!ui.FinalMessage().empty()) {
+    std::cout << ui.FinalMessage() << "\n";
+  }
 
   return 0;
 }

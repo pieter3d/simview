@@ -11,7 +11,23 @@
 namespace sv {
 
 DesignTreePanel::DesignTreePanel() {
-  // Populate an intial list of instances, top modules really.
+  Initialize();
+}
+
+void DesignTreePanel::HandleReloadedDesign() {
+  roots_.clear();
+  data_.Clear();
+  line_idx_ = 0;
+  // TODO: This resets the tree, which causes the full tree to collapse when a design-reload
+  // happens. Instead, the tree should be expanded to match the prior expansion a much as possible
+  // with the new design hierarchy after reload. Right now this is accomplished when source is
+  // loaded via the source-to-design-tree mechanism, but that only works if the source panel is
+  // focused.
+  Initialize();
+}
+
+void DesignTreePanel::Initialize() {
+  // Populate an initial list of instances, top modules really.
   for (const slang::ast::InstanceSymbol *top : Workspace::Get().Design()->topInstances) {
     roots_.push_back(std::make_unique<DesignTreeItem>(top));
   }

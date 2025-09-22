@@ -63,6 +63,7 @@ void UI::UpdateTooltips() {
   tooltips_.clear();
   // Add the tooltips that are always present.
   tooltips_.push_back({"C-q", "quit"});
+  tooltips_.push_back({.hotkeys = "C-r", .description = "Reload"});
   if (layout_.has_waves && (panels_[focused_panel_idx_] == waves_panel_.get() ||
                             panels_[focused_panel_idx_] == wave_tree_panel_.get() ||
                             panels_[focused_panel_idx_] == wave_signals_panel_.get())) {
@@ -70,7 +71,6 @@ void UI::UpdateTooltips() {
         {.hotkeys = "C-p",
          .description =
              std::string(layout_.show_wave_picker ? "SHOW/hide" : "show/HIDE") + " picker"});
-    tooltips_.push_back({.hotkeys = "C-r", .description = "Reload waves"});
   }
   if (panels_[focused_panel_idx_]->Searchable()) {
     tooltips_.push_back({"/nN", "search"});
@@ -148,24 +148,36 @@ UI::UI() : search_box_("/") {
   Draw();
 }
 
-UI::~UI() {
-  // Cleanup ncurses
-  endwin();
-}
-
-void UI::ReloadWaves() {
+bool UI::Reload() {
   for (Panel *p : panels_) {
-    p->PrepareForWaveDataReload();
+    if (layout_.has_design) p->PrepareForDesignReload();
+    if (layout_.has_waves) p->PrepareForWaveDataReload();
   }
-  Workspace::Get().Waves()->Reload();
-  Workspace::Get().TryMatchDesignWithWaves();
+  if (layout_.has_waves) Workspace::Get().Waves()->Reload();
+  if (layout_.has_design) {
+    // TODO: This can potentially take a long time. Find some way to show a busy message.
+    const bool success = Workspace::Get().ReParse();
+    if (!success) {
+      error_message_ = "Errors reading design.";
+    }
+    // Something went badly wrong if there is no design at all now.
+    if (Workspace::Get().Design() == nullptr) {
+      final_message_ = "Fatal error re-parsing design. Check the design for syntax errors.";
+      return false;
+    }
+  }
+  if (layout_.has_design && layout_.has_waves) Workspace::Get().TryMatchDesignWithWaves();
   for (Panel *p : panels_) {
-    p->HandleReloadedWaves();
+    if (layout_.has_design) p->HandleReloadedDesign();
+    if (layout_.has_waves) p->HandleReloadedWaves();
   }
-  //  Force a refresh on the signals in the refreshed wave data tree.
-  if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
-    wave_signals_panel_->SetScope(*scope);
+  if (layout_.has_waves) {
+    //  Force a refresh on the signals in the refreshed wave data tree.
+    if (const auto scope = wave_tree_panel_->ScopeForSignals()) {
+      wave_signals_panel_->SetScope(*scope);
+    }
   }
+  return true;
 }
 
 void UI::EventLoop() {
@@ -282,11 +294,7 @@ void UI::EventLoop() {
           }
           break;
         case 0x12: // ctrl-R
-          if (layout_.has_waves && (panels_[focused_panel_idx_] == waves_panel_.get() ||
-                                    panels_[focused_panel_idx_] == wave_tree_panel_.get() ||
-                                    panels_[focused_panel_idx_] == wave_signals_panel_.get())) {
-            ReloadWaves();
-          }
+          quit = !Reload();
           break;
         case 0x9:     // tab
         case 0x161: { // shift-tab
@@ -358,6 +366,8 @@ void UI::EventLoop() {
     if (quit) break;
     Draw();
   }
+  // Cleanup ncurses
+  endwin();
 }
 
 void UI::DrawHelp(int panel_idx) const {
@@ -550,7 +560,7 @@ void UI::Draw() const {
     move(row, col);
     curs_set(1);
   } else {
-    if (focused_panel->CursorLocation()) {
+    if (focused_panel->CursorLocation() && error_message_.empty()) {
       const auto [row, col] = *focused_panel->CursorLocation();
       int x, y;
       getbegyx(focused_panel->Window(), y, x);

@@ -30,6 +30,8 @@ class SourcePanel : public Panel {
   // Need to look for stuff under the cursor when changing lines.
   void SetLineAndScroll(int l) final;
   void Resized() final;
+  void PrepareForDesignReload() final;
+  void HandleReloadedDesign() final;
 
  private:
   void SaveState();
@@ -99,6 +101,10 @@ class SourcePanel : public Panel {
   };
   std::deque<State> state_stack_;
   int stack_idx_ = 0;
+  // When reloading the design, save the current scope as a textual path, so it can be re-found
+  // after the reload has finished.
+  std::string reload_path_;
+  int reload_line_idx_ = 0;
 };
 
 } // namespace sv

@@ -48,6 +48,8 @@ class Panel : public TextReceiver {
   std::string Error() const;
   virtual void PrepareForWaveDataReload() {}
   virtual void HandleReloadedWaves() {}
+  virtual void PrepareForDesignReload() {}
+  virtual void HandleReloadedDesign() {}
 
  protected:
   virtual int NumLines() const = 0;

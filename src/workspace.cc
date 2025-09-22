@@ -25,10 +25,25 @@ const slang::SourceManager *Workspace::SourceManager() const {
   return slang_compilation_->getSourceManager();
 }
 
+bool Workspace::ReParse() {
+  slang_compilation_ = nullptr;
+  design_root_ = nullptr;
+  const bool parse_ok = ParseDesign(/*initial*/ false);
+  const bool success = slang_driver_->diagEngine.getNumErrors() == 0;
+  return parse_ok && success;
+}
+
 bool Workspace::ParseDesign(int argc, char *argv[]) {
+  command_line_.argc = argc;
+  command_line_.argv = argv;
+  return ParseDesign(/*initial*/ true);
+}
+
+bool Workspace::ParseDesign(bool initial) {
   // Avoid invoking the slang compiler if only wave-reading options are specified.
   const bool try_read_design =
-      !(argc == 3 && (std::strcmp(argv[1], "-w") == 0 || std::strcmp(argv[1], "--waves") == 0));
+      !(command_line_.argc == 3 && (std::strcmp(command_line_.argv[1], "-w") == 0 ||
+                                    std::strcmp(command_line_.argv[1], "--waves") == 0));
   slang_driver_ = std::make_unique<slang::driver::Driver>();
   // Additional options from simview:
   std::optional<bool> show_help;
@@ -41,8 +56,8 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
                              "Retain 0-time transitions in the wave data. Normally pruned.");
 
   slang_driver_->addStandardArgs();
-  if (!slang_driver_->parseCommandLine(argc, argv)) return false;
-  if (show_help == true) {
+  if (!slang_driver_->parseCommandLine(command_line_.argc, command_line_.argv)) return false;
+  if (show_help == true && initial) {
     std::cout << slang_driver_->cmdLine.getHelpText(
                      "simview: a terminal-based verilog design browser and waves viewer.")
               << "\n";
@@ -50,27 +65,27 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
   }
   bool design_ok = false;
   if (try_read_design && slang_driver_->processOptions()) {
-    std::cout << "Parsing files...\n";
+    if (initial) std::cout << "Parsing files...\n";
     if (!slang_driver_->parseAllSources()) return false;
-    std::cout << "Elaborating...\n";
+    if (initial) std::cout << "Elaborating...\n";
     slang_compilation_ = slang_driver_->createCompilation();
-    // TODO: This freezes the design and somehow makes traversal throw exceptions.
-    // std::cout << "Analyzing...\n";
-    // slang_analysis_ = slang_driver_->runAnalysis(*slang_compilation_);
     // This print all tops, and collects diagnostics.
-    slang_driver_->reportCompilation(*slang_compilation_, /* quiet */ false);
-    const bool success = slang_driver_->reportDiagnostics(/* quiet */ false);
-    // Give the user a chance to see any errors before proceeding.
-    if (!success) {
-      std::cout << "Errors encountered, press Enter to continue anyway...\n";
-      std::cin.get();
+    slang_driver_->reportCompilation(*slang_compilation_, /* quiet */ !initial);
+    if (initial) {
+      const bool success = slang_driver_->reportDiagnostics(/* quiet */ !initial);
+      // Give the user a chance to see any errors before proceeding.
+      if (!success) {
+        std::cout << "Errors encountered, press Enter to continue anyway...\n";
+        std::cin.get();
+      }
     }
     design_root_ = &slang_compilation_->getRoot();
     design_ok = true;
   }
 
   bool waves_ok = false;
-  if (waves_file) {
+  // Waves are only read on initial load. There's a separate mechanism that triggers wave reload.
+  if (initial && waves_file) {
     try {
       wave_data_ = WaveData::ReadWaveFile(*waves_file, *keep_glitches);
       waves_ok = true;

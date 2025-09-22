@@ -34,6 +34,7 @@ class Workspace {
 
   // Parse the design and/or waves using command line arguments. Return true on success.
   bool ParseDesign(int argc, char *argv[]);
+  bool ReParse();
 
   const slang::ast::RootSymbol *Design() const { return design_root_; }
 
@@ -67,6 +68,8 @@ class Workspace {
   Workspace();
   ~Workspace();
 
+  bool ParseDesign(bool initial);
+
   std::unique_ptr<slang::driver::Driver> slang_driver_;
   std::unique_ptr<slang::ast::Compilation> slang_compilation_;
   std::unique_ptr<slang::analysis::AnalysisManager> slang_analysis_;
@@ -76,6 +79,10 @@ class Workspace {
   const WaveData::SignalScope *matched_signal_scope_ = nullptr;
   // Wave time is used in source too, so it's held here.
   uint64_t wave_cursor_time_ = 0;
+  struct {
+    int argc;
+    char **argv;
+  } command_line_;
 };
 
 } // namespace sv

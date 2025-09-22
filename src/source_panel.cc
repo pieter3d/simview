@@ -4,6 +4,7 @@
 #include "color.h"
 #include "radix.h"
 #include "slang/ast/ASTVisitor.h"
+#include "slang/ast/Compilation.h"
 #include "slang/ast/Expression.h"
 #include "slang/ast/Symbol.h"
 #include "slang/ast/expressions/CallExpression.h"
@@ -895,6 +896,58 @@ std::vector<Tooltip> SourcePanel::Tooltips() const {
   tt.push_back(
       {"v", "" + (show_vals_ ? std::string("SHOW/hide") : std::string("show/HIDE")) + " vals"});
   return tt;
+}
+
+void SourcePanel::PrepareForDesignReload() {
+  stack_idx_ = 0;
+  state_stack_.clear();
+  reload_path_.clear();
+  drivers_or_loads_.clear();
+  src_info_.clear();
+  reload_line_idx_ = line_idx_;
+  if (scope_ != nullptr) reload_path_ = scope_->asSymbol().getHierarchicalPath();
+  scope_ = nullptr;
+}
+
+void SourcePanel::HandleReloadedDesign() {
+  if (reload_path_.empty()) return;
+  size_t limit = reload_path_.size();
+  // This is kinda heavy-handed. It would be better to search level by level, but this works well
+  // enough. Going level by level is complicated with instance indicies, it would require parsing
+  // things like "top.block_a.block_b[4].block_c[2].block_d", the square brackets. But identifiers
+  // could be escaped and contain square brackets that are not real index operations.
+  while (true) {
+    std::string_view path(reload_path_.data(), limit);
+    auto visitor = slang::ast::makeVisitor(
+        [&](auto &visitor, const slang::ast::InstanceSymbol &inst) {
+          if (inst.getHierarchicalPath() == path) {
+            scope_ = &inst.body;
+          } else {
+            visitor.visitDefault(inst);
+          }
+        },
+        [&](auto &visitor, const slang::ast::GenerateBlockSymbol &gen) {
+          if (gen.isUninstantiated) return;
+          if (gen.getHierarchicalPath() == path) {
+            scope_ = &gen;
+          } else {
+            visitor.visitDefault(gen);
+          }
+        });
+    Workspace::Get().Design()->visit(visitor);
+    if (scope_ != nullptr) break;
+    // No design was found, trim the path back to the next hierarchy level and try again.
+    limit = path.find_last_of('.');
+    // If there is no more trimming to be done then give up and leave a null scope.
+    if (limit == std::string_view::npos) break;
+  }
+
+  if (scope_ == nullptr) return;
+
+  SetItem(&scope_->asSymbol());
+  SetLineAndScroll(reload_line_idx_);
+  // This causes the design tree to be properly re-traversed on reload.
+  item_for_design_tree_ = &scope_->asSymbol();
 }
 
 } // namespace sv
