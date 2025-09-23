@@ -175,14 +175,20 @@ void SourcePanel::FindSymbols() {
         expr.syntax->visit(tf);
       } else {
         const int line = sm_->getLineNumber(expr.sourceRange.start()) - 1;
-        const size_t start_col = sm_->getColumnNumber(expr.sourceRange.start()) - 1;
-        const size_t end_col = sm_->getColumnNumber(expr.sourceRange.end()) - 2;
+        size_t start_col = sm_->getColumnNumber(expr.sourceRange.start()) - 1;
+        size_t end_col = sm_->getColumnNumber(expr.sourceRange.end()) - 2;
         // Look for the .* glob connect-by-name syntax. In that case, skip this named value since it
         // likely represents many connections that would be overloaded.
         const std::string_view text =
             sm_->getSourceText(visible_buffer_)
                 .substr(expr.sourceRange.start().offset(), end_col - start_col + 1);
         if (text.size() == 2 && text == ".*") return;
+        // See if the symbol's name can be found in the extracted text.
+        const size_t sym_loc = text.find_first_of(sym->name);
+        if (sym_loc != std::string_view::npos) {
+          start_col += sym_loc;
+          end_col = start_col + sym->name.size() - 1;
+        }
         panel_->src_info_[line].insert({.start_col = start_col, .end_col = end_col, .sym = sym});
       }
     }
