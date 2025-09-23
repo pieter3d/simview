@@ -315,6 +315,8 @@ void WavesPanel::Draw() {
     if (highlight) {
       if (rename_item_ != nullptr) {
         rename_input_.Draw(w_);
+        list_idx++;
+        row++;
         continue;
       } else {
         wattron(w_, has_focus_ ? A_REVERSE : A_UNDERLINE);
@@ -410,6 +412,8 @@ void WavesPanel::Draw() {
         if (wave_x + i >= max_w) break;
         waddch(w_, msg[i]);
       }
+      list_idx++;
+      row++;
       continue; // Nothing more to do.
     }
     const bool multi_bit = item->signal->width > 1 && item->expanded_bit_idx < 0;
