@@ -507,6 +507,9 @@ void SourcePanel::Draw() {
 
 void SourcePanel::UIChar(int ch) {
   if (scope_ == nullptr) return;
+  const int win_w = getmaxx(w_);
+  const int win_h = getmaxy(w_);
+  const int ruler_size = NumDecimalDigits(win_h + scroll_row_ - 1) + 1;
   int prev_line_idx = line_idx_;
   int prev_col_idx = col_idx_;
   bool send_to_waves = false;
@@ -525,6 +528,12 @@ void SourcePanel::UIChar(int ch) {
       item_for_design_tree_ = &scope_->asSymbol();
     }
   } break;
+  case 'k':
+  case 0x103: // up
+    Panel::UIChar(ch);
+    // Fix horizontal scroll if needed.
+    // TODO
+    break;
   case 'h':
   case 0x104: // left
     if (scroll_col_ > 0 && scroll_col_ - col_idx_ == 0) {
@@ -536,6 +545,7 @@ void SourcePanel::UIChar(int ch) {
       if (line_idx_ == scroll_row_) scroll_row_--;
       line_idx_--;
       col_idx_ = std::max(0, src_.LineLength(line_idx_) - 1);
+      scroll_col_ = std::max(0, col_idx_ - (win_w - ruler_size - 1));
       max_col_idx_ = col_idx_;
     }
     break;
@@ -544,10 +554,7 @@ void SourcePanel::UIChar(int ch) {
     if (col_idx_ < src_.LineLength(line_idx_) - 1) {
       col_idx_++;
       max_col_idx_ = col_idx_;
-      const int win_w = getmaxx(w_);
-      const int win_h = getmaxy(w_);
-      const int ruler_size = NumDecimalDigits(win_h + scroll_row_ - 1) + 1;
-      if (col_idx_ >= win_w - ruler_size) scroll_col_++;
+      if (col_idx_ - scroll_col_ >= win_w - ruler_size) scroll_col_++;
     } else if (line_idx_ < src_.NumLines() - 1) {
       line_idx_++;
       col_idx_ = 0;

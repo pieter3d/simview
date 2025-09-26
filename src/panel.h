@@ -52,6 +52,11 @@ class Panel : public TextReceiver {
   virtual void HandleReloadedDesign() {}
 
  protected:
+  // Translates the line_idx_ to the actual line in the UI. This allows for line items that have
+  // varying heights.
+  virtual std::pair<int, int> UIRowsOfLine(int line) const {
+    return {line - scroll_row_, line - scroll_row_};
+  }
   virtual int NumLines() const = 0;
   virtual std::pair<int, int> ScrollArea() const;
   virtual void SetLineAndScroll(int l);

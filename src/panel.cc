@@ -24,43 +24,62 @@ void Panel::UIChar(int ch) {
   case 0x103: // up
     if (line_idx_ == 0) break;
     line_idx_--;
-    if (line_idx_ - scroll_row_ < 0) scroll_row_--;
+    while (UIRowsOfLine(line_idx_).first < 0) {
+      scroll_row_--;
+    }
     break;
   case 'j':
   case 0x102: // down
     if (line_idx_ >= NumLines() - 1) break;
     line_idx_++;
-    if (line_idx_ - scroll_row_ >= max_h) scroll_row_++;
+    while (UIRowsOfLine(line_idx_).second >= max_h) {
+      scroll_row_++;
+    }
     break;
   case 0x15:    // Ctrl-U
   case 0x153: { // PgUp
-    if (scroll_row_ == 0) {
-      // Back to the top if there's nowhere left to scroll up.
-      line_idx_ = 0;
+    // Only page up when the selection is at the top.
+    if (line_idx_ != scroll_row_) {
+      line_idx_ = scroll_row_;
       break;
     }
-    const int scroll_decrement = std::min(scroll_row_, max_h - 2);
-    scroll_row_ -= scroll_decrement;
-    if (line_idx_ - scroll_row_ >= max_h) {
-      line_idx_ = scroll_row_ + max_h - 2;
+    // Nothing to do if already at the top.
+    if (scroll_row_ == 0) break;
+    int top_item = scroll_row_; // By definition
+    // Decrement scroll until the top item is at the bottom.
+    while (scroll_row_ >= 0 && UIRowsOfLine(top_item).second < max_h) {
+      scroll_row_--;
     }
+    scroll_row_++; // Undo the overshoot.
+    // Move the current selection to the top so that the next pgup also pages.
+    line_idx_ = scroll_row_;
     break;
   }
   case 0x4:     // Ctrl-D
   case 0x152: { // PgDn
-    if (NumLines() <= max_h) {
-      line_idx_ = NumLines() - 1;
+    auto find_low_item = [&] {
+      // Find the loweset line that's still in the UI.
+      int low_line = scroll_row_; // start at the top.
+      while (low_line < NumLines() && UIRowsOfLine(low_line).second < max_h) {
+        low_line++;
+      }
+      return low_line - 1; // Undo the overshoot.
+    };
+    const int initial_low_line = find_low_item();
+    // If current selection is not already there, then just move there.
+    if (line_idx_ < initial_low_line) {
+      line_idx_ = initial_low_line;
       break;
     }
-    const int scroll_increment = std::min(max_h - 2, NumLines() - (scroll_row_ + max_h));
-    scroll_row_ += scroll_increment;
-    if (line_idx_ - scroll_row_ < 0) {
-      line_idx_ = scroll_row_ + 1;
+    // Keep incrementing scroll until the UI position of the formerly lowest visible item is at the
+    // top. Don't scroll to where the last item goes above the bottom of the UI.
+    while (UIRowsOfLine(initial_low_line).first >= 0 && scroll_row_ < NumLines() &&
+           UIRowsOfLine(NumLines() - 1).second >= max_h - 1) {
+      scroll_row_++;
     }
-    // Move the selected to the end if there's nowhere left to scroll down.
-    if (scroll_increment == 0) {
-      line_idx_ = NumLines() - 1;
-    }
+    scroll_row_--; // Undo overshoot.
+    // Set the selection to the new lowest line, so that the next pdgn immediately pages.
+    line_idx_ = find_low_item();
     break;
   }
   case 'g':   // vim style

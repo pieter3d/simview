@@ -56,6 +56,7 @@ class WavesPanel : public Panel {
     bool collapsed = false;
     // Saved here instead of searched and derived every time.
     std::string value;
+    int Height() const { return analog_rows > 0 ? analog_rows : 1; }
   };
   double TimePerChar() const;
   void CycleTimeUnits();
@@ -73,6 +74,7 @@ class WavesPanel : public Panel {
   void GoToTime(uint64_t time, bool *time_changed, bool *range_changed);
   void LoadList(const std::string &file_name);
   void SaveList(const std::string &file_name);
+  std::pair<int, int> UIRowsOfLine(int line) const final;
 
   std::vector<ListItem> items_;
   // Flattened list of all signals, accounting for collapsed groups.

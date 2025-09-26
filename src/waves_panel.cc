@@ -30,6 +30,19 @@ void AddUnicodeChar(WINDOW *w, wchar_t wc) {
   wadd_wch(w, &cc);
 }
 
+std::optional<int> SubStrToInt(const std::string s, int start, int end) {
+  int val = 0;
+  for (int i = start; i <= end; ++i) {
+    char c = s[i];
+    if (c >= '0' && c <= '9') {
+      val = val * 10 + s[i] - '0';
+    } else {
+      return std::nullopt;
+    }
+  }
+  return val;
+}
+
 } // namespace
 
 WavesPanel::WavesPanel() : cursor_time_(Workspace::Get().WaveCursorTime()) {
@@ -101,6 +114,21 @@ double WavesPanel::TimePerChar() const {
   const int wave_width = std::max(1, getmaxx(w_) - wave_x);
   return (right_time_ - left_time_) / (double)wave_width;
 }
+
+std::pair<int, int> WavesPanel::UIRowsOfLine(int line) const {
+  if (line < scroll_row_) {
+    // Just indicate outside UI. Exact location doesn't actually matter.
+    return {-1, -1};
+  } else {
+    int min = 0;
+    for (int i = scroll_row_; i < line; ++i) {
+      min += visible_items_[i]->Height();
+    }
+    return {min, min + visible_items_[line]->Height() - 1};
+  }
+}
+
+;
 
 void WavesPanel::Resized() {
   Panel::Resized();
@@ -442,7 +470,7 @@ void WavesPanel::Draw() {
       SetColor(w_, kWavesWaveformPair + highlight);
     }
     // Each wave is nominally 1 row, but analog waveforms might take up several.
-    const int num_rows = item->analog_rows > 1 ? item->analog_rows : 1;
+    const int num_rows = item->Height();
     std::optional<WaveImage> analog_image;
     if (analog) {
       const WaveImageConfig cfg = {
@@ -585,18 +613,20 @@ void WavesPanel::Draw() {
 
   // Draw the cursor and markers.
   const auto draw_vline = [&](int row, int col) {
-    const int current_line = 1 + line_idx_ - scroll_row_;
+    // Don't draw on top of the selected wave, unless it's analog.
     if (visible_items_[line_idx_]->signal != nullptr &&
         visible_items_[line_idx_]->analog_rows == 0) {
-      // Draw the line in two sections, above and below the current line to
-      // avoid overwriting the drawn wave. Draw over analog waves though.
-      if (current_line > row) {
-        mvwvline(w_, row, col, ACS_VLINE, current_line - row);
+      // Only doing this break on non-analog waves so it's always a single-height. +1 to account for
+      // the time bar.
+      const int row_to_skip = 1 + UIRowsOfLine(line_idx_).first;
+      const int top_h = row_to_skip - row;
+      const int bot_h = max_h - row_to_skip - 1;
+      // Draw the line in two sections, above and below the selected wave.
+      if (top_h > 0) {
+        mvwvline(w_, row, col, ACS_VLINE, top_h);
       }
-      const int next_line_start =
-          current_line + std::max(1, visible_items_[line_idx_]->analog_rows);
-      if (next_line_start < max_h) {
-        mvwvline(w_, next_line_start, col, ACS_VLINE, max_h - next_line_start);
+      if (bot_h > 0) {
+        mvwvline(w_, row_to_skip + 1, col, ACS_VLINE, bot_h);
       }
     } else {
       mvwvline(w_, row, col, ACS_VLINE, max_h - row);
@@ -774,16 +804,16 @@ void WavesPanel::UIChar(int ch) {
       if (line_idx_ != 0) {
         if (multi_line_idx_ < 0) multi_line_idx_ = line_idx_;
         Panel::UIChar('k');
-        cancel_multi_line = false;
       }
+      cancel_multi_line = false;
       break;
     case 0x150: // shift-down
     case 'J':
       if (line_idx_ != visible_items_.size() - 1) {
         if (multi_line_idx_ < 0) multi_line_idx_ = line_idx_;
         Panel::UIChar('j');
-        cancel_multi_line = false;
       }
+      cancel_multi_line = false;
       break;
     case 'F': {
       std::tie(left_time_, right_time_) = wave_data_->TimeRange();
@@ -911,7 +941,7 @@ void WavesPanel::UIChar(int ch) {
       unicode_ = !unicode_;
       break;
     case 'a':
-      if (item->analog_rows < kMaxAnalogHeight) item->analog_rows++;
+      if (item->signal != nullptr && item->analog_rows < kMaxAnalogHeight) item->analog_rows++;
       break;
     case 'A':
       if (item->analog_rows > 0) item->analog_rows--;
@@ -1310,7 +1340,7 @@ void WavesPanel::HandleReloadedWaves() {
 }
 
 void WavesPanel::LoadList(const std::string &file_name) {
-  std::optional<std::string> f = ActualFileName(file_name, /*allow_noexist*/ true);
+  std::optional<std::string> f = ActualFileName(file_name, /*allow_noexist*/ false);
   if (!f) {
     error_message_ = "Cannot open " + file_name;
     return;
@@ -1366,12 +1396,10 @@ void WavesPanel::LoadList(const std::string &file_name) {
       const auto bit_bracket_end_pos = elements[0].find_last_of(']');
       if (bit_bracket_start_pos != std::string::npos && bit_bracket_end_pos != std::string::npos &&
           bit_bracket_end_pos - bit_bracket_start_pos > 1) {
-        maybe_has_bit_index = true;
-        for (int i = bit_bracket_start_pos + 1; i < bit_bracket_end_pos; ++i) {
-          maybe_has_bit_index &= elements[0][i] >= '0' && elements[0][i] <= '9';
-          if (maybe_has_bit_index) {
-            bit_index = bit_index * 10 + elements[0][i] - '0';
-          }
+        if (std::optional<int> opt_int =
+                SubStrToInt(elements[0], bit_bracket_start_pos, bit_bracket_end_pos)) {
+          maybe_has_bit_index = true;
+          bit_index = *opt_int;
         }
       }
       // Still might not be a bit index, could just be part of the signal name.
@@ -1403,6 +1431,8 @@ void WavesPanel::LoadList(const std::string &file_name) {
             item.custom_color = std::clamp(elements[i][1] - '0', 0, 9);
           } else if (elements[i][0] == 'r' && elements[i].size() > 1) {
             item.radix = CharToRadix(elements[i][1]);
+          } else if (elements[i][0] == 'a' && elements[i].size() > 1) {
+            item.analog_rows = SubStrToInt(elements[i], 1, elements[i].size() - 1).value_or(0);
           }
         }
       } else {
@@ -1445,7 +1475,7 @@ void WavesPanel::SaveList(const std::string &file_name) {
       file << "$m" << i << "=" << numbered_marker_times_[i] << "\n";
     }
   }
-  // Don't write out the last item.
+  // Don't write out the last item since that's the default blank.
   for (int i = 0; i < items_.size() - 1; ++i) {
     const auto &item = items_[i];
     std::string line(item.depth, ' ');
@@ -1464,6 +1494,9 @@ void WavesPanel::SaveList(const std::string &file_name) {
       }
       if (item.custom_color >= 0) {
         line += absl::StrFormat(" c%c", '0' + item.custom_color);
+      }
+      if (item.analog_rows >= 0) {
+        line += absl::StrFormat(" a%d", item.analog_rows);
       }
     }
     file << line << '\n';
