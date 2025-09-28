@@ -30,6 +30,9 @@ class WavesPanel : public Panel {
   std::optional<const WaveData::Signal *> SignalForSource();
   void PrepareForWaveDataReload() final;
   void HandleReloadedWaves() final;
+  // Public because the main UI could call this on startup. This allows for wave listing restore on
+  // startup via command line specified file.
+  void LoadList(const std::string &file_name);
 
  private:
   struct ListItem {
@@ -72,7 +75,6 @@ class WavesPanel : public Panel {
   void CheckMultiBit();
   void FindEdge(bool forward, bool *time_changed, bool *range_changed);
   void GoToTime(uint64_t time, bool *time_changed, bool *range_changed);
-  void LoadList(const std::string &file_name);
   void SaveList(const std::string &file_name);
   std::pair<int, int> UIRowsOfLine(int line) const final;
 

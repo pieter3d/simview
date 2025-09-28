@@ -40,18 +40,16 @@ bool Workspace::ParseDesign(int argc, char *argv[]) {
 }
 
 bool Workspace::ParseDesign(bool initial) {
-  // Avoid invoking the slang compiler if only wave-reading options are specified.
-  const bool try_read_design =
-      !(command_line_.argc == 3 && (std::strcmp(command_line_.argv[1], "-w") == 0 ||
-                                    std::strcmp(command_line_.argv[1], "--waves") == 0));
   slang_driver_ = std::make_unique<slang::driver::Driver>();
   // Additional options from simview:
   std::optional<bool> show_help;
   std::optional<std::string> waves_file;
+  std::optional<std::string> list_file;
   std::optional<bool> keep_glitches = false;
   slang_driver_->cmdLine.add("-h,--help", show_help, "Display available options");
   slang_driver_->cmdLine.add("-w,--waves", waves_file,
                              "Waves file to load. Supported formats are FST and VCD.");
+  slang_driver_->cmdLine.add("--list", list_file, "Wave listing file to restore");
   slang_driver_->cmdLine.add("--keep_glitches", keep_glitches,
                              "Retain 0-time transitions in the wave data. Normally pruned.");
 
@@ -63,8 +61,13 @@ bool Workspace::ParseDesign(bool initial) {
               << "\n";
     return 0;
   }
+  // Anytime there are more arguments besides the wave ones, try to read the design.
+  const bool has_design_args = command_line_.argc - 1 > (waves_file.has_value() ? 2 : 0) +
+                                                            (list_file.has_value() ? 2 : 0) +
+                                                            (keep_glitches.has_value() ? 1 : 0);
+
   bool design_ok = false;
-  if (try_read_design && slang_driver_->processOptions()) {
+  if (has_design_args && slang_driver_->processOptions()) {
     if (initial) std::cout << "Parsing files...\n";
     if (!slang_driver_->parseAllSources()) return false;
     if (initial) std::cout << "Elaborating...\n";
@@ -88,6 +91,7 @@ bool Workspace::ParseDesign(bool initial) {
   if (initial && waves_file) {
     try {
       wave_data_ = WaveData::ReadWaveFile(*waves_file, *keep_glitches);
+      startup_waves_list_ = list_file.value_or("");
       waves_ok = true;
     } catch (std::runtime_error &e) {
       std::cout << "Problem reading waves: " << e.what() << "\n";

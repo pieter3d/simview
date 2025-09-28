@@ -842,12 +842,30 @@ void WavesPanel::UIChar(int ch) {
       }
       range_changed = true;
     } break;
-    case 'C': {
+    case '1': {
+      const uint64_t window_time = right_time_ - left_time_;
+      if (cursor_time_ <= wave_data_->TimeRange().second - window_time) {
+        left_time_ = cursor_time_;
+        right_time_ = cursor_time_ + window_time;
+        cursor_pos_ = 0;
+      }
+      range_changed = true;
+    } break;
+    case '2': {
       const uint64_t half = (right_time_ - left_time_) / 2;
       if (cursor_time_ > half && cursor_time_ < wave_data_->TimeRange().second - half) {
         left_time_ = cursor_time_ - half;
         right_time_ = cursor_time_ + half;
         cursor_pos_ = (getmaxx(w_) - 1 - name_value_size_) / 2;
+      }
+      range_changed = true;
+    } break;
+    case '3': {
+      const uint64_t window_time = right_time_ - left_time_;
+      if (cursor_time_ >= window_time) {
+        left_time_ = cursor_time_ - window_time;
+        right_time_ = cursor_time_;
+        cursor_pos_ = getmaxx(w_) - 1 - name_value_size_;
       }
       range_changed = true;
     } break;
@@ -1230,7 +1248,7 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
   std::vector<Tooltip> tt{
       {"zZ", "Zoom"},
       {"F", "Zoom full"},
-      {"C", "Center"},
+      {"123", "align left/center/right"},
       {"C-z", "Zoom cursor-marker"},
       {"eE", "Prev/next edge"},
       {"sS", "Adjust size"},
@@ -1340,6 +1358,7 @@ void WavesPanel::HandleReloadedWaves() {
 }
 
 void WavesPanel::LoadList(const std::string &file_name) {
+  if (file_name.empty()) return;
   std::optional<std::string> f = ActualFileName(file_name, /*allow_noexist*/ false);
   if (!f) {
     error_message_ = "Cannot open " + file_name;
@@ -1448,7 +1467,7 @@ void WavesPanel::LoadList(const std::string &file_name) {
     cursor_time_ = (left_time_ + right_time_) / 2;
   }
   // Make sure the cursor screen position matches.
-  const int max_cursor_pos = getmaxx(w_) - 1 - name_value_size_;
+  const int max_cursor_pos = std::max(0, getmaxx(w_) - 1 - name_value_size_);
   cursor_pos_ = std::min((double)max_cursor_pos, (cursor_time_ - left_time_) / TimePerChar());
   // Restore the blank line at the end too.
   items_.push_back(ListItem(nullptr));

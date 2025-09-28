@@ -134,6 +134,7 @@ UI::UI() : search_box_("/") {
     wave_tree_panel_ = std::make_unique<WaveDataTreePanel>();
     wave_signals_panel_ = std::make_unique<WaveSignalsPanel>();
     waves_panel_ = std::make_unique<WavesPanel>();
+    waves_panel_->LoadList(Workspace::Get().StartupWavesList());
     panels_.push_back(wave_tree_panel_.get());
     panels_.push_back(wave_signals_panel_.get());
     panels_.push_back(waves_panel_.get());

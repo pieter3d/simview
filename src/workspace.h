@@ -58,6 +58,8 @@ class Workspace {
 
   void SetMatchedSignalScope(const WaveData::SignalScope *s);
 
+  const std::string& StartupWavesList() const { return startup_waves_list_; }
+
   // Design nets/variables could map to multiple signals if the waves contain unrolled arrays.
   std::vector<const WaveData::Signal *> DesignToSignals(const slang::ast::Symbol *item) const;
 
@@ -83,6 +85,7 @@ class Workspace {
     int argc;
     char **argv;
   } command_line_;
+  std::string startup_waves_list_;
 };
 
 } // namespace sv
