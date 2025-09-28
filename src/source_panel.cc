@@ -528,16 +528,11 @@ void SourcePanel::UIChar(int ch) {
       item_for_design_tree_ = &scope_->asSymbol();
     }
   } break;
-  case 'k':
-  case 0x103: // up
-    Panel::UIChar(ch);
-    // Fix horizontal scroll if needed.
-    // TODO
-    break;
   case 'h':
   case 0x104: // left
     if (scroll_col_ > 0 && scroll_col_ - col_idx_ == 0) {
       scroll_col_--;
+      col_idx_--;
     } else if (col_idx_ > 0) {
       col_idx_--;
       max_col_idx_ = col_idx_;
@@ -692,6 +687,12 @@ void SourcePanel::UIChar(int ch) {
       col_idx_ = std::max(0, new_line_size - 1);
     } else {
       col_idx_ = std::min(max_col_idx_, std::max(0, new_line_size - 1));
+    }
+    // Fix any cursor-off-screen issues.
+    if (col_idx_ < scroll_col_) {
+      scroll_col_ = col_idx_;
+    } else if (col_idx_ - scroll_col_ >= win_w - ruler_size) {
+      scroll_col_ = col_idx_ - (win_w - ruler_size) + 1;
     }
   }
   if (line_moved || col_moved) {
