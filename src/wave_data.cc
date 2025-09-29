@@ -4,14 +4,13 @@
 #include "fst_wave_data.h"
 #include "vcd_wave_data.h"
 #include <filesystem>
+#include <optional>
 
 namespace sv {
 
-std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name,
-                                                 bool keep_glitches) {
+std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name, bool keep_glitches) {
   std::string ext = std::filesystem::path(file_name).extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(),
-                 [](char ch) { return std::tolower(ch); });
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](char ch) { return std::tolower(ch); });
   if (ext == ".fst") {
     return std::make_unique<FstWaveData>(file_name, keep_glitches);
   } else if (ext == ".vcd") {
@@ -20,22 +19,21 @@ std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name,
   return nullptr;
 }
 
-std::optional<const WaveData::Signal *>
-WaveData::PathToSignal(const std::string &path) const {
+std::optional<WaveData::Signal *> WaveData::PathToSignal(std::string_view path) {
   std::vector<std::string> levels = absl::StrSplit(path, '.');
-  const std::vector<SignalScope> *candidates = &roots_;
-  const SignalScope *candidate = nullptr;
+  std::vector<SignalScope> *candidates = &roots_;
+  SignalScope *candidate = nullptr;
   int level_idx = 0;
   for (auto &level : levels) {
     // Match against the signals for the last element.
     if (level_idx == levels.size() - 1) {
       if (candidate == nullptr) break;
-      for (const auto &signal : candidate->signals) {
+      for (Signal &signal : candidate->signals) {
         if (signal.name == level) return &signal;
       }
     } else {
       level_idx++;
-      for (const auto &scope : *candidates) {
+      for (SignalScope &scope : *candidates) {
         if (scope.name == level) {
           candidates = &scope.children;
           candidate = &scope;
@@ -49,6 +47,10 @@ WaveData::PathToSignal(const std::string &path) const {
   return std::nullopt;
 }
 
+std::optional<const WaveData::Signal *> WaveData::PathToSignal(std::string_view path) const {
+  return const_cast<WaveData *>(this)->PathToSignal(path);
+}
+
 std::string WaveData::SignalToPath(const WaveData::Signal *signal) {
   std::string path = signal->name;
   auto scope = signal->scope;
@@ -59,6 +61,16 @@ std::string WaveData::SignalToPath(const WaveData::Signal *signal) {
   return path;
 }
 
+std::optional<std::string_view> WaveData::GetEnumLabel(int enum_id, std::string_view val) const {
+  if (enum_id < 0) return std::nullopt;
+  auto enum_it = enums_.find(enum_id);
+  if (enum_it == enums_.end()) return std::nullopt;
+  if (auto it = enum_it->second.find(val); it != enum_it->second.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
 void WaveData::LoadSignalSamples(const Signal *signal, uint64_t start_time,
                                  uint64_t end_time) const {
   // Use the batch version.
@@ -67,24 +79,22 @@ void WaveData::LoadSignalSamples(const Signal *signal, uint64_t start_time,
 }
 
 void WaveData::BuildParents() {
-  std::function<void(SignalScope *)> recurse_assign_parents =
-      [&](SignalScope *scope) {
-        // Assign to all signals.
-        for (auto &sig : scope->signals) {
-          sig.scope = scope;
-        }
-        for (auto &sub : scope->children) {
-          sub.parent = scope;
-          recurse_assign_parents(&sub);
-        }
-      };
+  std::function<void(SignalScope *)> recurse_assign_parents = [&](SignalScope *scope) {
+    // Assign to all signals.
+    for (auto &sig : scope->signals) {
+      sig.scope = scope;
+    }
+    for (auto &sub : scope->children) {
+      sub.parent = scope;
+      recurse_assign_parents(&sub);
+    }
+  };
   for (auto &root : roots_) {
     recurse_assign_parents(&root);
   }
 }
 
-int WaveData::FindSampleIndex(uint64_t time, const Signal *signal, int left,
-                              int right) const {
+int WaveData::FindSampleIndex(uint64_t time, const Signal *signal, int left, int right) const {
   auto &wave = waves_[signal->id];
   // Binary search for the right sample.
   if (wave.empty() || right < left) return -1;

@@ -38,6 +38,7 @@ FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
 int FstWaveData::Log10TimeUnits() const { return fstReaderGetTimescale(reader_); }
 
 void FstWaveData::ReadScopes() {
+  int enum_id_to_use = -1;
   std::stack<SignalScope *> stack;
   fstHier *h;
   while ((h = fstReaderIterateHier(reader_))) {
@@ -66,6 +67,10 @@ void FstWaveData::ReadScopes() {
       signal.id = h->u.var.handle;
       signal.width = h->u.var.length;
       signal.name = ParseSignalLsb(name, &signal.lsb);
+      if (enum_id_to_use >= 0) {
+        signal.enum_id = enum_id_to_use;
+        enum_id_to_use = -1; // Don't apply to the next signal automatically.
+      }
       switch (h->u.var.direction) {
       case FST_VD_IMPLICIT: signal.direction = Signal::kInternal; break;
       case FST_VD_INOUT: signal.direction = Signal::kInout; break;
@@ -76,6 +81,30 @@ void FstWaveData::ReadScopes() {
         signal.type = Signal::kParameter;
       }
     } break;
+    case FST_HT_ATTRBEGIN: {
+      switch (h->u.attr.typ) {
+      case FST_AT_MISC: {
+        switch (h->u.attr.subtype) {
+        case FST_MT_ENUMTABLE: {
+          // Name of length 0 indicates next variable uses this enum type.
+          if (h->u.attr.name_length == 0) {
+            enum_id_to_use = h->u.attr.arg;
+            break;
+          }
+          fstETab *enum_table = fstUtilityExtractEnumTableFromString(h->u.attr.name);
+          // The "arg" parameter of the attribte gives the ID.
+          for (int i = 0; i < enum_table->elem_count; ++i) {
+            enums_[h->u.attr.arg][enum_table->val_arr[i]] = enum_table->literal_arr[i];
+          }
+          // Perform manual cleanup, FST library doesn't do any of that.
+          fstUtilityFreeEnumTable(enum_table);
+        } break;
+        }
+        break;
+      } break;
+      }
+      break;
+    }
     }
   }
   // Now that everything has been read and allocated, recurse the tree and fill

@@ -48,6 +48,8 @@ class WaveData {
     // General purpose identifier. May need to revisit the type since the
     // various wave database formats use different ways to look up signal data.
     uint32_t id;
+    // When >= 0, values represent enum labels.
+    int enum_id = -1;
     // Containing scope, or parent.
     const SignalScope *scope = nullptr;
     // Modified by design files.
@@ -64,7 +66,8 @@ class WaveData {
   };
   const std::vector<Sample> &Wave(const Signal *s) const { return waves_[s->id]; }
   const std::vector<SignalScope> &Roots() const { return roots_; }
-  std::optional<const Signal *> PathToSignal(const std::string &path) const;
+  std::optional<Signal *> PathToSignal(std::string_view path);
+  std::optional<const Signal *> PathToSignal(std::string_view path) const;
   static std::string SignalToPath(const WaveData::Signal *signal);
   // Loads up the waves_ structure with sample data for the given Signal.
   void LoadSignalSamples(const Signal *signal, uint64_t start_time, uint64_t end_time) const;
@@ -75,6 +78,8 @@ class WaveData {
   int FindSampleIndex(uint64_t time, const Signal *signal) const;
   // Obtain the textual value of the signal at the given time.
   std::string FindSampleValue(uint64_t time, const Signal *signal) const;
+  // Get an enum value if it exists.
+  std::optional<std::string_view> GetEnumLabel(int enum_id, std::string_view val) const;
 
   // ------------- Implementation methods --------------
   // returns -9 for nanoseconds, -6 for microseconds, etc.
@@ -114,6 +119,8 @@ class WaveData {
   std::string file_name_;
   // When false, glitches are stripped from the wave data.
   bool keep_glitches_;
+  // Enum value-to-label maps.
+  absl::flat_hash_map<int, absl::flat_hash_map<std::string, std::string>> enums_;
 };
 
 } // namespace sv

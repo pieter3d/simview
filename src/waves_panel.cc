@@ -535,8 +535,11 @@ void WavesPanel::Draw() {
               // previous one.
               if (x - wvi.xpos >= 3) {
                 wvi.size = x - wvi.xpos;
-                wvi.value = FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_,
-                                        /*drop_size*/ true);
+                wvi.value =
+                    wave_data_->GetEnumLabel(item->signal->enum_id, wave[wave_value_idx].value)
+                        .value_or(FormatValue(wave[wave_value_idx].value, item->radix,
+                                              leading_zeroes_,
+                                              /*drop_size*/ true));
                 wave_value_list.push_back(wvi);
               }
               wvi.xpos = x;
@@ -584,8 +587,9 @@ void WavesPanel::Draw() {
     // Add the remaining wave value if possible, sized against the right edge.
     if (multi_bit && max_w - wave_x - wvi.xpos >= 3 && !analog) {
       wvi.size = max_w - wave_x - wvi.xpos;
-      wvi.value =
-          FormatValue(wave[wave_value_idx].value, item->radix, leading_zeroes_, /*drop_size*/ true);
+      wvi.value = wave_data_->GetEnumLabel(item->signal->enum_id, wave[wave_value_idx].value)
+                      .value_or(FormatValue(wave[wave_value_idx].value, item->radix,
+                                            leading_zeroes_, /*drop_size*/ true));
       wave_value_list.push_back(wvi);
     }
 
@@ -1175,6 +1179,13 @@ void WavesPanel::UpdateValue(ListItem *item) {
   if (item->expanded_bit_idx >= 0) {
     item->value = wave[idx].value[item->expanded_bit_idx];
   } else {
+    if (item->signal->enum_id >= 0) {
+      if (std::optional<std::string_view> label =
+              wave_data_->GetEnumLabel(item->signal->enum_id, wave[idx].value)) {
+        item->value = *label;
+        return;
+      }
+    }
     item->value = FormatValue(wave[idx].value, item->radix, leading_zeroes_);
   }
 }
