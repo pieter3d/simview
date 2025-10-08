@@ -38,11 +38,6 @@ void Panel::UIChar(int ch) {
     break;
   case 0x15:    // Ctrl-U
   case 0x153: { // PgUp
-    // Only page up when the selection is at the top.
-    if (line_idx_ != scroll_row_) {
-      line_idx_ = scroll_row_;
-      break;
-    }
     // Nothing to do if already at the top.
     if (scroll_row_ == 0) break;
     int top_item = scroll_row_; // By definition
@@ -51,7 +46,6 @@ void Panel::UIChar(int ch) {
       scroll_row_--;
     }
     scroll_row_++; // Undo the overshoot.
-    // Move the current selection to the top so that the next pgup also pages.
     line_idx_ = scroll_row_;
     break;
   }
@@ -66,11 +60,6 @@ void Panel::UIChar(int ch) {
       return low_line - 1; // Undo the overshoot.
     };
     const int initial_low_line = find_low_item();
-    // If current selection is not already there, then just move there.
-    if (line_idx_ < initial_low_line) {
-      line_idx_ = initial_low_line;
-      break;
-    }
     // Keep incrementing scroll until the UI position of the formerly lowest visible item is at the
     // top. Don't scroll to where the last item goes above the bottom of the UI.
     while (UIRowsOfLine(initial_low_line).first >= 0 && scroll_row_ < NumLines() &&
@@ -78,7 +67,6 @@ void Panel::UIChar(int ch) {
       scroll_row_++;
     }
     scroll_row_--; // Undo overshoot.
-    // Set the selection to the new lowest line, so that the next pdgn immediately pages.
     line_idx_ = find_low_item();
     break;
   }
