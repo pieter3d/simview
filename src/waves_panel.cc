@@ -9,6 +9,7 @@
 #include "wave_image.h"
 #include "workspace.h"
 #include <algorithm>
+#include <curses.h>
 #include <fstream>
 #include <optional>
 #include <vector>

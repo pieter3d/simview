@@ -6,7 +6,7 @@
 #include "slang/ast/Expression.h"
 #include "slang/ast/Symbol.h"
 #include "source_buffer.h"
-#include "src/slang_utils.h"
+#include "slang_utils.h"
 
 #include <deque>
 #include <vector>
