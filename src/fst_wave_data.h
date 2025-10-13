@@ -1,6 +1,6 @@
 #pragma once
 
-#include "external/libfst//src//fstapi.h"
+#include "external/libfst/src/fstapi.h"
 #include "wave_data.h"
 
 namespace sv {
