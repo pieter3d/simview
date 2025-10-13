@@ -51,6 +51,8 @@ target_link_libraries(simview PRIVATE
   absl::str_format
   absl::time
   absl::flat_hash_map
+  absl::status
+  absl::statusor
   fst
   slang::slang
   ${NCURSES_LIBRARY_NAME}

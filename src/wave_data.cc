@@ -1,4 +1,6 @@
 #include "wave_data.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "fst_wave_data.h"
@@ -8,15 +10,16 @@
 
 namespace sv {
 
-std::unique_ptr<WaveData> WaveData::ReadWaveFile(const std::string &file_name, bool keep_glitches) {
+absl::StatusOr<std::unique_ptr<WaveData>> WaveData::ReadWaveFile(const std::string &file_name,
+                                                                 bool keep_glitches) {
   std::string ext = std::filesystem::path(file_name).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), [](char ch) { return std::tolower(ch); });
   if (ext == ".fst") {
-    return std::make_unique<FstWaveData>(file_name, keep_glitches);
+    return FstWaveData::Create(file_name, keep_glitches);
   } else if (ext == ".vcd") {
-    return std::make_unique<VcdWaveData>(file_name, keep_glitches);
+    return VcdWaveData::Create(file_name, keep_glitches);
   }
-  return nullptr;
+  return absl::UnimplementedError("Unsupported wave type.");
 }
 
 std::optional<WaveData::Signal *> WaveData::PathToSignal(std::string_view path) {

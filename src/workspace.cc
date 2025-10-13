@@ -14,7 +14,6 @@
 #include <iostream>
 #include <memory>
 #include <stack>
-#include <stdexcept>
 
 namespace sv {
 
@@ -89,14 +88,15 @@ bool Workspace::ParseDesign(bool initial) {
   bool waves_ok = false;
   // Waves are only read on initial load. There's a separate mechanism that triggers wave reload.
   if (initial && waves_file) {
-    try {
-      wave_data_ = WaveData::ReadWaveFile(*waves_file, *keep_glitches);
-      startup_waves_list_ = list_file.value_or("");
-      waves_ok = true;
-    } catch (std::runtime_error &e) {
-      std::cout << "Problem reading waves: " << e.what() << "\n";
+    absl::StatusOr<std::unique_ptr<WaveData>> waves_or =
+        WaveData::ReadWaveFile(*waves_file, *keep_glitches);
+    if (!waves_or.ok()) {
+      std::cout << "Problem reading waves: " << waves_or.status().message() << "\n";
       return false;
     }
+    wave_data_ = std::move(*waves_or);
+    startup_waves_list_ = list_file.value_or("");
+    waves_ok = true;
     // Try to match the two up.
     sv::Workspace::Get().TryMatchDesignWithWaves();
   }

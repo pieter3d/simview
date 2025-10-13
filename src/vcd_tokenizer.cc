@@ -1,26 +1,24 @@
 #include "vcd_tokenizer.h"
+#include "absl/status/status.h"
 #include <filesystem>
 #include <fstream>
 #include <memory>
 
 namespace sv {
 namespace {
-inline bool is_whitespace(char ch) {
-  return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
-}
+inline bool is_whitespace(char ch) { return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'; }
 } // namespace
 
-VcdTokenizer::VcdTokenizer(const std::string &file_name) {
-  in_ = std::make_unique<std::ifstream>(file_name);
-  if (!in_->is_open()) {
-    throw std::runtime_error("Unable to read VCD file.");
-  }
-  file_size_ = std::filesystem::file_size(file_name);
+absl::StatusOr<std::unique_ptr<VcdTokenizer>> VcdTokenizer::Create(const std::string &file_name) {
+  auto in = std::make_unique<std::ifstream>(file_name);
+  if (!in->is_open()) return absl::InternalError("Unable to read VCD file.");
+  std::unique_ptr<VcdTokenizer> tk(new VcdTokenizer());
+  tk->in_ = std::move(in);
+  tk->file_size_ = std::filesystem::file_size(file_name);
+  return tk;
 }
 
-int VcdTokenizer::PosPercentage() const {
-  return 100 * chars_read_ / file_size_;
-}
+int VcdTokenizer::PosPercentage() const { return 100 * chars_read_ / file_size_; }
 
 bool VcdTokenizer::Eof() const { return in_->eof(); }
 

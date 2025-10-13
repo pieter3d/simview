@@ -1,7 +1,7 @@
 #include "fst_wave_data.h"
+#include "absl/status/status.h"
 #include "external/fst/fstapi.h"
 #include <stack>
-#include <stdexcept>
 
 namespace sv {
 namespace {
@@ -24,14 +24,18 @@ std::string ParseSignalLsb(const std::string &s, int *lsb) {
 
 } // namespace
 
-FstWaveData::FstWaveData(const std::string &file_name, bool keep_glitches)
-    : WaveData(file_name, keep_glitches) {
-  reader_ = fstReaderOpen(file_name.c_str());
-  if (reader_ == nullptr) {
-    throw std::runtime_error("Unable to read wave file.");
-  }
-  ReadScopes();
+absl::StatusOr<std::unique_ptr<FstWaveData>> FstWaveData::Create(const std::string &file_name,
+                                                                 bool keep_glitches) {
+  void *reader = fstReaderOpen(file_name.c_str());
+  if (reader == nullptr) return absl::InternalError("Error opening wave file.");
+  std::unique_ptr<FstWaveData> waves(new FstWaveData(file_name, keep_glitches));
+  waves->reader_ = reader;
+  waves->ReadScopes();
+  return waves;
 }
+
+FstWaveData::FstWaveData(const std::string &file_name, bool keep_glitches)
+    : WaveData(file_name, keep_glitches) {}
 
 FstWaveData::~FstWaveData() { fstReaderClose(reader_); }
 
@@ -180,16 +184,14 @@ void FstWaveData::LoadSignalSamples(const std::vector<const Signal *> &signals, 
   }
 }
 
-void FstWaveData::Reload() {
-  // First, re-create the reader.
+absl::Status FstWaveData::Reload() {
   fstReaderClose(reader_);
-  reader_ = fstReaderOpen(file_name_.c_str());
-  if (reader_ == nullptr) {
-    throw std::runtime_error("Unable to read wave file.");
-  }
   waves_.clear();
   roots_.clear();
+  reader_ = fstReaderOpen(file_name_.c_str());
+  if (reader_ == nullptr) return absl::InternalError("Unable to re-read wave file.");
   ReadScopes();
+  return absl::OkStatus();
 }
 
 } // namespace sv

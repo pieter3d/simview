@@ -154,7 +154,13 @@ bool UI::Reload() {
     if (layout_.has_design) p->PrepareForDesignReload();
     if (layout_.has_waves) p->PrepareForWaveDataReload();
   }
-  if (layout_.has_waves) Workspace::Get().Waves()->Reload();
+  if (layout_.has_waves) {
+    const absl::Status status = Workspace::Get().Waves()->Reload();
+    if (!status.ok()) {
+      final_message_ = "Error re-reading waves. File may have been deleted or corrupted.";
+      return false;
+    }
+  }
   if (layout_.has_design) {
     // TODO: This can potentially take a long time. Find some way to show a busy message.
     const bool success = Workspace::Get().ReParse();
