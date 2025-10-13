@@ -22,4 +22,13 @@ add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 include(GoogleTest)
 add_subdirectory(slang EXCLUDE_FROM_ALL)
-add_subdirectory(fst)
+
+# libfst doesn't have its own CMakeLists.txt, so just define the libraries for it here.
+find_package(ZLIB REQUIRED)
+add_library(libfst
+  libfst/src/fstapi.c
+  libfst/src/fastlz.c
+  libfst/src/lz4.c
+)
+target_link_libraries(libfst PRIVATE z)
+target_include_directories(libfst PRIVATE libfst/src)

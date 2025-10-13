@@ -1,6 +1,6 @@
 #include "fst_wave_data.h"
 #include "absl/status/status.h"
-#include "external/fst/fstapi.h"
+#include "external/libfst/src/fstapi.h"
 #include <stack>
 
 namespace sv {
@@ -26,7 +26,7 @@ std::string ParseSignalLsb(const std::string &s, int *lsb) {
 
 absl::StatusOr<std::unique_ptr<FstWaveData>> FstWaveData::Create(const std::string &file_name,
                                                                  bool keep_glitches) {
-  void *reader = fstReaderOpen(file_name.c_str());
+  fstReaderContext *reader = fstReaderOpen(file_name.c_str());
   if (reader == nullptr) return absl::InternalError("Error opening wave file.");
   std::unique_ptr<FstWaveData> waves(new FstWaveData(file_name, keep_glitches));
   waves->reader_ = reader;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "external/libfst//src//fstapi.h"
 #include "wave_data.h"
 
 namespace sv {
@@ -20,7 +21,7 @@ class FstWaveData : public WaveData {
   FstWaveData(const std::string &file_name, bool keep_glitches);
   void ReadScopes();
   // The FST library is written in C and uses a lot of untyped handles.
-  void *reader_ = nullptr;
+  fstReaderContext *reader_ = nullptr;
 };
 
 } // namespace sv

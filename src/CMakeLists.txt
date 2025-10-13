@@ -53,7 +53,7 @@ target_link_libraries(simview PRIVATE
   absl::flat_hash_map
   absl::status
   absl::statusor
-  fst
+  libfst
   slang::slang
   ${NCURSES_LIBRARY_NAME}
 )
