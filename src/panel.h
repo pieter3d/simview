@@ -4,6 +4,7 @@
 #include <ncurses.h>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace sv {
 
