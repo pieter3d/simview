@@ -2,7 +2,7 @@
 
 #include <deque>
 #include <functional>
-#include <ncurses.h>
+#include <curses.h>
 #include <string>
 
 namespace sv {

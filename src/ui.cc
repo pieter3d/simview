@@ -3,7 +3,7 @@
 #include "color.h"
 #include "slang/ast/Symbol.h"
 #include "workspace.h"
-#include <ncurses.h>
+#include <curses.h>
 
 namespace sv {
 namespace {

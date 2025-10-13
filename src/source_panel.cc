@@ -28,7 +28,7 @@
 
 #include <algorithm>
 #include <curses.h>
-#include <ncurses.h>
+#include <curses.h>
 #include <string_view>
 
 namespace sv {

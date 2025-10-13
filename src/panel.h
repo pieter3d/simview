@@ -1,7 +1,7 @@
 #pragma once
 
 #include "text_input.h"
-#include <ncurses.h>
+#include <curses.h>
 #include <optional>
 #include <string>
 #include <vector>
