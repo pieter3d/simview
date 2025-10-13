@@ -5,8 +5,8 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "color.h"
-#include "src/wave_image.h"
 #include "utils.h"
+#include "wave_image.h"
 #include "workspace.h"
 #include <algorithm>
 #include <fstream>
