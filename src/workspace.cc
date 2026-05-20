@@ -44,7 +44,7 @@ bool Workspace::ParseDesign(bool initial) {
   std::optional<bool> show_help;
   std::optional<std::string> waves_file;
   std::optional<std::string> list_file;
-  std::optional<bool> keep_glitches = false;
+  std::optional<bool> keep_glitches;
   slang_driver_->cmdLine.add("-h,--help", show_help, "Display available options");
   slang_driver_->cmdLine.add("-w,--waves", waves_file,
                              "Waves file to load. Supported formats are FST and VCD.");
@@ -89,7 +89,7 @@ bool Workspace::ParseDesign(bool initial) {
   // Waves are only read on initial load. There's a separate mechanism that triggers wave reload.
   if (initial && waves_file) {
     absl::StatusOr<std::unique_ptr<WaveData>> waves_or =
-        WaveData::ReadWaveFile(*waves_file, *keep_glitches);
+        WaveData::ReadWaveFile(*waves_file, keep_glitches.value_or(false));
     if (!waves_or.ok()) {
       std::cout << "Problem reading waves: " << waves_or.status().message() << "\n";
       return false;
