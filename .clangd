@@ -1,0 +1,12 @@
+CompileFlags:
+  CompilationDatabase: "build" # <- Point this to your cmake build directory containing compile_commands.json
+  Add:
+    - "-std=c++20"
+    - "-x"
+    - "c++"
+    - "-Wall"
+    - "-Wextra"
+    - "-Werror"
+    - "-Wno-unused-parameter"
+    - "-Wno-sign-compare"
+    - "-I."

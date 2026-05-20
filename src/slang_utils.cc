@@ -17,8 +17,7 @@ namespace {
 // Helper class to traverse the instance looking for drivers or loads.
 template <bool DRIVERS>
 class DriverOrLoadFinder
-    : public slang::ast::ASTVisitor<DriverOrLoadFinder<DRIVERS>, /*VisitStatements*/ true,
-                                    /*VisitExpressions*/ true> {
+    : public slang::ast::ASTVisitor<DriverOrLoadFinder<DRIVERS>, slang::ast::VisitFlags::AllGood> {
  public:
   DriverOrLoadFinder(const slang::ast::Symbol *sym, std::vector<SlangDriverOrLoad> &d)
       : sym_(sym), drivers_or_loads_(d) {}

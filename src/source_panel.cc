@@ -56,8 +56,7 @@ void SourcePanel::FindSymbols() {
     }
   };
   // AST Visitor that finds all navigable things.
-  class NavFinder : public slang::ast::ASTVisitor<NavFinder, /*VisitStatements*/ true,
-                                                  /*VisitExpressions*/ true> {
+  class NavFinder : public slang::ast::ASTVisitor<NavFinder, slang::ast::VisitFlags::AllGood> {
    public:
     NavFinder(SourcePanel *p)
         : panel_(p), visible_buffer_(panel_->scope_->asSymbol().location.buffer()) {}
