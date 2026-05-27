@@ -1266,6 +1266,7 @@ std::vector<Tooltip> WavesPanel::Tooltips() const {
       {"sS", "Adjust size"},
       {"aA", "Analog size"},
       {"C-a", "Analog type"},
+      {"x", "Delete selected signal"},
       {"0", "Leading zeroes"},
       {"c", "Signal color"},
       {"p", "Show path"},
@@ -1532,6 +1533,27 @@ void WavesPanel::SaveList(const std::string &file_name) {
     }
     file << line << '\n';
   }
+}
+
+void WavesPanel::DeleteSelected() {
+  if (visible_items_.empty()) return;
+
+  if (cursor_pos_ < 0 || cursor_pos_ >= visible_to_full_lookup_.size()) return;
+
+  const int full_idx = visible_to_full_lookup_[cursor_pos_];
+
+  if (full_idx < 0 || full_idx >= items_.size()) return;
+
+  items_.erase(items_.begin() + full_idx);
+
+  UpdateVisibleSignals();
+
+  if (cursor_pos_ >= visible_items_.size()) {
+    cursor_pos_ = std::max<int>(0, visible_items_.size() - 1);
+  }
+
+  UpdateValues();
+  UpdateWaves();
 }
 
 } // namespace sv

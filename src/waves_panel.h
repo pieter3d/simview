@@ -34,6 +34,9 @@ class WavesPanel : public Panel {
   // startup via command line specified file.
   void LoadList(const std::string &file_name);
 
+  /// Delete the selected signal.
+  void DeleteSelected();
+
  private:
   struct ListItem {
     // Helper constructors

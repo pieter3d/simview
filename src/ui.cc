@@ -318,6 +318,14 @@ void UI::EventLoop() {
           break;
         case 'n': focused_panel->Search(/*search_down*/ true); break;
         case 'N': focused_panel->Search(/*search_down*/ false); break;
+        case 'x':
+          if (focused_panel == waves_panel_.get()) {
+            waves_panel_->DeleteSelected();
+          } else {
+            focused_panel->UIChar(ch);
+            if (focused_panel->TooltipsChanged()) UpdateTooltips();
+          }
+          break;
         case 0x3:  // Ctrl-C
         case 0x11: // Ctrl-Q
           quit = true;
