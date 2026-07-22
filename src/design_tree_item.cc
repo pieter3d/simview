@@ -13,9 +13,9 @@ DesignTreeItem::DesignTreeItem(const slang::ast::Symbol *item) : item_(item) {
     type_ = "[generate]";
     auto &gen = item->as<slang::ast::GenerateBlockSymbol>();
     // Check if this block is part of an array. If so, use the array name and suffix the index.
-    if (gen.arrayIndex) {
+    if (const slang::SVInt *idx = gen.getArrayIndex()) {
       name_ = absl::StrFormat("%s[%d]", gen.getParentScope()->asSymbol().name,
-                              *gen.arrayIndex->as<int>());
+                              *idx->as<int>());
     }
   } else if (item_->kind == slang::ast::SymbolKind::UninstantiatedDef) {
     type_ = "[missing def]";
